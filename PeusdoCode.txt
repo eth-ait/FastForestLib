@@ -1,0 +1,116 @@
+% data parameters
+C: number of cores available
+N: number of training images
+M: number of pixels per image
+L: number of labels
+samples: NxM matrix of image pixels
+labels: NxM matrix of pixel labels
+
+% training parameters
+R: number of trees
+D: depth of trees
+W: number of random features to try
+Q: number of random thresholds to try
+
+procedure train_forest()
+	
+	for each r=1...R
+		create tree t with depth D
+		train_tree(t)
+	end for
+end procedure
+
+procedure train_tree(tree)
+	core_index is the index of the core (1...C)
+
+	% load the part of the samples for this core
+	i1 = core_index * N/C
+	i2 = (core_index + 1) * N/C
+	samples_subset = samples(i1:i2, :)
+	labels_subset = labels(i1:i2, :)
+
+	histogram = compute histogram of labels_subset
+	train_node(n, samples_subset, labels_subset, histogram)
+
+end procedure
+
+procedure train_node(node n, samples_subset, labels_subset, histogram)
+
+	% create and distribute split points
+	only master node:
+		split_points = create set of W random features and Q random thresholds for each feature
+		% size of split_points will be WxQ
+		send split_points to each node
+	end only
+
+	% compute split statistics for each split point
+	split_matrix_left = create zero WxQxL matrix
+	split_matrix_right = create zero WxQxL matrix
+	for each split_point (w,q) in split_points
+		for each sample (i) in samples_subset
+			c = labels(i)
+			v = compute value of feature w for sample i
+			thres = threshold q of feature w
+			if v < thres
+				split_matrix(w, q, c) += 1
+			end if
+		end for
+	end for
+
+	% collect all the statistics on the master node.
+	% so each node has to send 2xWxQxLx4 bytes to the master node.
+	% maybe this should be more fine-grained, i.e. sending the statistics for each feature?
+	send split_matrix_left and split_matrix_right to master node
+
+	% compute information gain and select the best split point
+	only master node:
+		for each w=1...W and q=1...Q
+			compute_information_gain(parent_histogram, split_matrix_left(w, q, :), split_matrix_right(w, q, :))
+		end for
+		select split_point (w,q) with minimum information gain
+		send split_point (w,q) to each node
+	end only
+
+	% recompute the splitting of the samples
+	% (if we don't do this we would have to save the split decision for each
+	%  split point and sample, i.e. we would need a WxQx|samples_subet| matrix)
+	samples_subset_left = empty set
+	labels_subset_left = empty set
+	samples_subset_right = empty set
+	labels_subset_left = empty set
+	for each sample (i) in samples_subset
+		v = compute value of feature w for sample i
+		thres = threshold q of feature w
+		if v < thres
+			samples_subset_left <- samples_subset(i)
+			labels_subset_left <- labels_subset(i)
+		else
+			samples_subset_right <- samples_subset(i)
+			labels_subset_right <- labels_subset(i)
+		end for
+	end for
+
+	compute and save statistics of node n
+
+	% optional: to be robust against failures of computing nodes
+	save the splitting of each sample
+
+	% train child nodes
+	left_n = 2*n + 1
+	right_n = 2*n + 1
+	if left_n < 2**D
+		train_node(left_n, samples_subset_left, labels_subset_left, split_matrix_left(w, q, :))
+	end if
+	if right_n < 2**D
+		train_node(right_n, samples_subset_right, labels_subset_right, split_matrix_right(w, q, :))
+	end if
+
+end procedure
+
+procedure compute_information_gain(parent_histogram, left_histogram, right_histogram)
+	p_entropy = entropy of parent_histogram
+	l_entropy = entropy of left_histogram
+	r_entropy = entropy of right_histogram
+	ig = p_entropy - (left_histogram| * l_entropy + |right_histogram| * r_entropy) * |parent_histogram|
+	return ig
+end
