@@ -1,0 +1,2 @@
+class Forest(list):
+    pass
