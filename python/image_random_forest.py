@@ -1,5 +1,6 @@
 import numpy as np
 from math import log
+import struct
 
 
 class HistogramStatistics:
@@ -33,7 +34,6 @@ class ImageData:
         self._data = data
         self._labels = labels
         self._sample_indices = self._select_random_samples(num_of_samples_per_image)
-        pass
 
     def _select_random_samples(self, num_of_samples_per_image):
         sample_indices = np.empty((self.num_of_images * num_of_samples_per_image,), dtype=np.int)
@@ -47,9 +47,8 @@ class ImageData:
             sample_indices[index_offset:index_offset + num_of_samples_per_image] = selected_indices
         return sample_indices
 
-    @property
-    def sample_indices(self):
-        return self._sample_indices
+    def get_sample_indices(self):
+        return np.copy(self._sample_indices)
 
     @property
     def num_of_images(self):
@@ -82,9 +81,126 @@ class ImageData:
 
 class ImageTrainingContext:
 
-    FEATURE_OFFSET_WINDOW = 20
-    THRESHOLD_RANGE_LOW = -1.0
-    THRESHOLD_RANGE_HIGH = 1.0
+    class _SplitPointContext:
+
+        class _SplitPoint:
+
+            SPLIT_POINT_FORMAT = '>4i1d'
+
+            def __init__(self, offsets, threshold):
+                self._offsets = offsets
+                self._threshold = threshold
+
+            def write(self, stream):
+                raw_bytes = struct.pack(self.SPLIT_POINT_FORMAT, *(self._offsets + [self._threshold]))
+                stream.write(raw_bytes)
+
+            @staticmethod
+            def read_from(stream):
+                num_of_bytes = struct.calcsize(ImageTrainingContext._SplitPointContext._SplitPoint.SPLIT_POINT_FORMAT)
+                raw_bytes = stream.read(num_of_bytes)
+                tup = struct.unpack(ImageTrainingContext._SplitPointContext._SplitPoint.SPLIT_POINT_FORMAT, raw_bytes)
+                offsets = np.array(tup[:4])
+                threshold = tup[5]
+                return ImageTrainingContext._SplitPointContext._SplitPoint(offsets, threshold)
+
+            def to_array(self):
+                return np.array(np.hstack([self._offsets, self._threshold]))
+
+            @staticmethod
+            def from_array(array):
+                assert len(array) == 5
+                offsets = array[:4]
+                threshold = array[-1]
+                return ImageTrainingContext._SplitPointContext._SplitPoint(offsets, threshold)
+
+        FEATURE_OFFSET_WINDOW = 20
+        THRESHOLD_RANGE_LOW = -1.0
+        THRESHOLD_RANGE_HIGH = 1.0
+
+        def __init__(self, training_context, sample_indices, num_of_features, num_of_thresholds):
+            self._trainingContext = training_context
+            self._sampleIndices = sample_indices
+            # feature is a matrix with num_of_features rows and 4 columns for the offsets
+            self._features = np.random.rand_integers(-self.FEATURE_OFFSET_WINDOW, +self.FEATURE_OFFSET_WINDOW,
+                                                     size=(num_of_features, 4))
+            self._thresholds = np.random.uniform(self.THRESHOLD_RANGE_LOW, self.THRESHOLD_RANGE_HIGH,
+                                                 size=(num_of_features, num_of_thresholds))
+            self._childStatistics = np.empty(
+                (2,
+                 num_of_features,
+                 num_of_thresholds,
+                 training_context.num_of_labels),
+                dtype=np.int, order='C')
+            self._leftChildStatistics = self._childStatistics[0, :, :, :]
+            self._rightChildStatistics = self._childStatistics[1, :, :, :]
+
+        def compute_split_statistics(self):
+            for i in xrange(self._features.shape[0]):
+                feature = self._features[i, :]
+                for j in xrange(self._thresholds.shape[0]):
+                    threshold = self._thresholds[i, j]
+                    for sample_index in self._sampleIndices:
+                        v = self._trainingContext.compute_feature_value(sample_index, feature)
+                        l = self._trainingContext.get_label(sample_index)
+                        if v < threshold:
+                            self._leftChildStatistics[i, j, l] += 1
+                        else:
+                            self._rightChildStatistics[i, j, l] += 1
+
+        def get_split_statistics_buffer(self):
+            return self._childStatistics
+
+        def accumulate_split_statistics(self, statistics):
+            self._childStatistics += statistics
+
+        def select_best_split_point(self, parent_statistics, return_information_gain=False):
+            best_feature_id = 0
+            best_threshold_id = 0
+            best_information_gain = -np.inf
+
+            for i in xrange(self._features.shape[0]):
+                for j in xrange(self._thresholds.shape[0]):
+                    left_child_statistics = HistogramStatistics(self._leftChildStatistics[i, j, :])
+                    right_child_statistics = HistogramStatistics(self._rightChildStatistics[i, j, :])
+                    information_gain = self._trainingContext.compute_information_gain(
+                        parent_statistics, left_child_statistics, right_child_statistics)
+                    if information_gain < best_information_gain:
+                        best_feature_id = i
+                        best_threshold_id = j
+                        best_information_gain = information_gain
+            best_split_point_id = (best_feature_id, best_threshold_id)
+
+            if return_information_gain:
+                return_value = (best_split_point_id, best_information_gain)
+            else:
+                return_value = best_split_point_id
+            return return_value
+
+        def partition(self, sample_indices, split_point_id):
+            # TODO: this is definitely not the most efficient way (explicit sorting is not necessary)
+            feature_id, threshold_id = split_point_id
+            # compute feature values and sort the indices array according to them
+            feature_values = np.empty((len(sample_indices),), dtype=np.float)
+            assert isinstance(feature_values, np.ndarray)
+            for i in xrange(len(feature_values)):
+                sample_index = sample_indices[i]
+                feature_values[i] = self._trainingContext.compute_feature_value(sample_index,
+                                                                                self._features[feature_id, :])
+            sorted_indices = np.argsort(feature_values)
+            sample_indices[:] = sample_indices[sorted_indices]
+
+            # find index that partitions the samples into left and right parts
+            threshold = self._thresholds[feature_id, threshold_id]
+            i_split = 0
+            while i_split < len(sample_indices) and feature_values[i_split] < threshold:
+                i_split += 1
+            return i_split
+
+        def get_split_point(self, split_point_id):
+            feature_id, threshold_id = split_point_id
+            return self._SplitPoint(self._features[feature_id, :], self._thresholds[feature_id, threshold_id])
+
 
     def __init__(self, image_data):
         self._image_data = image_data
@@ -97,10 +213,6 @@ class ImageTrainingContext:
         return len(unique_labels)
 
     @property
-    def sample_indices(self):
-        return self._image_data.sample_indices
-
-    @property
     def num_of_labels(self):
         return self._num_of_labels
 
@@ -110,12 +222,8 @@ class ImageTrainingContext:
         statistics = HistogramStatistics(hist)
         return statistics
 
-    def sample_random_features_and_thresholds(self, num_of_features, num_of_thresholds):
-        features = np.random.rand_integers(-self.FEATURE_OFFSET_WINDOW, +self.FEATURE_OFFSET_WINDOW,
-                                           size=(num_of_features, 4))
-        thresholds = np.random.uniform(self.THRESHOLD_RANGE_LOW, self.THRESHOLD_RANGE_HIGH,
-                                       size=(num_of_features, num_of_thresholds))
-        return features, thresholds
+    def sample_split_points(self, sample_indices, num_of_features, num_of_thresholds):
+        return self._SplitPointContext(self, sample_indices, num_of_features, num_of_thresholds)
 
     def compute_information_gain(self, parent_statistics, left_child_statistics, right_child_statistics):
         parent_statistics = HistogramStatistics(parent_statistics)

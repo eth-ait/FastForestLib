@@ -1,7 +1,6 @@
 class Node:
 
-    feature = None
-    threshold = None
+    splitPoint = None
     statistics = None
 
     _leftChild = None

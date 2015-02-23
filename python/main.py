@@ -6,7 +6,8 @@ if __name__ == '__main__':
 
     training_parameters = TrainingParameters()
     data = ImageData()
+    sample_indices = data.get_sample_indices()
     training_context = ImageTrainingContext(data)
 
     trainer = RandomForestTrainer()
-    trainer.train_forest(training_context, training_parameters)
+    trainer.train_forest(sample_indices, training_context, training_parameters)
