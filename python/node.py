@@ -2,6 +2,7 @@ class Node:
 
     feature = None
     threshold = None
+    statistics = None
 
     _leftChild = None
     _rightChild = None
