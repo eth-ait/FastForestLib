@@ -1,7 +1,6 @@
-import numpy as np
-
 from forest import Forest
 from tree import Tree
+from training_context import TrainingContext
 
 
 class TrainingParameters:
@@ -21,6 +20,8 @@ class RandomForestTrainer:
     class _TrainingOperation:
 
         def __init__(self, sample_indices, training_context, training_parameters):
+            assert isinstance(training_context, TrainingContext)
+            assert isinstance(training_parameters, TrainingParameters)
             self._sample_indices = sample_indices
             self._trainingContext = training_context
             self._trainingParameters = training_parameters

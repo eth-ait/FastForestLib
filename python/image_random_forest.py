@@ -2,18 +2,21 @@ import numpy as np
 from math import log
 import struct
 
+from training_context import TrainingContext, SplitPointContext, SplitPoint, Statistics
 
-class HistogramStatistics:
+
+class HistogramStatistics(Statistics):
 
     def __init__(self, histogram):
-        if isinstance(histogram, HistogramStatistics):
-            self._histogram = histogram._histogram
-            self._num_of_samples = histogram._num_of_samples
-        elif isinstance(histogram, np.ndarray):
-            self._histogram = histogram
-            self._num_of_samples = np.sum(histogram)
-        else:
-            raise TypeError("Argument should be a numpy array or a HistogramStatistics object")
+        self._histogram = None
+        self._num_of_samples = None
+
+    @staticmethod
+    def from_histogram_array(histogram):
+        statistics = HistogramStatistics()
+        statistics._histogram = histogram
+        statistics._num_of_samples = np.sum(histogram)
+        return statistics
 
     @property
     def num_of_samples(self):
@@ -79,11 +82,11 @@ class ImageData:
         return self._labels.reshape((self._labels.shape[0], self._labels.shape[1] * self._labels.shape[2]))
 
 
-class ImageTrainingContext:
+class ImageTrainingContext(TrainingContext):
 
-    class _SplitPointContext:
+    class _SplitPointContext(SplitPointContext):
 
-        class _SplitPoint:
+        class _SplitPoint(SplitPoint):
 
             SPLIT_POINT_FORMAT = '>4i1d'
 
@@ -130,7 +133,7 @@ class ImageTrainingContext:
                 (2,
                  num_of_features,
                  num_of_thresholds,
-                 training_context.num_of_labels),
+                 training_context._num_of_labels),
                 dtype=np.int, order='C')
             self._leftChildStatistics = self._childStatistics[0, :, :, :]
             self._rightChildStatistics = self._childStatistics[1, :, :, :]
@@ -141,8 +144,8 @@ class ImageTrainingContext:
                 for j in xrange(self._thresholds.shape[0]):
                     threshold = self._thresholds[i, j]
                     for sample_index in self._sampleIndices:
-                        v = self._trainingContext.compute_feature_value(sample_index, feature)
-                        l = self._trainingContext.get_label(sample_index)
+                        v = self._trainingContext._compute_feature_value(sample_index, feature)
+                        l = self._trainingContext._get_label(sample_index)
                         if v < threshold:
                             self._leftChildStatistics[i, j, l] += 1
                         else:
@@ -154,7 +157,7 @@ class ImageTrainingContext:
         def accumulate_split_statistics(self, statistics):
             self._childStatistics += statistics
 
-        def select_best_split_point(self, parent_statistics, return_information_gain=False):
+        def select_best_split_point(self, current_statistics, return_information_gain=False):
             best_feature_id = 0
             best_threshold_id = 0
             best_information_gain = -np.inf
@@ -163,8 +166,8 @@ class ImageTrainingContext:
                 for j in xrange(self._thresholds.shape[0]):
                     left_child_statistics = HistogramStatistics(self._leftChildStatistics[i, j, :])
                     right_child_statistics = HistogramStatistics(self._rightChildStatistics[i, j, :])
-                    information_gain = self._trainingContext.compute_information_gain(
-                        parent_statistics, left_child_statistics, right_child_statistics)
+                    information_gain = self._trainingContext._compute_information_gain(
+                        current_statistics, left_child_statistics, right_child_statistics)
                     if information_gain < best_information_gain:
                         best_feature_id = i
                         best_threshold_id = j
@@ -185,7 +188,7 @@ class ImageTrainingContext:
             assert isinstance(feature_values, np.ndarray)
             for i in xrange(len(feature_values)):
                 sample_index = sample_indices[i]
-                feature_values[i] = self._trainingContext.compute_feature_value(sample_index,
+                feature_values[i] = self._trainingContext._compute_feature_value(sample_index,
                                                                                 self._features[feature_id, :])
             sorted_indices = np.argsort(feature_values)
             sample_indices[:] = sample_indices[sorted_indices]
@@ -212,20 +215,16 @@ class ImageTrainingContext:
         unique_labels = np.unique(labels)
         return len(unique_labels)
 
-    @property
-    def num_of_labels(self):
-        return self._num_of_labels
-
     def compute_statistics(self, sample_indices):
         labels = self._image_data.flat_labels[sample_indices]
         hist = np.histogram(labels, bins=self._statistics_bins)
-        statistics = HistogramStatistics(hist)
+        statistics = HistogramStatistics.from_histogram_array(hist)
         return statistics
 
     def sample_split_points(self, sample_indices, num_of_features, num_of_thresholds):
         return self._SplitPointContext(self, sample_indices, num_of_features, num_of_thresholds)
 
-    def compute_information_gain(self, parent_statistics, left_child_statistics, right_child_statistics):
+    def _compute_information_gain(self, parent_statistics, left_child_statistics, right_child_statistics):
         parent_statistics = HistogramStatistics(parent_statistics)
         left_child_statistics = HistogramStatistics(left_child_statistics)
         right_child_statistics = HistogramStatistics(right_child_statistics)
@@ -236,10 +235,10 @@ class ImageTrainingContext:
             / parent_statistics.num_of_samples
         return information_gain
 
-    def get_label(self, sample_index):
+    def _get_label(self, sample_index):
         return self._image_data.flat_labels[sample_index]
 
-    def compute_feature_value(self, sample_index, feature):
+    def _compute_feature_value(self, sample_index, feature):
         image_index = sample_index / (self._image_data.image_width * self._image_data.image_height)
         local_index = sample_index % (self._image_data.image_width * self._image_data.image_height)
         local_x = local_index / self._image_data.image_height
