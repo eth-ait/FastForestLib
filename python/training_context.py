@@ -1,17 +1,12 @@
-from abc import ABCMeta, abstractmethod, abstractproperty
+from __future__ import division
+
+from abc import ABCMeta, abstractmethod
 
 
-class Statistics(metaclass=ABCMeta):
+class TrainingContext:
+    __metaclass__ = ABCMeta
 
-    @abstractproperty
-    def num_of_samples(self): pass
-
-    @abstractmethod
-    def entropy(self): pass
-
-
-class TrainingContext(metaclass=ABCMeta):
-
+    # TODO: abstract away the computation of statistics
     @abstractmethod
     def compute_statistics(self, sample_indices): pass
 
@@ -19,7 +14,8 @@ class TrainingContext(metaclass=ABCMeta):
     def sample_split_points(self, sample_indices, num_of_features, num_of_thresholds): pass
 
 
-class SplitPointContext(metaclass=ABCMeta):
+class SplitPointContext:
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def compute_split_statistics(self): pass
@@ -44,7 +40,8 @@ class SplitPointContext(metaclass=ABCMeta):
     def get_split_point(self, split_point_id): pass
 
 
-class SplitPoint(metaclass=ABCMeta):
+class SplitPoint:
+    __metaclass__ = ABCMeta
 
     @abstractmethod
     def write(self, stream): pass

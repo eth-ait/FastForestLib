@@ -1,18 +1,20 @@
+from __future__ import division
+
 from forest import Forest
-from tree import Tree
+from tree import ArrayTree
 from training_context import TrainingContext
 
 
 class TrainingParameters:
 
     def __init__(self, num_of_trees=3, maximum_depth=20, num_of_features=100,
-                 num_of_thresholds=50, minimum_num_of_samples=100):
-        self.num_of_trees = num_of_trees
-        self.maximum_depth = maximum_depth
-        self.num_of_features = num_of_features
-        self.num_of_thresholds = num_of_thresholds
-        self.minimum_information_gain = 0
-        self.minimum_num_of_samples = minimum_num_of_samples
+                 num_of_thresholds=50, minimum_information_gain=0.0, minimum_num_of_samples=100):
+        self.numOfTrees = num_of_trees
+        self.maximumDepth = maximum_depth
+        self.numOfFeatures = num_of_features
+        self.numOfThresholds = num_of_thresholds
+        self.minimumInformationGain = minimum_information_gain
+        self.minimumNumOfSamples = minimum_num_of_samples
 
 
 class RandomForestTrainer:
@@ -20,13 +22,18 @@ class RandomForestTrainer:
     class _TrainingOperation:
 
         def __init__(self, sample_indices, training_context, training_parameters):
-            assert isinstance(training_context, TrainingContext)
-            assert isinstance(training_parameters, TrainingParameters)
+            # TODO: how to handle these assertions with extension types?
+            # assert isinstance(training_context, TrainingContext)
+            # assert isinstance(training_parameters, TrainingParameters)
             self._sample_indices = sample_indices
             self._trainingContext = training_context
             self._trainingParameters = training_parameters
 
         def train_recursive(self, node, i_start, i_end, statistics=None):
+
+            # stop splitting the node if the minimum number of samples has been reached
+            if i_end - i_start < self._trainingParameters.minimumNumOfSamples:
+                return
 
             # define local aliases for some long variable names
             sample_indices = self._sample_indices[i_start:i_end]
@@ -40,14 +47,10 @@ class RandomForestTrainer:
             if node.left_child is None:
                 return
 
-            # stop splitting the node if the minimum number of samples has been reached
-            if i_end - i_start < self._trainingParameters.minimum_num_of_samples:
-                return
-
             split_point_context = self._trainingContext.sample_split_points(
                 sample_indices,
-                self._trainingParameters.num_of_features,
-                self._trainingParameters.num_of_thresholds)
+                self._trainingParameters.numOfFeatures,
+                self._trainingParameters.numOfThresholds)
 
             # TODO: distribute features and thresholds to ranks > 0
 
@@ -69,15 +72,15 @@ class RandomForestTrainer:
 
             # TODO: move criterion into trainingContext?
             # stop splitting the node if the best information gain is below the minimum information gain
-            if best_information_gain < self._trainingParameters.minimum_information_gain:
+            if best_information_gain < self._trainingParameters.minimumInformationGain:
                 return
 
             # partition sample_indices according to the selected feature and threshold.
             # i.e. sample_indices[:i_split] will contain the left child indices
             # and sample_indices[i_split:] will contain the right child indices
-            i_split = split_point_context.partition(sample_indices, best_split_point_id)
+            i_split = i_start + split_point_context.partition(sample_indices, best_split_point_id)
 
-            node.splitPoint = split_point_context.get_split_point(best_split_point_id)
+            node.split_point = split_point_context.get_split_point(best_split_point_id)
 
             # TODO: can we reuse computed statistics from split_point_context???
             left_child_statistics = None
@@ -89,13 +92,14 @@ class RandomForestTrainer:
 
     def train_forest(self, sample_indices, training_context, training_parameters):
         forest = Forest()
-        for i in xrange(training_parameters.num_of_trees):
-            tree = self.train_tree(sample_indices, training_context, training_parameters)
+        for i in xrange(training_parameters.numOfTrees):
+            # TODO: perform bagging on the samples
+            tree = ArrayTree(training_parameters.maximumDepth)
+            self.train_tree(tree, sample_indices, training_context, training_parameters)
             forest.append(tree)
         return forest
 
-    def train_tree(self, sample_indices, training_context, training_parameters):
-        tree = Tree(training_parameters.maximum_depth)
+    def train_tree(self, tree, sample_indices, training_context, training_parameters):
         rf_operation = self._TrainingOperation(sample_indices, training_context, training_parameters)
         i_start = 0
         i_end = len(sample_indices)
