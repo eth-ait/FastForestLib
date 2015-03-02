@@ -69,7 +69,7 @@ procedure train_node(node n, samples_subset, labels_subset, histogram)
 		for each w=1...W and q=1...Q
 			compute_information_gain(parent_histogram, split_matrix_left(w, q, :), split_matrix_right(w, q, :))
 		end for
-		select split_point (w,q) with minimum information gain
+		select split_point (w,q) with maximum information gain
 		send split_point (w,q) to each node
 	end only
 
