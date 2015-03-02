@@ -18,7 +18,7 @@ from image_training_context import ImageData, ImageDataReader
 
 cdef class SplitPoint:
 
-    SPLIT_POINT_FORMAT = '>4i1d'
+    SPLIT_POINT_FORMAT = '>2i1d'
 
     cdef _offsets
     cdef _threshold
@@ -54,8 +54,8 @@ cdef class SplitPoint:
     @cython.wraparound(True)
     @staticmethod
     def from_array(array):
-        assert len(array) == 5
-        offsets = np.asarray(array[:4], dtype=np.int)
+        assert len(array) == 3
+        offsets = np.asarray(array[:2], dtype=np.int)
         threshold = np.asarray(array[-1], dtype=np.float)
         return SplitPointContext._SplitPoint(offsets, threshold)
 
@@ -81,7 +81,7 @@ cdef class SplitPointContext:
     def __init__(self, training_context, sample_indices, num_of_features, num_of_thresholds):
         self._trainingContext = training_context
         self._sampleIndices = sample_indices
-        # feature is a matrix with num_of_features rows and 4 columns for the offsets
+        # feature is a matrix with num_of_features rows and 2 columns for the offsets
         self._features = np.random.random_integers(-self.FEATURE_OFFSET_WINDOW, +self.FEATURE_OFFSET_WINDOW,
                                                  size=(num_of_features, 2))
         self._thresholds = np.random.uniform(self.THRESHOLD_RANGE_LOW, self.THRESHOLD_RANGE_HIGH,

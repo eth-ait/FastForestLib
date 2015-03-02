@@ -29,10 +29,13 @@ class RandomForestTrainer:
             self._trainingContext = training_context
             self._trainingParameters = training_parameters
 
-        def train_recursive(self, node, i_start, i_end, statistics=None):
+        def train_recursive(self, node, i_start, i_end, statistics=None, current_depth=1):
+            prefix = current_depth * " "
+            print("{}depth {}".format(prefix, current_depth))
 
             # stop splitting the node if the minimum number of samples has been reached
             if i_end - i_start < self._trainingParameters.minimumNumOfSamples:
+                print("{}Minimum number of samples. Stopping".format(prefix))
                 return
 
             # define local aliases for some long variable names
@@ -45,6 +48,7 @@ class RandomForestTrainer:
 
             # stop splitting the node if it is a leaf node
             if node.left_child is None:
+                print("{}Reached leaf node. Stopping.".format(prefix))
                 return
 
             split_point_context = self._trainingContext.sample_split_points(
@@ -73,6 +77,7 @@ class RandomForestTrainer:
             # TODO: move criterion into trainingContext?
             # stop splitting the node if the best information gain is below the minimum information gain
             if best_information_gain < self._trainingParameters.minimumInformationGain:
+                print("{}Too little information gain. Stopping.".format(prefix))
                 return
 
             # partition sample_indices according to the selected feature and threshold.
@@ -87,8 +92,10 @@ class RandomForestTrainer:
             right_child_statistics = None
 
             # train left and right child
-            self.train_recursive(node.left_child, i_start, i_split, left_child_statistics)
-            self.train_recursive(node.right_child, i_split, i_end, right_child_statistics)
+            #print("{}Going left".format(prefix))
+            self.train_recursive(node.left_child, i_start, i_split, left_child_statistics, current_depth + 1)
+            #print("{}Going right".format(prefix))
+            self.train_recursive(node.right_child, i_split, i_end, right_child_statistics, current_depth + 1)
 
     def train_forest(self, sample_indices, training_context, training_parameters):
         forest = Forest()
@@ -103,5 +110,6 @@ class RandomForestTrainer:
         rf_operation = self._TrainingOperation(sample_indices, training_context, training_parameters)
         i_start = 0
         i_end = len(sample_indices)
+        print("Training tree")
         rf_operation.train_recursive(tree.root, i_start, i_end)
         return tree

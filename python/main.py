@@ -7,23 +7,18 @@ from forest_trainer import RandomForestTrainer, TrainingParameters
 from c_image_training_context import ImageDataReader, SparseImageTrainingContext
 
 
-if __name__ == '__main__':
-
-    import sys
-    if len(sys.argv) < 3:
-        print("Usage: python {} <matlab file> <number of samples per image>".format(sys.argv[0]))
-        sys.exit(1)
-
-    matlab_file = sys.argv[1]
-    num_of_samples_per_image = int(sys.argv[2])
-
-    training_parameters = TrainingParameters(maximum_depth=10, num_of_features=50, num_of_thresholds=50)
+def run(matlab_file, num_of_samples_per_image, profiler=None):
+    training_parameters = TrainingParameters(maximum_depth=10, num_of_features=50, num_of_thresholds=50, num_of_trees=3)
     data = ImageDataReader.read_from_matlab_file(matlab_file, num_of_samples_per_image)
     sample_indices = data.create_sample_indices()
     training_context = SparseImageTrainingContext(data)
 
     trainer = RandomForestTrainer()
+    if profiler is not None:
+        profiler.enable()
     forest = trainer.train_forest(sample_indices, training_context, training_parameters)
+    if profiler is not None:
+        profiler.disable()
 
     def traverse_tree(node, sample_index):
         if node.left_child is None or node.left_child.statistics is None or node.right_child.statistics is None:
@@ -46,4 +41,17 @@ if __name__ == '__main__':
         predicted_label = np.argmax(average_histogram)
         predicted_labels[i] = predicted_label
 
+    print("Matches: {}".format(np.sum(data.flat_labels[sample_indices] == predicted_labels)))
     print("Accuracy: {}".format(np.sum(data.flat_labels[sample_indices] == predicted_labels) / len(sample_indices)))
+
+
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) < 3:
+        print("Usage: python {} <matlab file> <number of samples per image>".format(sys.argv[0]))
+        sys.exit(1)
+
+    matlab_file = sys.argv[1]
+    num_of_samples_per_image = int(sys.argv[2])
+
+    run(matlab_file, num_of_samples_per_image)
