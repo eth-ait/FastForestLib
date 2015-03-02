@@ -20,7 +20,7 @@ global high_bound;
 global Picturenumber_pertree;
 global gesture_number;
 global I_current;
-
+global Taus;
 global size_figure;
 
 %% leaf node
@@ -57,7 +57,11 @@ tem_label = label;
 tem_label(tem_label == 0) = [];
 point_number = size(tem_label,2);
 
-    
+ if point_number == 0
+    T=buildtree_new_classification(T,label,left_child(k));
+    T=buildtree_new_classification(T,[],right_child(k));
+    return;
+ end
     
 
  if point_number<=MinNode
@@ -78,15 +82,15 @@ end
 
 entropyDecreases = zeros(Splits,6);
 
-    parfor split_index = 1:Splits
+    for split_index = 1:Splits
         
          [ w1, w2 ] = randomgenerator_offset(low_bound,high_bound);
          
-        [ v1, v2 ] = randomgenerator_offset(low_bound,high_bound);
+         [ v1, v2 ] = randomgenerator_offset(low_bound,high_bound);
         entropyDecrease_temp = zeros(4,1);
          
          
-         I_w1w2 = uint8(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
+         I_w1w2 = double(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
         
          
          if w1>=0
@@ -107,7 +111,7 @@ entropyDecreases = zeros(Splits,6);
          
          end
          
-         I_v1v2 = uint8(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
+         I_v1v2 = double(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
         
          if v1>=0
            if v2>=0
@@ -126,7 +130,10 @@ entropyDecreases = zeros(Splits,6);
            end
          
          end
-
+            feature_map = I_w1w2-I_v1v2; 
+            
+            tau = -300+600*(rand([Taus,1]));
+            
         
         
         
@@ -134,47 +141,20 @@ entropyDecreases = zeros(Splits,6);
 
            
         
-            
-            
            
-            %% calculate entropyDecreases for 4 different split criteria                                               
-            feature_label = uint8(I_w1w2.*I_v1v2);           
-            left_label = feature_label.*label; % label matrix for the pixels going to left
-            [left_size,left_entropy]= getEntropy(left_label,gesture_number) ;            
-            right_label = (1-feature_label).*label;  % label matrix for the pixels going to left
-            [right_size,right_entropy] = getEntropy(right_label,gesture_number) ;            
-             % calculate the current entropyDecrease
-            entropyDecrease_temp(1) = current_entropy-left_entropy*left_size/label_size-right_entropy*right_size/label_size;
-       
-        
-            feature_label = uint8(I_w1w2.*(1-I_v1v2));            
-            left_label = feature_label.*label; % label matrix for the pixels going to left
-            [left_size,left_entropy]= getEntropy(left_label,gesture_number) ;            
-            right_label = (1-feature_label).*label;  % label matrix for the pixels going to left
-            [right_size,right_entropy] = getEntropy(right_label,gesture_number) ;            
-             % calculate the current entropyDecrease
-            entropyDecrease_temp(2) = current_entropy-left_entropy*left_size/label_size-right_entropy*right_size/label_size;
-       
-        
-            feature_label = uint8((1-I_w1w2).*I_v1v2);            
-            left_label = feature_label.*label; % label matrix for the pixels going to left
-            [left_size,left_entropy]= getEntropy(left_label,gesture_number) ;            
-            right_label = (1-feature_label).*label;  % label matrix for the pixels going to left
-            [right_size,right_entropy] = getEntropy(right_label,gesture_number) ;       
-             % calculate the current entropyDecrease
-            entropyDecrease_temp(3) = current_entropy-left_entropy*left_size/label_size-right_entropy*right_size/label_size;
-       
-            feature_label = uint8((1-I_w1w2).*(1-I_v1v2));            
-            left_label = feature_label.*label; % label matrix for the pixels going to left
-            [left_size,left_entropy]= getEntropy(left_label,gesture_number) ;            
-            right_label = (1-feature_label).*label;  % label matrix for the pixels going to left
-            [right_size,right_entropy] = getEntropy(right_label,gesture_number) ;               
-             % calculate the current entropyDecrease
-            entropyDecrease_temp(4) = current_entropy-left_entropy*left_size/label_size-right_entropy*right_size/label_size;
-       
             
+            for tau_index = 1:Taus
+            feature_label = double(feature_map>tau(tau_index));
+            left_label = feature_label.*label; % label matrix for the pixels going to left
+            [left_size,left_entropy]= getEntropy(left_label,gesture_number) ;            
+            right_label = (1-feature_label).*label;  % label matrix for the pixels going to left
+            [right_size,right_entropy] = getEntropy(right_label,gesture_number) ;            
+             % calculate the current entropyDecrease
+            entropyDecrease_temp(tau_index) = current_entropy-left_entropy*left_size/label_size-right_entropy*right_size/label_size;
+            
+            end
             [current_entropyDecrease, current_criteria] = max(entropyDecrease_temp);
-            entropyDecreases(split_index,:) = [current_entropyDecrease,w1,w2,v1,v2,current_criteria];
+            entropyDecreases(split_index,:) = [current_entropyDecrease,w1,w2,v1,v2,tau(current_criteria)];
        
 
     end
@@ -191,7 +171,7 @@ v2 = T(k,5);
             
             
            
-            I_w1w2 = uint8(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
+            I_w1w2 = double(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
         
          if w1>=0
            if w2>=0
@@ -211,7 +191,7 @@ v2 = T(k,5);
          
          end
          
-         I_v1v2 = uint8(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
+         I_v1v2 = double(zeros(size_figure(1),size_figure(2),Picturenumber_pertree));
         
          if v1>=0
            if v2>=0
@@ -232,24 +212,10 @@ v2 = T(k,5);
          end
 
             
-         if     entropyDecreases(best_entropyDecrease_index,6)==1;
-            feature_label = uint8(I_w1w2.*I_v1v2);           
-          
-           
-         elseif entropyDecreases(best_entropyDecrease_index,6)==2;        
-            feature_label = uint8(I_w1w2.*(1-I_v1v2));            
-            
-       
-         elseif entropyDecreases(best_entropyDecrease_index,6)==3;
-            feature_label = uint8((1-I_w1w2).*I_v1v2);            
-           
-            
-         else
-            feature_label = uint8((1-I_w1w2).*(1-I_v1v2));            
-         end
-
- left_label  = feature_label.*label; % label matrix for the pixels going to left
- right_label  = (1-feature_label).*label;  % label matrix for the pixels going to left  
+          feature_map = I_w1w2-I_v1v2; 
+          feature_label = double(feature_map>entropyDecreases(best_entropyDecrease_index,6));
+          left_label  = feature_label.*label; % label matrix for the pixels going to left
+          right_label  = (1-feature_label).*label;  % label matrix for the pixels going to left  
              
       
       
