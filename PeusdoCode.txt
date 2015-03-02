@@ -11,12 +11,14 @@ R: number of trees
 D: depth of trees
 W: number of random features to try
 Q: number of random thresholds to try
+NoMS : minimum number of samples in each node
+MIG : minimum information gain for each node
 
 procedure train_forest()
 	
 	for each r=1...R
 		create tree t with depth D
-		train_tree(t)
+		train_tree(r)
 	end for
 end procedure
 
