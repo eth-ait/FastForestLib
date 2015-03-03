@@ -9,7 +9,11 @@ import numpy
 #extra_link_args = ['-g']
 extra_compile_args = ['-O3']
 extra_link_args = []
+extra_compile_args.append('-fopenmp')
+extra_link_args.append('-fopenmp')
+
 include_dirs = [numpy.get_include()]
+
 extensions = [Extension('c_image_training_context', ['c_image_training_context.pyx'], extra_compile_args=extra_compile_args, extra_link_args=extra_link_args, include_dirs=include_dirs)]
 
 setup(
