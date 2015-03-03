@@ -33,11 +33,6 @@ class RandomForestTrainer:
             prefix = current_depth * " "
             print("{}depth {}".format(prefix, current_depth))
 
-            # stop splitting the node if the minimum number of samples has been reached
-            if i_end - i_start < self._trainingParameters.minimumNumOfSamples:
-                print("{}Minimum number of samples. Stopping".format(prefix))
-                return
-
             # define local aliases for some long variable names
             sample_indices = self._sample_indices[i_start:i_end]
 
@@ -46,8 +41,15 @@ class RandomForestTrainer:
                 statistics = self._trainingContext.compute_statistics(sample_indices)
             node.statistics = statistics
 
+            # stop splitting the node if the minimum number of samples has been reached
+            if i_end - i_start < self._trainingParameters.minimumNumOfSamples:
+                node.leaf_node = True
+                print("{}Minimum number of samples. Stopping".format(prefix))
+                return
+
             # stop splitting the node if it is a leaf node
             if node.left_child is None:
+                node.leaf_node = True
                 print("{}Reached leaf node. Stopping.".format(prefix))
                 return
 
@@ -59,33 +61,35 @@ class RandomForestTrainer:
             # TODO: distribute features and thresholds to ranks > 0
 
             # compute the statistics for all feature and threshold combinations
-            split_point_context.compute_split_statistics()
+            split_statistics = self._trainingContext.compute_split_statistics(sample_indices, split_point_context)
 
             # TODO: send statistics to rank 0
-            # send split_point_context.get_split_statistics_buffer()
+            # send split_statistics.get_buffer()
 
             # TODO: receive statistics from rank > 0
             # for received statistics
-            #     split_point_context.accumulate_split_statistics(statistics)
+            #    split_statistics.accumulate(statistics)
 
             # find the best feature (only on rank 0)
-            best_split_point_id, best_information_gain \
-                = split_point_context.select_best_split_point(node.statistics, return_information_gain=True)
+            best_split_point_id, best_information_gain = self._trainingContext.select_best_split_point(
+                node.statistics, split_statistics, return_information_gain=True)
 
             # TODO: send best feature, threshold and information gain to ranks > 0
 
             # TODO: move criterion into trainingContext?
             # stop splitting the node if the best information gain is below the minimum information gain
             if best_information_gain < self._trainingParameters.minimumInformationGain:
+                node.leaf_node = True
                 print("{}Too little information gain. Stopping.".format(prefix))
                 return
 
             # partition sample_indices according to the selected feature and threshold.
             # i.e. sample_indices[:i_split] will contain the left child indices
             # and sample_indices[i_split:] will contain the right child indices
-            i_split = i_start + split_point_context.partition(sample_indices, best_split_point_id)
+            best_split_point = split_point_context.get_split_point(best_split_point_id)
+            i_split = i_start + self._trainingContext.partition(sample_indices, best_split_point)
 
-            node.split_point = split_point_context.get_split_point(best_split_point_id)
+            node.split_point = best_split_point
 
             # TODO: can we reuse computed statistics from split_point_context???
             left_child_statistics = None

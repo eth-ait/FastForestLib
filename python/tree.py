@@ -79,6 +79,32 @@ class Tree:
         return self._root
 
 
+def in_order_traverse(node, yield_depth=None):
+    if node is None:
+        return
+    if yield_depth is not None:
+        yield_depth -= 1
+    if yield_depth > 0:
+        for sub_node in in_order_traverse(node.left_child, yield_depth):
+            yield sub_node
+    if yield_depth == 0:
+        yield node
+    if yield_depth > 0:
+        for sub_node in in_order_traverse(node.right_child, yield_depth):
+            yield sub_node
+
+
+def level_order_traverse(node):
+    depth = 1
+    num_of_nodes = 1
+    while num_of_nodes > 0:
+        num_of_nodes = 0
+        for sub_node in in_order_traverse(node, yield_depth=depth):
+            num_of_nodes += 1
+            yield sub_node
+        depth += 1
+
+
 class ArrayTree:
 
     class _NodeData:
@@ -86,6 +112,7 @@ class ArrayTree:
         def __init__(self):
             self.splitPoint = None
             self.statistics = None
+            self.leafNode = False
 
     class _NodeWrapper(TreeNode):
 
@@ -111,6 +138,14 @@ class ArrayTree:
         @statistics.setter
         def statistics(self, value):
             self._get_node_data(self._index).statistics = value
+
+        @property
+        def leaf_node(self):
+            return self._get_node_data(self._index).leafNode
+
+        @leaf_node.setter
+        def leaf_node(self, value):
+            self._get_node_data(self._index).leafNode = value
 
         @property
         def left_child(self):
