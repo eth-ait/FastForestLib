@@ -53,46 +53,18 @@ while d<Depth_final
     end
       
     
+   
+          feature_label = double(feature_w-feature_v);
+          if feature_label > T_tree(k,6);
+              k=left_child(k);
+              [d, ~]=index2depth(k);
+          else
+              k=right_child(k);
+              [d, ~]=index2depth(k);  %  pixel going to right
+          end
     
-    if T_tree(k,6)==1;
-       feature_label = feature_w*feature_v;           
-       if feature_label==1; %  pixel going to left
-          k=left_child(k);
-          [d, ~]=index2depth(k);
-       else
-          k=right_child(k);
-          [d, ~]=index2depth(k);  %  pixel going to right
-       end
-     elseif T_tree(k,6)==2;        
-        feature_label = feature_w*(1-feature_v);            
-        if feature_label==1; %  pixel going to left
-           k=left_child(k);
-           [d, ~]=index2depth(k);
-        else
-           k=right_child(k);
-           [d, ~]=index2depth(k);  %  pixel going to right
-        end      
-     elseif T_tree(k,6)==3;
-         feature_label = (1-feature_w)*feature_v;            
-         if feature_label==1; %  pixel going to left
-            k=left_child(k);
-            [d, ~]=index2depth(k);
-         else
-            k=right_child(k);
-            [d, ~]=index2depth(k);  %  pixel going to right
-         end
-     elseif T_tree(k,6)==4;
-         feature_label = (1-feature_w)*(1-feature_v);            
-         if feature_label==1; %  pixel going to left
-            k=left_child(k);
-            [d, ~]=index2depth(k);
-         else
-            k=right_child(k);
-            [d, ~]=index2depth(k);  %  pixel going to right
-         end         
-    end
     
-  end
+ end
     
 end
 
