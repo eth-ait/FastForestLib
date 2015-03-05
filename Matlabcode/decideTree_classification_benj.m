@@ -31,14 +31,21 @@ while d<Depth_final
 %    else
 %  if T_tree(k,10) == 0 || isnan(T_tree(right_child(k),2))
  if T_tree(k,5) == -1 
-     k=left_child(k);
-     [d, ~]=index2depth(k);
+%      k=left_child(k);
+%      [d, ~]=index2depth(k);
+    p = T_tree(k,6:5+ Gestures_number);
+    assert(all(p >= 0));
+    return;
  else
      
-    w1 = -T_tree(k,1);
-    w2 = T_tree(k,2);
-    v1 = -T_tree(k,3);
-    v2 = T_tree(k,4);      
+%     w1 = T_tree(k,1);
+%     w2 = T_tree(k,2);
+%     v1 = T_tree(k,3);
+%     v2 = T_tree(k,4);      
+    w1 = T_tree(k,2);
+    w2 = T_tree(k,1);
+    v1 = T_tree(k,4);
+    v2 = T_tree(k,3);      
            
     if (x_u1 + w1)<1 || (x_u1 + w1)> size_figure(1) || (x_u2 + w2)<1 || (x_u2 + w2)> size_figure(2)
        feature_w = 0;

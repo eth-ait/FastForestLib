@@ -100,8 +100,8 @@ class SparseImageTrainingContext(TrainingContext):
 
             for i in xrange(self._features.shape[0]):
                 for j in xrange(self._thresholds.shape[1]):
-                    left_child_statistics = HistogramStatistics.from_histogram_array(self._leftChildStatistics[i, j, :])
-                    right_child_statistics = HistogramStatistics.from_histogram_array(self._rightChildStatistics[i, j, :])
+                    left_child_statistics = HistogramStatistics.create_from_histogram_array(self._leftChildStatistics[i, j, :])
+                    right_child_statistics = HistogramStatistics.create_from_histogram_array(self._rightChildStatistics[i, j, :])
                     information_gain = self._trainingContext._compute_information_gain(
                         current_statistics, left_child_statistics, right_child_statistics)
                     if information_gain > best_information_gain:
@@ -156,7 +156,7 @@ class SparseImageTrainingContext(TrainingContext):
     def compute_statistics(self, sample_indices):
         labels = self._imageData.flat_labels[sample_indices]
         hist, bin_edges = np.histogram(labels, bins=self._statisticsBins)
-        statistics = HistogramStatistics.from_histogram_array(hist)
+        statistics = HistogramStatistics.create_from_histogram_array(hist)
         return statistics
 
     def sample_split_points(self, sample_indices, num_of_features, num_of_thresholds):

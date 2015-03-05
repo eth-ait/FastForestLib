@@ -5,7 +5,7 @@ from math import log
 from abc import ABCMeta, abstractmethod, abstractproperty
 
 
-class Statistics:
+class Statistics(object):
     __metaclass__ = ABCMeta
 
     @abstractproperty
@@ -22,7 +22,7 @@ class HistogramStatistics(Statistics):
         self._num_of_samples = None
 
     @staticmethod
-    def from_histogram_array(histogram):
+    def create_from_histogram_array(histogram):
         statistics = HistogramStatistics()
         statistics._histogram = histogram
         statistics._num_of_samples = np.sum(histogram)

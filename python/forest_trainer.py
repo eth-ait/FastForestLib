@@ -5,7 +5,7 @@ from tree import ArrayTree
 from training_context import TrainingContext
 
 
-class TrainingParameters:
+class TrainingParameters(object):
 
     def __init__(self, num_of_trees=3, maximum_depth=20, num_of_features=100,
                  num_of_thresholds=50, minimum_information_gain=0.0, minimum_num_of_samples=100):
@@ -17,7 +17,7 @@ class TrainingParameters:
         self.minimumNumOfSamples = minimum_num_of_samples
 
 
-class RandomForestTrainer:
+class RandomForestTrainer(object):
 
     class _TrainingOperation:
 

@@ -1,6 +1,6 @@
 # cython: boundscheck=False, wraparound=False, nonecheck=False, initializedcheck=False, cdivision=True
-# cython: profile=True
 """# cython: boundscheck=True, wraparound=True, nonecheck=True, initializedcheck=True, cdivision=False"""
+# cython: profile=True
 
 from __future__ import division
 
@@ -81,31 +81,44 @@ cdef class SplitStatistics:
     def accumulate(self, statistics):
         self._childStatistics += statistics
 
+cdef class Parameters:
+
+    cdef np.int64_t _feature_offset_range_low
+    cdef np.int64_t _feature_offset_range_high
+    cdef np.float64_t _threshold_range_low
+    cdef np.float64_t _threshold_range_high
+
+    def __cinit__(self, feature_offset_range_low, feature_offset_range_high, threshold_range_low, threshold_range_high):
+        self._feature_offset_range_low = feature_offset_range_low
+        self._feature_offset_range_high = feature_offset_range_high
+        self._threshold_range_low = threshold_range_low
+        self._threshold_range_high = threshold_range_high
+
 
 cdef class SplitPointCollection:
 
-    FEATURE_OFFSET_WINDOW = 15
-    THRESHOLD_RANGE_LOW = -300.0
-    THRESHOLD_RANGE_HIGH = +300.0
-
-    cdef np.int64_t[:, ::1] _features
+    cdef np.int64_t[:, ::1] _offsets
     cdef np.float64_t[:, ::1] _thresholds
 
-    def __cinit__(self, int num_of_features, int num_of_thresholds):
+    def __cinit__(self, Parameters parameters, int num_of_features, int num_of_thresholds):
         # feature is a matrix with num_of_features rows and 4 columns for the offsets
-        self._features = np.random.random_integers(-self.FEATURE_OFFSET_WINDOW, +self.FEATURE_OFFSET_WINDOW,
-                                                 size=(num_of_features, 4))
-        self._thresholds = np.random.uniform(self.THRESHOLD_RANGE_LOW, self.THRESHOLD_RANGE_HIGH,
+        offset_range = np.hstack([np.arange(-parameters._feature_offset_range_high, -parameters._feature_offset_range_low + 1),
+                                  np.arange(+parameters._feature_offset_range_low, +parameters._feature_offset_range_high + 1)])
+        self._offsets = np.random.choice(offset_range, size=(num_of_features, 4))
+        # self._offsets = np.random.random_integers(self.FEATURE_OFFSET_RANGE_LOW, +self.FEATURE_OFFSET_RANGE_HIGH,
+        #                                          size=(num_of_features, 4))
+        self._thresholds = np.random.uniform(parameters._threshold_range_low, parameters._threshold_range_high,
                                              size=(num_of_features, num_of_thresholds))
 
     def get_split_point(self, split_point_id):
         cdef int feature_id, threshold_id
         feature_id, threshold_id = split_point_id
-        return SplitPoint(self._features[feature_id, :], self._thresholds[feature_id, threshold_id])
+        return SplitPoint(self._offsets[feature_id, :], self._thresholds[feature_id, threshold_id])
 
 
 cdef class SparseImageTrainingContext:
 
+    cdef Parameters _parameters
     cdef _imageData
     cdef _numOfLabels
     cdef _statisticsBins
@@ -115,9 +128,10 @@ cdef class SparseImageTrainingContext:
     cdef np.int64_t[:, :, ::1] _labels
     cdef np.int64_t[::1] _flat_labels
 
-    def __init__(self, image_data):
+    def __init__(self, Parameters parameters, image_data):
+        self._parameters = parameters
         self._imageData = image_data
-        self._numOfLabels = self._compute_num_of_labels(image_data)
+        self._numOfLabels = image_data.num_of_labels
         self._statisticsBins = np.arange(self._numOfLabels + 1)
         self._imageWidth = image_data.image_width
         self._imageHeight = image_data.image_height
@@ -126,11 +140,6 @@ cdef class SparseImageTrainingContext:
         self._labels = image_data.labels
         self._flat_data = image_data.flat_data
         self._flat_labels = image_data.flat_labels
-
-    def _compute_num_of_labels(self, image_data):
-        labels = image_data.flat_labels
-        unique_labels = np.unique(labels)
-        return np.sum(unique_labels >= 0)
 
     # TODO
     def get_num_of_labels(self):
@@ -144,18 +153,18 @@ cdef class SparseImageTrainingContext:
             sample_index = sample_indices[i]
             label = self._flat_labels[sample_index]
             histogram[label] += 1
-        statistics = HistogramStatistics.from_histogram_array(histogram)
+        statistics = HistogramStatistics.create_from_histogram_array(histogram)
         return statistics
 
     def sample_split_points(self, np.int64_t[::1] sample_indices not None, int num_of_features, int num_of_thresholds):
-        return SplitPointCollection(num_of_features, num_of_thresholds)
+        return SplitPointCollection(self._parameters, num_of_features, num_of_thresholds)
 
     # TODO: compute feature responses for list of sample indices and let ForestTrainer compute the statistics??
     # TODO: computation of statistics for different thresholds can probably be optimized
     def compute_split_statistics(self, np.int64_t[::1] sample_indices not None, SplitPointCollection split_points):
-        cdef np.int64_t[:, ::1] features = split_points._features
+        cdef np.int64_t[:, ::1] offsets = split_points._offsets
         cdef np.float64_t[:, ::1] thresholds = split_points._thresholds
-        cdef SplitStatistics split_statistics = SplitStatistics(features.shape[0], thresholds.shape[1], self._numOfLabels)
+        cdef SplitStatistics split_statistics = SplitStatistics(offsets.shape[0], thresholds.shape[1], self._numOfLabels)
         cdef int i, j, l, k
         cdef np.int64_t sample_index
         cdef double v, threshold
@@ -163,13 +172,13 @@ cdef class SparseImageTrainingContext:
         cdef int offset_x1, offset_y1, offset_x2, offset_y2
         with nogil, parallel():
             # for i in xrange(features.shape[0]):
-            for i in prange(features.shape[0]):
+            for i in prange(offsets.shape[0]):
                 # offset1 = features[i, 0]
                 # offset2 = features[i, 1]
-                offset_x1 = features[i, 0]
-                offset_y1 = features[i, 1]
-                offset_x2 = features[i, 2]
-                offset_y2 = features[i, 3]
+                offset_x1 = offsets[i, 0]
+                offset_y1 = offsets[i, 1]
+                offset_x2 = offsets[i, 2]
+                offset_y2 = offsets[i, 3]
                 for k in xrange(sample_indices.shape[0]):
                 # for k in prange(sample_indices.shape[0]):
                     sample_index = sample_indices[k]
@@ -299,7 +308,7 @@ cdef class SparseImageTrainingContext:
         return i_split
 
     @cython.profile(False)
-    cdef double _compute_entropy(SparseImageTrainingContext self, np.int64_t[::1] histogram, int num_of_samples) nogil:
+    cdef double _compute_entropy(self, np.int64_t[::1] histogram, int num_of_samples) nogil:
         cdef double ent = 0, relative_count
         cdef int i, count
         for i in xrange(histogram.shape[0]):
@@ -310,7 +319,7 @@ cdef class SparseImageTrainingContext:
         return ent
 
     @cython.profile(False)
-    cdef double _compute_entropy2(SparseImageTrainingContext self, np.int64_t[:, :, ::1] statistics, int num_of_samples,
+    cdef double _compute_entropy2(self, np.int64_t[:, :, ::1] statistics, int num_of_samples,
                                   int i, int j) nogil:
         cdef double ent = 0, relative_count
         cdef int k, count
@@ -322,7 +331,7 @@ cdef class SparseImageTrainingContext:
         return ent
 
     # remove
-    # cdef double _compute_entropy3(SparseImageTrainingContext self, np.ndarray[np.int64_t, ndim=1, mode='c'] histogram, int num_of_samples):
+    # cdef double _compute_entropy3(self, np.ndarray[np.int64_t, ndim=1, mode='c'] histogram, int num_of_samples):
     #     cdef double ent = 0, relative_count
     #     cdef int i, count
     #     for i in xrange(histogram.shape[0]):
@@ -333,7 +342,7 @@ cdef class SparseImageTrainingContext:
     #     return ent
 
     @cython.profile(False)
-    cdef inline int _compute_num_of_samples(SparseImageTrainingContext self, np.int64_t[::1] histogram) nogil:
+    cdef inline int _compute_num_of_samples(self, np.int64_t[::1] histogram) nogil:
         cdef int num_of_samples = 0, count, k
         for i in xrange(histogram.shape[0]):
             count = histogram[i]
@@ -341,7 +350,7 @@ cdef class SparseImageTrainingContext:
         return num_of_samples
 
     @cython.profile(False)
-    cdef inline int _compute_num_of_samples2(SparseImageTrainingContext self, np.int64_t[:, :, ::1] statistics,
+    cdef inline int _compute_num_of_samples2(self, np.int64_t[:, :, ::1] statistics,
                                              int i, int j) nogil:
         cdef int num_of_samples = 0, count, k
         for k in xrange(statistics.shape[2]):
@@ -350,7 +359,7 @@ cdef class SparseImageTrainingContext:
         return num_of_samples
 
     # remove
-    # cdef int _compute_num_of_samples3(SparseImageTrainingContext self, np.ndarray[np.int64_t, ndim=1, mode='c'] histogram):
+    # cdef int _compute_num_of_samples3(self, np.ndarray[np.int64_t, ndim=1, mode='c'] histogram):
     #     cdef int num_of_samples = 0, count, k
     #     for i in xrange(histogram.shape[0]):
     #         count = histogram[i]
@@ -358,7 +367,7 @@ cdef class SparseImageTrainingContext:
     #     return num_of_samples
 
     @cython.profile(False)
-    cdef inline double _compute_information_gain(SparseImageTrainingContext self,
+    cdef inline double _compute_information_gain(self,
                                                  np.int64_t[::1] parent_histogram,
                                                  np.int64_t[::1] left_child_histogram,
                                                  np.int64_t[::1] right_child_histogram) nogil:
@@ -377,7 +386,7 @@ cdef class SparseImageTrainingContext:
         return information_gain
 
     @cython.profile(False)
-    cdef inline double _compute_information_gain2(SparseImageTrainingContext self,
+    cdef inline double _compute_information_gain2(self,
                                                  np.int64_t[::1] parent_histogram,
                                                  np.int64_t[:, :, ::1] left_child_statistics,
                                                  np.int64_t[:, :, ::1] right_child_statistics,
@@ -397,7 +406,7 @@ cdef class SparseImageTrainingContext:
         return information_gain
 
     # remove
-    # cdef double _compute_information_gain3(SparseImageTrainingContext self,
+    # cdef double _compute_information_gain3(self,
     #                                              np.int64_t[::1] parent_histogram,
     #                                              np.ndarray[np.int64_t, ndim=1, mode='c'] left_child_histogram,
     #                                              np.ndarray[np.int64_t, ndim=1, mode='c'] right_child_histogram):
@@ -416,7 +425,7 @@ cdef class SparseImageTrainingContext:
     #     return information_gain
 
     @cython.profile(False)
-    cdef inline int _get_label(SparseImageTrainingContext self, np.int64_t sample_index) nogil:
+    cdef inline int _get_label(self, np.int64_t sample_index) nogil:
         return self._flat_labels[sample_index]
 
     def compute_feature_value(self, np.int64_t sample_index, np.int64_t[::1] feature not None):
@@ -430,9 +439,9 @@ cdef class SparseImageTrainingContext:
         return self._compute_feature_value(sample_index, offset_x1, offset_y1, offset_x2, offset_y2)
 
     @cython.profile(False)
-    cdef inline double _compute_feature_value(SparseImageTrainingContext self, np.int64_t sample_index,
+    cdef inline double _compute_feature_value(self, np.int64_t sample_index,
                                              int offset_x1, int offset_y1, int offset_x2, int offset_y2) nogil:
-    #cdef inline double _compute_feature_value(SparseImageTrainingContext self, int sample_index,
+    #cdef inline double _compute_feature_value(self, int sample_index,
     #                                         int offset1, int offset2) nogil:
         cdef np.int64_t image_index, local_index
         image_index = sample_index // (self._imageStride)
@@ -451,6 +460,95 @@ cdef class SparseImageTrainingContext:
             pixel1 = 0.0
         if local_index + offset2 >= 0 and local_index + offset2 < self._imageStride:
             pixel2 = self._flat_data[sample_index + offset2]
+        else:
+            pixel2 = 0.0
+
+        return pixel1 - pixel2
+
+
+cdef class ImagePredictor:
+
+    @staticmethod
+    def read_from_matlab_file(forest_file):
+        import scipy.io
+        m_dict = scipy.io.loadmat(forest_file)
+        tree_matrices = []
+        for tree_matrix in m_dict['forest']:
+            tree_matrices.append(np.ascontiguousarray(tree_matrix[0], dtype=np.float64))
+        return ImagePredictor(tree_matrices)
+
+    cdef _tree_matrices
+
+    def __cinit__(self, tree_matrices):
+        self._tree_matrices = tree_matrices
+
+    cdef _find_node_recursive(self, int node_index, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index, np.float64_t[:, ::1] image):
+        cdef np.float64_t[::1] offsets
+        cdef np.float64_t threshold
+        cdef np.float64_t value
+        cdef int child_node_index
+        cdef int leaf_indicator = <int>tree_matrix[node_index, tree_matrix.shape[1] - 1]
+        if leaf_indicator == 1:
+            return node_index
+        else:
+            offsets = tree_matrix[node_index, :4]
+            threshold = tree_matrix[node_index, 4]
+            value = self._compute_feature_value(sample_index, image, offsets)
+            if value < threshold:
+                child_node_index = 2 * node_index + 1
+            else:
+                child_node_index = 2 * node_index + 2
+            return self._find_node_recursive(child_node_index, tree_matrix, sample_index, image)
+
+    cdef _find_node(self, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index, np.float64_t[:, ::1] image):
+        return self._find_node_recursive(0, tree_matrix, sample_index, image)
+
+    def predict_aggregate_statistics(self, np.int64_t[::1] sample_indices, np.float64_t[:, ::1] image):
+        cdef int num_of_samples = sample_indices.shape[0]
+        cdef int num_of_labels = self._tree_matrices[0].shape[1] - 6
+        cdef int node_index, j, k
+        cdef np.int64_t sample_index
+        cdef np.float64_t[:, ::1] tree_matrix
+        cdef np.int64_t[:, ::1] aggregate_histogram = np.zeros((num_of_samples, num_of_labels), dtype=np.int64)
+        for tree_matrix in self._tree_matrices:
+            for k in xrange(num_of_samples):
+            #for k in prange(num_of_samples):
+                sample_index = sample_indices[k]
+                node_index = self._find_node(tree_matrix, sample_index, image)
+                for j in xrange(num_of_labels):
+                    aggregate_histogram[k, j] += <np.int64_t>tree_matrix[node_index, 5 + j]
+        return HistogramStatistics.create_from_histogram_array(aggregate_histogram)
+
+    @cython.cdivision(True)
+    @cython.profile(False)
+    cdef np.float64_t _compute_feature_value(self, np.int64_t sample_index, np.float64_t[:, ::1] image,
+                                             np.float64_t[::1] offsets):
+        cdef int image_width = image.shape[0]
+        cdef int image_height = image.shape[1]
+
+        cdef int x, y
+        x = sample_index // image_height
+        y = sample_index % image_height
+
+        cdef int offset_x1 = <int>offsets[0]
+        cdef int offset_y1 = <int>offsets[1]
+        cdef int offset_x2 = <int>offsets[2]
+        cdef int offset_y2 = <int>offsets[3]
+        cdef int x1, y1, x2, y2
+        x1 = x + offset_x1
+        y1 = y + offset_y1
+        x2 = x + offset_x2
+        y2 = y + offset_y2
+
+        cdef np.float64_t pixel1, pixel2
+        if x1 >= 0 and x1 < image_width \
+        and y1 >= 0 and y1 < image_height:
+            pixel1 = image[x1, y1]
+        else:
+            pixel1 = 0.0
+        if x2 >= 0 and x2 < image_width \
+        and y2 >= 0 and y2 < image_height:
+            pixel2 = image[x2, y2]
         else:
             pixel2 = 0.0
 

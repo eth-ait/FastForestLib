@@ -33,6 +33,8 @@ global size_figure;
 
 [d ,~]=index2depth(k);
 
+display(['Depth ', int2str(d)]);
+
 if d==Depth
     T(k,1) = 1;
    

@@ -1,8 +1,8 @@
 %% settings
- clear all;
+clear all;
 close all;
 % load('T');
-load trialData.mat;
+load('../data/trialData.mat');
 
 %trainingpicture = 9126;
 global size_figure;
@@ -62,6 +62,7 @@ high_bound= 15;
 
   t1=toc;
  
-%     save('Gesture_3000_16_120','T','t1');
+% save('../forests/matlab_forest2.mat');
+save('../forests/matlab_forest2.mat','T','t1');
 %    matlabpool close;
    

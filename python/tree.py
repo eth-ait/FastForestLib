@@ -3,7 +3,7 @@ from __future__ import division
 from abc import ABCMeta, abstractproperty
 
 
-class TreeNode:
+class TreeNode(object):
     __metaclass__ = ABCMeta
 
     def get_split_point(self): pass
@@ -25,7 +25,7 @@ class TreeNode:
     def right_child(self): pass
 
 
-class Tree:
+class Tree(object):
 
     class _Node(TreeNode):
 
@@ -105,9 +105,9 @@ def level_order_traverse(node):
         depth += 1
 
 
-class ArrayTree:
+class ArrayTree(object):
 
-    class _NodeData:
+    class _NodeData(object):
 
         def __init__(self):
             self.splitPoint = None

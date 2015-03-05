@@ -6,18 +6,25 @@ from tree import level_order_traverse
 from forest_trainer import RandomForestTrainer, TrainingParameters
 from image_data import ImageDataReader
 # from image_training_context import ImageDataReader, SparseImageTrainingContext
-from c_image_training_context import SparseImageTrainingContext
+import c_image_training_context as image_training_context
 
 
-def run(matlab_file, num_of_samples_per_image, profiler=None):
-    training_parameters = TrainingParameters(maximum_depth=20, num_of_features=100, num_of_thresholds=50,
+def run(matlab_file, num_of_samples_per_image, forest_file, profiler=None):
+    # training_parameters = TrainingParameters(maximum_depth=15, num_of_features=50, num_of_thresholds=50,
+    #                                          num_of_trees=1, minimum_num_of_samples=100)
+    training_parameters = TrainingParameters(maximum_depth=10, num_of_features=10, num_of_thresholds=10,
                                              num_of_trees=1, minimum_num_of_samples=100)
     if num_of_samples_per_image < 0:
         image_data = ImageDataReader.read_from_matlab_file_with_all_samples(matlab_file)
     else:
         image_data = ImageDataReader.read_from_matlab_file_with_random_samples(matlab_file, num_of_samples_per_image)
     sample_indices = image_data.create_sample_indices()
-    training_context = SparseImageTrainingContext(image_data)
+    feature_offset_range_low = 3
+    feature_offset_range_high = 15
+    threshold_range_low = -300.
+    threshold_range_high = +300.
+    training_context_parameters = image_training_context.Parameters(feature_offset_range_low, feature_offset_range_high, threshold_range_low, threshold_range_high)
+    training_context = image_training_context.SparseImageTrainingContext(training_context_parameters, image_data)
 
     trainer = RandomForestTrainer()
     from time import time
@@ -29,18 +36,6 @@ def run(matlab_file, num_of_samples_per_image, profiler=None):
         profiler.disable()
     stop_time = time()
     print("Training time: {}".format(stop_time - start_time))
-
-    def traverse_tree(node, sample_index):
-        if node.left_child is None or node.left_child.statistics is None or node.right_child.statistics is None:
-            return node
-        else:
-            feature = node.split_point.feature
-            threshold = node.split_point.threshold
-            v = training_context.compute_feature_value(sample_index, feature)
-            if v < threshold:
-                return traverse_tree(node.left_child, sample_index)
-            else:
-                return traverse_tree(node.right_child, sample_index)
 
     def convert_tree_to_matrix(tree):
         split_point1 = tree.root.split_point
@@ -76,30 +71,23 @@ def run(matlab_file, num_of_samples_per_image, profiler=None):
     for i, tree in enumerate(forest):
         forest_array[i] = convert_tree_to_matrix(tree)
     import scipy.io
-    scipy.io.savemat('forest.mat', {'forest': forest_array})
+    # m_dict = dict(training_parameters)
+    m_dict = dict(training_parameters.__dict__)
+    # m_dict['forest'] = forest_array
+    m_dict['forest'] = forest_array
+    scipy.io.savemat(forest_file, m_dict)
     print("Done.")
-
-    print("Computing accuracy...")
-    predicted_labels = np.empty(sample_indices.shape, dtype=np.int)
-    for i, sample_index in enumerate(sample_indices):
-        average_histogram = np.zeros((2,), dtype=np.int)
-        for tree in forest:
-            leaf_node = traverse_tree(tree.root, sample_index)
-            average_histogram += leaf_node.statistics.histogram
-        predicted_label = np.argmax(average_histogram)
-        predicted_labels[i] = predicted_label
-
-    print("Matches: {}".format(np.sum(image_data.flat_labels[sample_indices] == predicted_labels)))
-    print("Accuracy: {}".format(np.sum(image_data.flat_labels[sample_indices] == predicted_labels) / len(sample_indices)))
 
 
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) < 3:
-        print("Usage: python {} <matlab file> <number of samples per image>".format(sys.argv[0]))
+    if len(sys.argv) < 4:
+        print("Usage: python {} <matlab file> <number of samples per image> <forest file>".format(sys.argv[0]))
         sys.exit(1)
 
     matlab_file = sys.argv[1]
     num_of_samples_per_image = int(sys.argv[2])
+    forest_file = sys.argv[3]
 
-    run(matlab_file, num_of_samples_per_image)
+    run(matlab_file, num_of_samples_per_image, forest_file)
+
