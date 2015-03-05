@@ -1,0 +1,10 @@
+To compile the Cython extension you have to run:
+python setup.py build_ext --inplace
+
+A new forest can be trained by running:
+python main.py <matlab data file> <number of samples per image> <forest file>
+If the number of samples per image is <= 0, then all pixels in an image will be used for training.
+
+A forest can be evaluated on a dataset by running:
+python main_predict.py <forest file> <matlab data file>
+

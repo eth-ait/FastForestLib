@@ -14,7 +14,7 @@ def run(matlab_file, num_of_samples_per_image, forest_file, profiler=None):
     #                                          num_of_trees=1, minimum_num_of_samples=100)
     training_parameters = TrainingParameters(maximum_depth=10, num_of_features=10, num_of_thresholds=10,
                                              num_of_trees=1, minimum_num_of_samples=100)
-    if num_of_samples_per_image < 0:
+    if num_of_samples_per_image <= 0:
         image_data = ImageDataReader.read_from_matlab_file_with_all_samples(matlab_file)
     else:
         image_data = ImageDataReader.read_from_matlab_file_with_random_samples(matlab_file, num_of_samples_per_image)
