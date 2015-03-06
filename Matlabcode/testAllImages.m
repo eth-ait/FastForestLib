@@ -79,7 +79,7 @@ Pre_label = zeros(Gestures_number,Gestures_number);
 
 
 %load ../forests/testT_10_10_10_300_300_jie.mat;
-load ../forests/trialData/matlab_forest1.mat;
+load ../forests/trialData/matlab_forest4.mat;
 for ii = 1:NumberOfImages
     
     display(['Testing image ', int2str(ii), ' out of ', int2str(NumberOfImages)]);

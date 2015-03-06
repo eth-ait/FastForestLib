@@ -14,11 +14,11 @@ extra_link_args.append('-fopenmp')
 
 include_dirs = [numpy.get_include()]
 
-extensions = [Extension('c_image_training_context', ['c_image_training_context.pyx'], extra_compile_args=extra_compile_args, extra_link_args=extra_link_args, include_dirs=include_dirs)]
+extensions = [Extension('c_image_weak_learner', ['c_image_weak_learner.pyx'], extra_compile_args=extra_compile_args, extra_link_args=extra_link_args, include_dirs=include_dirs)]
 
 setup(
     name = 'AITDistributedRandomForest',
-    #ext_modules = cythonize('c_image_training_context.pyx', gdb_debug=True),
+    #ext_modules = cythonize('c_image_weak_learner.pyx', gdb_debug=True),
     #ext_modules = cythonize(extensions, gdb_debug=debug),
     ext_modules = cythonize(extensions),
 )

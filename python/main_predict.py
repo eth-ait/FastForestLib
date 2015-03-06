@@ -6,11 +6,11 @@ from tree import level_order_traverse
 from forest_trainer import RandomForestTrainer, TrainingParameters
 from image_data import ImageDataReader
 # from image_training_context import ImageDataReader, SparseImageTrainingContext
-from c_image_training_context import ImagePredictor
+import c_image_weak_learner as image_weak_learner
 
 
 def run(forest_file, test_data_file, profiler=None):
-    predictor = ImagePredictor.read_from_matlab_file(forest_file)
+    predictor = image_weak_learner.Predictor.read_from_matlab_file(forest_file)
     test_data = ImageDataReader.read_from_matlab_file_with_all_samples(test_data_file)
 
     from time import time
@@ -29,7 +29,7 @@ def run(forest_file, test_data_file, profiler=None):
         flat_labels = labels.reshape((labels.size,))
         sample_indices = np.arange(image.size, dtype=np.int64)
         sample_indices = sample_indices[flat_labels >= 0]
-        aggregate_statistics = predictor.predict_aggregate_statistics(sample_indices, image)
+        aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image)
         predicted_labels = np.argmax(aggregate_statistics.histogram, 1)
         num_of_matches = np.sum(flat_labels[sample_indices] == predicted_labels)
         num_of_mismatches = sample_indices.size - num_of_matches

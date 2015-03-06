@@ -1,37 +1,31 @@
 from __future__ import division
 
+import importlib
 import numpy as np
 
 from tree import level_order_traverse
 from forest_trainer import RandomForestTrainer, TrainingParameters
 from image_data import ImageDataReader
 # from image_training_context import ImageDataReader, SparseImageTrainingContext
-import c_image_training_context as image_training_context
+import c_image_weak_learner as image_weak_learner
 
 
-def run(matlab_file, num_of_samples_per_image, forest_file, profiler=None):
+def run(matlab_file, num_of_samples_per_image, forest_file, config, profiler=None):
     # training_parameters = TrainingParameters(maximum_depth=15, num_of_features=50, num_of_thresholds=50,
     #                                          num_of_trees=1, minimum_num_of_samples=100)
-    training_parameters = TrainingParameters(maximum_depth=10, num_of_features=10, num_of_thresholds=10,
-                                             num_of_trees=1, minimum_num_of_samples=100)
     if num_of_samples_per_image <= 0:
         image_data = ImageDataReader.read_from_matlab_file_with_all_samples(matlab_file)
     else:
         image_data = ImageDataReader.read_from_matlab_file_with_random_samples(matlab_file, num_of_samples_per_image)
     sample_indices = image_data.create_sample_indices()
-    feature_offset_range_low = 3
-    feature_offset_range_high = 15
-    threshold_range_low = -300.
-    threshold_range_high = +300.
-    training_context_parameters = image_training_context.Parameters(feature_offset_range_low, feature_offset_range_high, threshold_range_low, threshold_range_high)
-    training_context = image_training_context.SparseImageTrainingContext(training_context_parameters, image_data)
+    weak_learner_context = image_weak_learner.WeakLearnerContext(config.weak_learner_parameters, image_data)
 
     trainer = RandomForestTrainer()
     from time import time
     start_time = time()
     if profiler is not None:
         profiler.enable()
-    forest = trainer.train_forest(sample_indices, training_context, training_parameters)
+    forest = trainer.train_forest(sample_indices, weak_learner_context, config.training_parameters)
     if profiler is not None:
         profiler.disable()
     stop_time = time()
@@ -72,7 +66,7 @@ def run(matlab_file, num_of_samples_per_image, forest_file, profiler=None):
         forest_array[i] = convert_tree_to_matrix(tree)
     import scipy.io
     # m_dict = dict(training_parameters)
-    m_dict = dict(training_parameters.__dict__)
+    m_dict = dict(config.training_parameters.__dict__)
     # m_dict['forest'] = forest_array
     m_dict['forest'] = forest_array
     scipy.io.savemat(forest_file, m_dict)
@@ -89,5 +83,12 @@ if __name__ == '__main__':
     num_of_samples_per_image = int(sys.argv[2])
     forest_file = sys.argv[3]
 
-    run(matlab_file, num_of_samples_per_image, forest_file)
+    config_file = 'configuration.py'
+    if len(sys.argv) > 4:
+        config_file = sys.argv[4]
+    PY_FILE_ENDING = '.py'
+    if config_file.endswith(PY_FILE_ENDING):
+        config_file = config_file[:-len(PY_FILE_ENDING)]
+    config = importlib.import_module(config_file)
 
+    run(matlab_file, num_of_samples_per_image, forest_file, config)

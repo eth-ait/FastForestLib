@@ -63,6 +63,6 @@ high_bound= 15;
   t1=toc;
  
 % save('../forests/matlab_forest2.mat');
-save('../forests/matlab_forest2.mat','T','t1');
+save('../forests/trialData/matlab_forest4.mat','T','t1');
 %    matlabpool close;
    

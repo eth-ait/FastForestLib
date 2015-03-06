@@ -21,13 +21,13 @@ class RandomForestTrainer(object):
 
     class _TrainingOperation:
 
-        def __init__(self, sample_indices, training_context, training_parameters):
+        def __init__(self, sample_indices, weak_learner_context, training_parameters):
             # TODO: how to handle these assertions with extension types?
             # assert isinstance(training_context, TrainingContext)
             # assert isinstance(training_parameters, TrainingParameters)
             self._sample_indices = sample_indices
-            self._trainingContext = training_context
-            self._trainingParameters = training_parameters
+            self._weak_learner_context = weak_learner_context
+            self._training_parameters = training_parameters
 
         def train_recursive(self, node, i_start, i_end, statistics=None, current_depth=1):
             prefix = current_depth * " "
@@ -38,11 +38,11 @@ class RandomForestTrainer(object):
 
             # assign statistics to node
             if statistics is None:
-                statistics = self._trainingContext.compute_statistics(sample_indices)
+                statistics = self._weak_learner_context.compute_statistics(sample_indices)
             node.statistics = statistics
 
             # stop splitting the node if the minimum number of samples has been reached
-            if i_end - i_start < self._trainingParameters.minimumNumOfSamples:
+            if i_end - i_start < self._training_parameters.minimumNumOfSamples:
                 node.leaf_node = True
                 print("{}Minimum number of samples. Stopping".format(prefix))
                 return
@@ -53,15 +53,15 @@ class RandomForestTrainer(object):
                 print("{}Reached leaf node. Stopping.".format(prefix))
                 return
 
-            split_point_context = self._trainingContext.sample_split_points(
+            split_point_context = self._weak_learner_context.sample_split_points(
                 sample_indices,
-                self._trainingParameters.numOfFeatures,
-                self._trainingParameters.numOfThresholds)
+                self._training_parameters.numOfFeatures,
+                self._training_parameters.numOfThresholds)
 
             # TODO: distribute features and thresholds to ranks > 0
 
             # compute the statistics for all feature and threshold combinations
-            split_statistics = self._trainingContext.compute_split_statistics(sample_indices, split_point_context)
+            split_statistics = self._weak_learner_context.compute_split_statistics(sample_indices, split_point_context)
 
             # TODO: send statistics to rank 0
             # send split_statistics.get_buffer()
@@ -71,14 +71,14 @@ class RandomForestTrainer(object):
             #    split_statistics.accumulate(statistics)
 
             # find the best feature (only on rank 0)
-            best_split_point_id, best_information_gain = self._trainingContext.select_best_split_point(
+            best_split_point_id, best_information_gain = self._weak_learner_context.select_best_split_point(
                 node.statistics, split_statistics, return_information_gain=True)
 
             # TODO: send best feature, threshold and information gain to ranks > 0
 
             # TODO: move criterion into trainingContext?
             # stop splitting the node if the best information gain is below the minimum information gain
-            if best_information_gain < self._trainingParameters.minimumInformationGain:
+            if best_information_gain < self._training_parameters.minimumInformationGain:
                 node.leaf_node = True
                 print("{}Too little information gain. Stopping.".format(prefix))
                 return
@@ -87,7 +87,7 @@ class RandomForestTrainer(object):
             # i.e. sample_indices[:i_split] will contain the left child indices
             # and sample_indices[i_split:] will contain the right child indices
             best_split_point = split_point_context.get_split_point(best_split_point_id)
-            i_split = i_start + self._trainingContext.partition(sample_indices, best_split_point)
+            i_split = i_start + self._weak_learner_context.partition(sample_indices, best_split_point)
 
             node.split_point = best_split_point
 
