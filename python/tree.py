@@ -167,7 +167,7 @@ class ArrayTree(object):
     def __init__(self, maximum_depth):
         self._nodes = self._build_tree(maximum_depth)
 
-    def _build_tree(self, maximum_depth, current_depth=0):
+    def _build_tree(self, maximum_depth):
         num_of_nodes = 2**maximum_depth - 1
         nodes = []
         for i in xrange(num_of_nodes):

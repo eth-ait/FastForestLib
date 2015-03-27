@@ -1,17 +1,16 @@
 from __future__ import division
 
 import numpy as np
+import imp
 
-from tree import level_order_traverse
-from forest_trainer import RandomForestTrainer, TrainingParameters
 from image_data import ImageDataReader
 # from image_training_context import ImageDataReader, SparseImageTrainingContext
 import c_image_weak_learner as image_weak_learner
 
 
-def run(forest_file, test_data_file, profiler=None):
+def run(forest_file, test_data_file, config, profiler=None):
     predictor = image_weak_learner.Predictor.read_from_matlab_file(forest_file)
-    test_data = ImageDataReader.read_from_matlab_file_with_all_samples(test_data_file)
+    test_data = ImageDataReader.read_from_matlab_file_with_all_samples(test_data_file, **config.testing_data_parameters)
 
     from time import time
     start_time = time()
@@ -24,27 +23,39 @@ def run(forest_file, test_data_file, profiler=None):
         print("Testing image {}".format(i + 1))
         image = test_data.data[i, :, :]
         labels = test_data.labels[i, :, :]
-        # TODO: labels are switched in this test data set
-        # flat_labels = (-labels.reshape((labels.size,))) + 1
         flat_labels = labels.reshape((labels.size,))
         sample_indices = np.arange(image.size, dtype=np.int64)
         sample_indices = sample_indices[flat_labels >= 0]
-        aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image)
+        if 'max_evaluation_depth' in config.testing_parameters:
+            max_evaluation_depth = config.testing_parameters['max_evaluation_depth']
+        else:
+            max_evaluation_depth = -1
+        print('max_evaluation_depth={}'.format(max_evaluation_depth))
+        aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image,
+                                                                            max_evaluation_depth=max_evaluation_depth)
         predicted_labels = np.argmax(aggregate_statistics.histogram, 1)
         num_of_matches = np.sum(flat_labels[sample_indices] == predicted_labels)
-        num_of_mismatches = sample_indices.size - num_of_matches
-        gt_label = np.max(flat_labels)
-        for label in xrange(test_data.num_of_labels):
-            confusion_matrix[gt_label, label] += np.sum(predicted_labels == label)
+        # gt_label = np.max(flat_labels)
+        # for label in xrange(test_data.num_of_labels):
+        #     confusion_matrix[gt_label, label] += np.sum(predicted_labels == label)
+        for label1 in xrange(test_data.num_of_labels):
+            label1_gt_mask = flat_labels[sample_indices] == label1
+            for label2 in xrange(test_data.num_of_labels):
+                confusion_matrix[label1, label2] += np.sum(predicted_labels[label1_gt_mask] == label2)
+        # num_of_mismatches = sample_indices.size - num_of_matches
         # confusion_matrix[gt_label_index, gt_label_index] += num_of_matches
         # other_label_index = 1 if gt_label_index == 0 else 0
         # confusion_matrix[gt_label_index, other_label_index ] += predicted_labels.size - num_of_matches
 
-    print confusion_matrix
-
     # normalize confusion matrix
     normalization_coeff = np.asarray(np.sum(confusion_matrix, 1), dtype=np.float64)[:, np.newaxis]
     norm_confusion_matrix = confusion_matrix / normalization_coeff
+
+    print("Sample-counts for each label:")
+    print normalization_coeff
+
+    print("Non-normalized confusion matrix:")
+    print confusion_matrix
 
     print("Normalized confusion matrix:")
     print norm_confusion_matrix
@@ -79,13 +90,22 @@ def run(forest_file, test_data_file, profiler=None):
     print("Testing time: {}".format(stop_time - start_time))
 
 
+def load_configuration_from_python_file(filename):
+    return imp.load_source('configuration', filename)
+
+
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
-        print("Usage: python {} <forest file> <test data file>".format(sys.argv[0]))
+        print("Usage: python {} <forest file> <test data file> [configuration file]".format(sys.argv[0]))
         sys.exit(1)
 
     forest_file = sys.argv[1]
     test_data_file = sys.argv[2]
 
-    run(forest_file, test_data_file)
+    config_file = 'configuration.py'
+    if len(sys.argv) > 3:
+        config_file = sys.argv[3]
+    config = load_configuration_from_python_file(config_file)
+
+    run(forest_file, test_data_file, config)

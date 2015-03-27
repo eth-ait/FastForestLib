@@ -1,5 +1,15 @@
+"""
+This file contains configurations for the random forest trainer and the image weak learner.
+"""
+
 from forest_trainer import TrainingParameters
 from c_image_weak_learner import Parameters
+
+training_data_parameters = {
+    'num_of_samples_per_image': 100,
+}
+
+testing_data_parameters = {}
 
 training_parameters = TrainingParameters(
     maximum_depth=10,

@@ -1,7 +1,7 @@
 from __future__ import division
 
-import importlib
 import numpy as np
+import imp
 
 from tree import level_order_traverse
 from forest_trainer import RandomForestTrainer, TrainingParameters
@@ -10,15 +10,18 @@ from image_data import ImageDataReader
 import c_image_weak_learner as image_weak_learner
 
 
-def run(matlab_file, num_of_samples_per_image, forest_file, config, profiler=None):
+def run(matlab_file, forest_file, config, profiler=None):
     # training_parameters = TrainingParameters(maximum_depth=15, num_of_features=50, num_of_thresholds=50,
     #                                          num_of_trees=1, minimum_num_of_samples=100)
-    if num_of_samples_per_image <= 0:
-        image_data = ImageDataReader.read_from_matlab_file_with_all_samples(matlab_file)
+    if 'num_of_samples_per_image' not in config.training_data_parameters \
+            or config.training_data_parameters['num_of_samples_per_image'] <= 0:
+        training_data = ImageDataReader.read_from_matlab_file_with_all_samples(matlab_file,
+                                                                            **config.training_data_parameters)
     else:
-        image_data = ImageDataReader.read_from_matlab_file_with_random_samples(matlab_file, num_of_samples_per_image)
-    sample_indices = image_data.create_sample_indices()
-    weak_learner_context = image_weak_learner.WeakLearnerContext(config.weak_learner_parameters, image_data)
+        training_data = ImageDataReader.read_from_matlab_file_with_random_samples(matlab_file,
+                                                                               **config.training_data_parameters)
+    sample_indices = training_data.create_sample_indices()
+    weak_learner_context = image_weak_learner.WeakLearnerContext(config.weak_learner_parameters, training_data)
 
     trainer = RandomForestTrainer()
     from time import time
@@ -47,10 +50,10 @@ def run(matlab_file, num_of_samples_per_image, forest_file, config, profiler=Non
                 feature = split_point.feature
                 threshold = split_point.threshold
                 # offset1, offset2 = feature
-                # offset_x1 = offset1 // image_data.image_height
-                # offset_y1 = offset1 % image_data.image_height
-                # offset_x2 = offset2 // image_data.image_height
-                # offset_y2 = offset2 % image_data.image_height
+                # offset_x1 = offset1 // training_data.image_height
+                # offset_y1 = offset1 % training_data.image_height
+                # offset_x2 = offset2 // training_data.image_height
+                # offset_y2 = offset2 % training_data.image_height
                 offset_x1, offset_y1, offset_x2, offset_y2 = feature
                 matrix[i, :4] = (offset_x1, offset_y1, offset_x2, offset_y2)
                 matrix[i, 4] = threshold
@@ -73,22 +76,22 @@ def run(matlab_file, num_of_samples_per_image, forest_file, config, profiler=Non
     print("Done.")
 
 
+def load_configuration_from_python_file(filename):
+    return imp.load_source('configuration', filename)
+
+
 if __name__ == '__main__':
     import sys
-    if len(sys.argv) < 4:
-        print("Usage: python {} <matlab file> <number of samples per image> <forest file>".format(sys.argv[0]))
+    if len(sys.argv) < 3:
+        print("Usage: python {} <data file> <number of samples per image> <forest file> [configuration file]".format(sys.argv[0]))
         sys.exit(1)
 
     matlab_file = sys.argv[1]
-    num_of_samples_per_image = int(sys.argv[2])
-    forest_file = sys.argv[3]
+    forest_file = sys.argv[2]
 
     config_file = 'configuration.py'
-    if len(sys.argv) > 4:
-        config_file = sys.argv[4]
-    PY_FILE_ENDING = '.py'
-    if config_file.endswith(PY_FILE_ENDING):
-        config_file = config_file[:-len(PY_FILE_ENDING)]
-    config = importlib.import_module(config_file)
+    if len(sys.argv) > 3:
+        config_file = sys.argv[3]
+    config = load_configuration_from_python_file(config_file)
 
-    run(matlab_file, num_of_samples_per_image, forest_file, config)
+    run(matlab_file, forest_file, config)

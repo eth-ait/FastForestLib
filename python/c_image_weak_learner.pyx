@@ -439,14 +439,15 @@ cdef class Predictor:
     def __cinit__(self, tree_matrices):
         self._tree_matrices = tree_matrices
 
-    cdef _find_node_recursive(self, int node_index, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index, FeatureEvaluator evaluator):
+    cdef _find_node_recursive(self, int node_index, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index,
+                              FeatureEvaluator evaluator, int stop_node_index):
         cdef np.float64_t[::1] offsets
         cdef np.int64_t offset_x1, offset_y1, offset_x2, offset_y2
         cdef np.float64_t threshold
         cdef np.float64_t value
         cdef int child_node_index
         cdef int leaf_indicator = <int>tree_matrix[node_index, tree_matrix.shape[1] - 1]
-        if leaf_indicator == 1:
+        if leaf_indicator == 1 or node_index >= stop_node_index:
             return node_index
         else:
             offsets = tree_matrix[node_index, :4]
@@ -461,7 +462,8 @@ cdef class Predictor:
                 child_node_index = 2 * node_index + 1
             else:
                 child_node_index = 2 * node_index + 2
-            return self._find_node_recursive(child_node_index, tree_matrix, sample_index, evaluator)
+            return self._find_node_recursive(child_node_index, tree_matrix, sample_index,
+                                             evaluator, stop_node_index)
 
     # cdef _find_node_recursive(self, int node_index, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index, np.float64_t[:, ::1] image):
     #     cdef np.float64_t[::1] offsets
@@ -481,32 +483,41 @@ cdef class Predictor:
     #             child_node_index = 2 * node_index + 2
     #         return self._find_node_recursive(child_node_index, tree_matrix, sample_index, image)
 
-    cdef _find_node(self, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index, FeatureEvaluator evaluator):
-        return self._find_node_recursive(0, tree_matrix, sample_index, evaluator)
+    cdef _find_node(self, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index, FeatureEvaluator evaluator,
+                    int stop_node_index):
+        return self._find_node_recursive(0, tree_matrix, sample_index, evaluator, stop_node_index)
 
     # cdef _find_node(self, np.float64_t[:, ::1] tree_matrix, np.int64_t sample_index, np.float64_t[:, ::1] image):
     #     return self._find_node_recursive(0, tree_matrix, sample_index, image)
 
-    def predict_image_aggregate_statistics(self, np.int64_t[::1] sample_indices, np.float64_t[:, ::1] image):
+    def predict_image_aggregate_statistics(self, np.int64_t[::1] sample_indices, np.float64_t[:, ::1] image,
+                                           int max_evaluation_depth=-1):
         cdef np.float64_t[::1] flat_image = np.array(image).reshape((image.size,), order='C')
         return self.predict_image_aggregate_statistics_with_flat_image(
-            sample_indices, flat_image, image.shape[0], image.shape[1])
+            sample_indices, flat_image, image.shape[0], image.shape[1],
+            max_evaluation_depth)
 
     def predict_image_aggregate_statistics_with_flat_image(self, np.int64_t[::1] sample_indices,
                                                            np.float64_t[::1] flat_image,
-                                                           int image_width, int image_height):
+                                                           int image_width, int image_height,
+                                                           int max_evaluation_depth=-1):
         cdef int num_of_samples = sample_indices.shape[0]
         cdef int num_of_labels = self._tree_matrices[0].shape[1] - 6
         cdef int node_index, j, k
+        cdef int stop_node_index
         cdef np.int64_t sample_index
         cdef np.float64_t[:, ::1] tree_matrix
         cdef np.int64_t[:, ::1] aggregate_histogram = np.zeros((num_of_samples, num_of_labels), dtype=np.int64)
         cdef FeatureEvaluator evaluator = FeatureEvaluator(flat_image, image_width, image_height)
         for tree_matrix in self._tree_matrices:
+            if max_evaluation_depth < 0:
+                stop_node_index = tree_matrix.shape[0]
+            else:
+                stop_node_index = 2 ** (max_evaluation_depth - 1) - 1
             for k in xrange(num_of_samples):
             #for k in prange(num_of_samples):
                 sample_index = sample_indices[k]
-                node_index = self._find_node(tree_matrix, sample_index, evaluator)
+                node_index = self._find_node(tree_matrix, sample_index, evaluator, max_evaluation_depth)
                 for j in xrange(num_of_labels):
                     aggregate_histogram[k, j] += <np.int64_t>tree_matrix[node_index, 5 + j]
         return HistogramStatistics.create_from_histogram_array(aggregate_histogram)
