@@ -1,17 +1,24 @@
+#ifndef AITDistributedRandomForest_forest_h
+#define AITDistributedRandomForest_forest_h
+
 #include <memory>
 #include <vector>
+
+#include "tree.h"
 
 namespace AIT {
 
   /// @brief A decision forest, i.e. a collection of decision trees.
-  template <typename split_point, typename statistics>
+  template <typename TSplitPoint, typename TStatistics>
   class Forest {
+  public:
+      typedef Tree<TSplitPoint, TStatistics> tree_type;
+      typedef std::vector<int>::size_type size_type;
+
+  private:
     std::vector<std::unique_ptr<tree_type>> trees_;
 
   public:
-    typedef Tree<split_point, statistics> tree_type;
-    typedef tree_type::data_type data_type;
-    typedef std::vector<int>::size_type size_type;
 
     /// @brief Create an empty forest.
     Forest() {}
@@ -44,10 +51,10 @@ namespace AIT {
     /// @param data The collection of data-points
     /// @return A vector of the results. See #Evaluate().
     std::vector<std::vector<size_type>> Evaluate(
-      std::vector<data_type> data) const
+      const DataPointCollection<> &data_point_collection) const
     {
       std::vector<std::vector<size_type>> leaf_node_indices;
-      Evaluate(data, leaf_node_indices);
+      Evaluate(data_point_collection, leaf_node_indices);
       return leaf_node_indices;
     }
 
@@ -60,16 +67,18 @@ namespace AIT {
     ///                          So leaf_node_indices.size() will be equal to
     ///                          NumOfTrees().
     void Evaluate(
-      std::vector<data_type> data,
+      const DataPointCollection<> &data_point_collection,
       std::vector<std::vector<size_type>> &leaf_node_indices) const
     {
       leaf_node_indices.resize(NumOfTrees());
       for (size_type i=0; i < NumOfTrees(); i++) {
-        //trees_[i]->resize(data.Count());
-        //trees_[i]->Evaluate(data, leaf_node_indices[i]);
+        leaf_node_indices[i].resize(data_point_collection.Count());
+        trees_[i]->Evaluate(data_point_collection, leaf_node_indices[i]);
       }
     }
 
   };
 
 }
+
+#endif

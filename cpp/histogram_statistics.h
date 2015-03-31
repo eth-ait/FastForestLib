@@ -1,5 +1,9 @@
-#include <numerics>
+#ifndef AITDistributedRandomForest_statistics_h
+#define AITDistributedRandomForest_statistics_h
+
+#include <vector>
 #include <cmath>
+#include <numeric>
 
 namespace AIT {
 
@@ -12,6 +16,12 @@ namespace AIT {
     size_type num_of_samples_;
 
   public:
+    // TODO: unused
+    /// @brief Create an empty histogram.
+    HistogramStatistics()
+    : num_of_samples_(0) {}
+      
+    // TODO: unused
     /// @brief Create an empty histogram.
     /// @param num_of_classes The number of classes.
     HistogramStatistics(size_type num_of_classes)
@@ -49,3 +59,5 @@ namespace AIT {
   };
 
 }
+
+#endif
