@@ -5,20 +5,38 @@
 #include <vector>
 
 #include "data_point_collection.h"
+#include "split_point.h"
 
 namespace AIT {
-    
-  /// @brief A node of a decision tree.
-  template <typename SplitPoint, typename Statistics>
-  class Node {
-  public:
-    enum class Direction {LEFT=-1, RIGHT=+1};
 
-    typedef std::vector<int>::size_type size_type;
+	/// @brief A node of a decision tree.
+	template <typename TSplitPoint, typename TStatistics>
+	class Node {
+		TSplitPoint split_point_;
+		TStatistics statistics_;
 
-    virtual Direction Evaluate(const DataPointCollection<> &data_point_collection, size_type index) const = 0;
+	public:
+		typedef std::vector<int>::size_type size_type;
 
-  };
+		virtual Direction Evaluate(const DataPointCollection<> &data_point_collection, size_type index) const = 0;
+
+		const TSplitPoint & GetSplitPoint() const {
+			return split_point_;
+		}
+
+		void SetSplitPoint(const TSplitPoint &split_point) {
+			split_point_ = split_point;
+		}
+
+		const TStatistics & GetStatistics() const {
+			return statistics_;
+		}
+
+		void SetStatistics(const TStatistics &statistics) {
+			statistics_ = statistics;
+		}
+
+	};
 
 }
 

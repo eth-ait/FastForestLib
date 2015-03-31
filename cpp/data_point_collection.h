@@ -4,12 +4,16 @@
 #include <vector>
 
 
-template<typename size_type=std::size_t>
-class DataPointCollection {
-public:
+namespace AIT {
 
-    virtual size_type Count() const = 0;
+	template<typename size_type = std::size_t>
+	class DataPointCollection {
+	public:
 
-};
+		virtual size_type Count() const = 0;
+
+	};
+
+}
 
 #endif

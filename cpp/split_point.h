@@ -6,13 +6,17 @@
 #include "data_point_collection.h"
 
 
-template<typename value_type=double, typename size_type=std::size_t>
-class SplitPoint {
-public:
-    enum class Direction {LEFT, RIGHT};
+namespace AIT {
 
-    virtual Direction Evaluate(const DataPointCollection &data_point_collection, size_type index) = 0;
-    
-};
+	enum class Direction { LEFT = -1, RIGHT = +1 };
+
+	//template<typename size_type = std::size_t>
+	//class SplitPoint {
+	//public:
+	//	virtual Direction Evaluate(const DataPointCollection &data_point_collection, size_type index) = 0;
+
+	//};
+
+}
 
 #endif
