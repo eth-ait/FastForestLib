@@ -4,10 +4,10 @@
 #include <memory>
 #include <vector>
 
-#include "data_point_collection.h"
-#include "split_point.h"
 
 namespace AIT {
+    
+    enum class Direction { LEFT = -1, RIGHT = +1 };
 
 	/// @brief A node of a decision tree.
 	template <typename TSplitPoint, typename TStatistics>
@@ -18,7 +18,7 @@ namespace AIT {
 	public:
 		typedef std::vector<int>::size_type size_type;
 
-		virtual Direction Evaluate(const DataPointCollection<> &data_point_collection, size_type index) const = 0;
+		~Node() {}
 
 		const TSplitPoint & GetSplitPoint() const {
 			return split_point_;

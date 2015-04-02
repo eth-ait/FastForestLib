@@ -4,3 +4,6 @@
 *.o
 *.mat
 *.so
+.metadata
+cpp_build
+RemoteSystemsTempFiles

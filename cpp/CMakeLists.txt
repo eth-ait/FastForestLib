@@ -11,6 +11,16 @@ include_directories( ${MATLAB_INCLUDE_DIR} )
 
 link_directories( ${MATLAB_LIB_DIR} )
 
-add_executable(forest_trainer forest_trainer.cpp)
+file(GLOB headers
+	"*.h"
+    "forest_trainer.cpp"
+)
 
-target_link_libraries(forest_trainer libmat libmx)
+add_executable(forest_trainer main_trainer.cpp ${headers})
+
+list(APPEND CMAKE_CXX_FLAGS "-std=c++0x" ${CMAKE_CXX_FLAGS})
+
+target_compile_features(forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+
+#target_link_libraries(forest_trainer libmat libmx)
+target_link_libraries(forest_trainer mat mx)
