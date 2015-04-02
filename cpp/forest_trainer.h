@@ -1,9 +1,11 @@
+#ifndef AITDistributedRandomForest_forest_trainer_h
+#define AITDistributedRandomForest_forest_trainer_h
+
 #include <iostream>
 #include <sstream>
 
 #include "forest.h"
 #include "weak_learner.h"
-
 
 namespace AIT {
 
@@ -153,3 +155,5 @@ namespace AIT {
 	};
 
 }
+
+#endif
