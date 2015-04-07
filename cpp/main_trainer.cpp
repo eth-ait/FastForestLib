@@ -47,7 +47,6 @@ int main(int argc, const char *argv[]) {
         
         std::vector<std::vector<std::size_t> > forest_leaf_indices = forest.Evaluate<AIT::ImageSample<> >(samples);
         
-        
         int match = 0;
         int no_match = 0;
         for (std::size_t i=0; i < forest.NumOfTrees(); i++) {
@@ -68,6 +67,14 @@ int main(int argc, const char *argv[]) {
         //        forest.Evaluate(samples, [] (const typename ForestType::NodeType &node) {
         //            std::cout << "a" << std::endl;
         //        });
+
+        AIT::Tree<AIT::ImageSplitPoint<>, AIT::HistogramStatistics<AIT::ImageSample<> > > tree = forest.GetTree(0);
+        AIT::TreeUtilities<AIT::ImageSplitPoint<>, AIT::HistogramStatistics<AIT::ImageSample<> >,
+        AIT::ImageSample<> > tree_utils(tree);
+        auto matrix = tree_utils.ComputeConfusionMatrix<3>(samples);
+        std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
+        auto norm_matrix = tree_utils.ComputeNormalizedConfusionMatrix<3>(samples);
+        std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
     }
     catch (const std::runtime_error &error) {
         std::cerr << "Runtime exception occured" << std::endl;

@@ -5,6 +5,8 @@
 #include <vector>
 #include <functional>
 
+#include <Eigen/Dense>
+
 #include "tree.h"
 
 namespace AIT {
@@ -58,20 +60,20 @@ namespace AIT {
 
         // TODO: Think about evaluation methods
         template <typename Sample>
-        void Evaluate(const std::vector<Sample> &samples, const std::function<void (const typename TreeType::ConstNodeIterator &)> &func) const {
+        void Evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &sample, const typename TreeType::ConstNodeIterator &)> &func) const {
             for (size_type i=0; i < NumOfTrees(); i++) {
                 const TreeType &tree = trees_[i];
                 for (auto it = samples.cbegin(); it != samples.cend(); it++) {
                     typename TreeType::ConstNodeIterator node_iter = tree.EvaluateToIterator(*it);
-                    func(node_iter);
+                    func(*it, node_iter);
                 }
             }
         }
 
         template <typename Sample>
-        void Evaluate(const std::vector<Sample> &samples, const std::function<void (const NodeType &)> &func) const {
-            Evaluate(samples, [&func] (const typename TreeType::ConstNodeIterator &node_iter) {
-//                func(*node_iter);
+        void Evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &sample, const NodeType &)> &func) const {
+            Evaluate(samples, [&func] (const Sample &sample, const typename TreeType::ConstNodeIterator &node_iter) {
+//                func(sample, *node_iter);
             });
         }
 
@@ -123,8 +125,21 @@ namespace AIT {
             return forest_leaf_nodes;
         }
         
-
 	};
+    
+    template <typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
+    class ForestUtilities {
+        typedef Forest<TSplitPoint, TStatistics> ForestType;
+        
+        const ForestType &forest_;
+    public:
+        ForestUtilities(const ForestType &forest)
+        : forest_(forest)
+        {}
+
+//        MatrixType ComputeConfusionMatrix() const {
+//        }
+    };
 
 }
 

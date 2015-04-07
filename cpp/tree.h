@@ -176,6 +176,22 @@ namespace AIT {
             }
             return node_iter.GetNodeIndex();
         }
+        
+        template <typename Sample>
+        void Evaluate(const std::vector<Sample> &samples, std::function<void (const Sample &, ConstNodeIterator &)> &func) const {
+            for (auto it = samples.cbegin(); it != samples.cend(); it++) {
+                ConstNodeIterator node_iter = EvaluateToIterator(*it);
+                func(*it, node_iter);
+            }
+        }
+
+        template <typename Sample>
+        void Evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &, const NodeType &)> &func) const {
+            std::function<void (const Sample &, ConstNodeIterator &)> func_wrapper = [&func] (const Sample &sample, ConstNodeIterator &node_iter) {
+                func(sample, *node_iter);
+            };
+            Evaluate(samples, func_wrapper);
+        }
 
 		/// @brief Evaluate a data-points on the tree.
 		/// @param data_point The data-point.
@@ -192,6 +208,7 @@ namespace AIT {
 			}
 			return node_iter;
 		}
+        
 
 	private:
 		// @brief Return the left child index of the specified node.
@@ -216,6 +233,47 @@ namespace AIT {
 		}
 
 	};
+    
+    template <typename TSplitPoint, typename TStatistics, typename TSample, typename TMatrix = Eigen::MatrixXd>
+    class TreeUtilities {
+        typedef Tree<TSplitPoint, TStatistics> TreeType;
+        
+        const TreeType &tree_;
+    public:
+        TreeUtilities(const TreeType &tree)
+        : tree_(tree)
+        {}
+        
+        // TODO: Samples should contain information on number of labels
+        template <int num_of_labels>
+        TMatrix ComputeConfusionMatrix(const std::vector<TSample> &samples) const {
+            TMatrix confusion_matrix(num_of_labels, num_of_labels);
+            confusion_matrix.setZero();
+            tree_.template Evaluate<TSample>(samples, [&confusion_matrix] (const TSample &sample, const typename TreeType::NodeType &node) {
+                                typename TSample::label_type true_label = sample.GetLabel();
+                                const TStatistics &statistics = node.GetStatistics();
+                                const auto &histogram = statistics.GetHistogram();
+                                typename TSample::label_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
+                                confusion_matrix(true_label, predicted_label)++;
+            });
+            return confusion_matrix;
+        }
+        
+        template <int num_of_labels>
+        TMatrix ComputeNormalizedConfusionMatrix(const std::vector<TSample> &samples) const {
+            TMatrix confusion_matrix = ComputeConfusionMatrix<num_of_labels>(samples);
+            auto row_sum = confusion_matrix.rowwise().sum();
+            TMatrix normalized_confusion_matrix = confusion_matrix;
+            std::cout << "row_sum: " << row_sum << std::endl;
+            for (int col=0; col < confusion_matrix.cols(); col++) {
+                for (int row=0; row < confusion_matrix.rows(); row++) {
+                    normalized_confusion_matrix(row, col) /= row_sum(row);
+                }
+            }
+            return normalized_confusion_matrix;
+        }
+
+    };
 
 }
 

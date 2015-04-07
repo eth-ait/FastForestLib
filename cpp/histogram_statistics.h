@@ -11,6 +11,7 @@ namespace AIT {
 	template <typename TSample, typename t_entropy_type = double, typename count_type = int>
 	class HistogramStatistics {
 	public:
+//        typedef int count_type;
 		typedef t_entropy_type entropy_type;
 		typedef typename TSample::label_type label_type;
 		typedef typename std::vector<count_type>::size_type size_type;
@@ -35,7 +36,7 @@ namespace AIT {
 		/// @brief Create a histogram from a vector of counts per class.
 		HistogramStatistics(const std::vector<count_type> &histogram)
 		: histogram_(histogram),
-			num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend())) {}
+        num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend())) {}
 
 		void Accumulate(const TSample &sample) {
 			label_type label = sample.GetLabel();

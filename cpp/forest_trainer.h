@@ -21,10 +21,10 @@ namespace AIT {
             return 100;
         }
         int NumOfThresholds() const {
-            return 10;
+            return 100;
         }
         int NumOfFeatures() const {
-            return 10;
+            return 100;
         }
         double MinimumInformationGain() const {
             return 0.0;
