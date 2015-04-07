@@ -22,5 +22,8 @@ list(APPEND CMAKE_CXX_FLAGS "-std=c++0x" ${CMAKE_CXX_FLAGS})
 
 target_compile_features(forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 
-#target_link_libraries(forest_trainer libmat libmx)
-target_link_libraries(forest_trainer mat mx)
+if(${MSVC})
+	target_link_libraries(forest_trainer libmat libmx)
+else(${MSVC})
+	target_link_libraries(forest_trainer mat mx)
+endif(${MSVC})

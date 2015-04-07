@@ -39,6 +39,7 @@ namespace AIT {
 	template <typename t_data_type = double, typename t_label_type = std::size_t>
 	class Image {
 	public:
+		typedef EIGEN_DEFAULT_DENSE_INDEX_TYPE size_type;
 		typedef t_data_type data_type;
 		typedef t_label_type label_type;
 		typedef Eigen::Matrix<data_type, Eigen::Dynamic, Eigen::Dynamic> DataMatrixType;
@@ -75,11 +76,11 @@ namespace AIT {
 			return label_matrix_;
 		}
         
-        int Width() const {
+        size_type Width() const {
             return data_matrix_.rows();
         }
 
-        int Height() const {
+        size_type Height() const {
             return data_matrix_.cols();
         }
 	};
@@ -185,6 +186,7 @@ namespace AIT {
 		}
 
 		virtual std::vector<ImageSplitPoint<> > SampleSplitPoints(TIterator first_sample, TIterator last_sample, size_type num_of_features, size_type num_of_thresholds, TRandomEngine &rnd_engine) const {
+			typedef typename std::vector<int>::size_type size_type;
 			std::vector<ImageSplitPoint<> > split_points;
             // TODO: Seed with parameter value
             // TOOD: Image width?
@@ -197,7 +199,7 @@ namespace AIT {
                 offsets_x.push_back(-offset_x);
                 offsets_x.push_back(+offset_x);
             }
-            std::uniform_int_distribution<int> offset_x_distribution(0, offsets_x.size());
+            std::uniform_int_distribution<size_type> offset_x_distribution(0, offsets_x.size() - 1);
 
             int offset_y_range_low = parameters_.FeatureOffsetYRangeLow();
             int offset_y_range_high = parameters_.FeatureOffsetYRangeHigh();
@@ -206,7 +208,7 @@ namespace AIT {
                 offsets_y.push_back(-offset_y);
                 offsets_y.push_back(+offset_y);
             }
-            std::uniform_int_distribution<int> offset_y_distribution(0, offsets_y.size());
+			std::uniform_int_distribution<size_type> offset_y_distribution(0, offsets_y.size() - 1);
 
             double threshold_range_low = parameters_.ThresholdRangeLow();
             double threshold_range_high = parameters_.ThresholdRangeHigh();
