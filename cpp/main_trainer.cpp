@@ -1,4 +1,4 @@
-#include <strstream>
+#include <sstream>
 #include <vector>
 #include <map>
 #include <random>
@@ -25,13 +25,15 @@ int main(int argc, const char *argv[]) {
         std::vector<AIT::ImageSample<> > samples;
         for (auto i = 0; i < images.size(); i++) {
             for (int x=0; x < images[i].GetDataMatrix().rows(); x++) {
-                int y = 0;
-                AIT::ImageSample<> sample(&images[i], x, y);
-                samples.push_back(std::move(sample));
+                for (int y=0; y < images[i].GetDataMatrix().cols(); y++) {
+//                int y = 0;
+					AIT::ImageSample<> sample(&images[i], x, y);
+					samples.push_back(std::move(sample));
+                }
             }
         }
         std::cout << "Done." << std::endl;
-        
+
         typedef std::mt19937_64 RandomEngine;
         typedef AIT::ImageSample<> SampleType;
         typedef std::vector<AIT::ImageSample<> >::iterator SampleIteratorType;

@@ -15,16 +15,16 @@ namespace AIT {
             return 1;
         }
         int TreeDepth() const {
-            return 15;
+            return 10;
         }
         int MinimumNumOfSamples() const {
             return 100;
         }
         int NumOfThresholds() const {
-            return 100;
+            return 10;
         }
         int NumOfFeatures() const {
-            return 100;
+            return 10;
         }
         double MinimumInformationGain() const {
             return 0.0;

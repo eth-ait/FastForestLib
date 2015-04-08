@@ -186,7 +186,7 @@ namespace AIT {
 		}
 
 		virtual std::vector<ImageSplitPoint<> > SampleSplitPoints(TIterator first_sample, TIterator last_sample, size_type num_of_features, size_type num_of_thresholds, TRandomEngine &rnd_engine) const {
-			typedef typename std::vector<int>::size_type size_type;
+			typedef typename std::vector<int>::size_type vec_size_type;
 			std::vector<ImageSplitPoint<> > split_points;
             // TODO: Seed with parameter value
             // TOOD: Image width?
@@ -199,7 +199,7 @@ namespace AIT {
                 offsets_x.push_back(-offset_x);
                 offsets_x.push_back(+offset_x);
             }
-            std::uniform_int_distribution<size_type> offset_x_distribution(0, offsets_x.size() - 1);
+            std::uniform_int_distribution<vec_size_type> offset_x_distribution(0, offsets_x.size() - 1);
 
             int offset_y_range_low = parameters_.FeatureOffsetYRangeLow();
             int offset_y_range_high = parameters_.FeatureOffsetYRangeHigh();
@@ -208,7 +208,7 @@ namespace AIT {
                 offsets_y.push_back(-offset_y);
                 offsets_y.push_back(+offset_y);
             }
-			std::uniform_int_distribution<size_type> offset_y_distribution(0, offsets_y.size() - 1);
+			std::uniform_int_distribution<vec_size_type> offset_y_distribution(0, offsets_y.size() - 1);
 
             double threshold_range_low = parameters_.ThresholdRangeLow();
             double threshold_range_high = parameters_.ThresholdRangeHigh();

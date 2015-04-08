@@ -83,7 +83,7 @@ def load_configuration_from_python_file(filename):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
-        print("Usage: python {} <data file> <number of samples per image> <forest file> [configuration file]".format(sys.argv[0]))
+        print("Usage: python {} <data file> <forest file> [configuration file]".format(sys.argv[0]))
         sys.exit(1)
 
     matlab_file = sys.argv[1]

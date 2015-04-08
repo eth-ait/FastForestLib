@@ -65,8 +65,8 @@ namespace AIT {
 		std::vector<ImageType> images;
 
 		for (int i = 0; i < num_of_images; i++) {
-			ImageType::DataMatrixType data_matrix(width, height);
-			ImageType::LabelMatrixType label_matrix(width, height);
+			typename ImageType::DataMatrixType data_matrix(width, height);
+			typename ImageType::LabelMatrixType label_matrix(width, height);
 			for (int x = 0; x < width; x++) {
 				for (int y = 0; y < height; y++) {
 					data_matrix(x, y) = static_cast<data_type>(data_ptr[x + y * width + i * width * height]);
