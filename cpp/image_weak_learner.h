@@ -118,14 +118,93 @@ namespace AIT {
             return y_;
         }
 	};
+
+//    template <typename data_type = double, typename label_type = std::size_t, typename offset_type = int>
+//	class ImageSplitPoint {
+//        offset_type offset_x1_;
+//        offset_type offset_y1_;
+//        offset_type offset_x2_;
+//        offset_type offset_y2_;
+//        data_type threshold_;
+//        
+//        inline data_type ComputePixelDifference(const ImageSample<data_type, label_type> &sample) const {
+//            data_type pixel1_value = ComputePixelValue(sample, offset_x1_, offset_y1_);
+//            data_type pixel2_value = ComputePixelValue(sample, offset_x2_, offset_y2_);
+//            return  pixel1_value - pixel2_value;
+//        }
+//        
+//        inline data_type ComputePixelValue(const ImageSample<data_type, label_type> &sample, offset_type offset_x, offset_type offset_y) const {
+//            const Image<data_type, label_type> &image = sample.GetImage();
+//            offset_type x = sample.GetX();
+//            offset_type y = sample.GetY();
+//            data_type pixel_value;
+//            if (x + offset_x < 0 || x + offset_x >= image.Width() || y + offset_y < 0 || y + offset_y >= image.Height())
+//                pixel_value = 0;
+//            else
+//                pixel_value = image.GetDataMatrix()(x + offset_x, y + offset_y);
+//            return pixel_value;
+//        }
+//
+//    public:
+//        ImageSplitPoint() {}
+//
+//        ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, data_type threshold)
+//        : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold) {}
+//
+//        data_type ComputeSplitPointValue(const ImageSample<data_type, label_type> &sample) const {
+//            return ComputePixelDifference(sample);
+//        }
+//
+//		Direction Evaluate(const ImageSample<data_type, label_type> &sample) const {
+//            data_type pixel_difference = ComputePixelDifference(sample);
+//            if (pixel_difference < threshold_)
+//                return Direction::LEFT;
+//            else
+//                return Direction::RIGHT;
+//        }
+//
+//        Direction Evaluate(data_type value) const {
+//            if (value < threshold_)
+//                return Direction::LEFT;
+//            else
+//                return Direction::RIGHT;
+//        }
+//
+//        data_type GetThreshold() const {
+//            return threshold_;
+//        }
+//
+//	};
     
+    template <typename data_type = double>
+    class Threshold {
+        data_type threshold_;
+
+    public:
+        Threshold() {}
+        
+        Threshold(data_type threshold)
+        : threshold_(threshold) {}
+
+        data_type GetThreshold() const {
+            return threshold_;
+        }
+
+        Direction Evaluate(data_type value) const {
+            if (value < threshold_)
+                return Direction::LEFT;
+            else
+                return Direction::RIGHT;
+        }
+        
+    };
+
     template <typename data_type = double, typename label_type = std::size_t, typename offset_type = int>
-	class ImageSplitPoint {
+    class ImageFeature {
         offset_type offset_x1_;
         offset_type offset_y1_;
         offset_type offset_x2_;
         offset_type offset_y2_;
-        data_type threshold_;
         
         inline data_type ComputePixelDifference(const ImageSample<data_type, label_type> &sample) const {
             data_type pixel1_value = ComputePixelValue(sample, offset_x1_, offset_y1_);
@@ -144,27 +223,24 @@ namespace AIT {
                 pixel_value = image.GetDataMatrix()(x + offset_x, y + offset_y);
             return pixel_value;
         }
-
+        
     public:
-        ImageSplitPoint() {}
-
-        ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, data_type threshold)
-        : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold) {}
-
-		Direction Evaluate(const ImageSample<data_type, label_type> &sample) const {
-            data_type pixel_difference = ComputePixelDifference(sample);
-            if (pixel_difference < threshold_)
-                return Direction::LEFT;
-            else
-                return Direction::RIGHT;
+        ImageFeature() {}
+        
+        ImageFeature(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2)
+        : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2)
+        {}
+        
+        data_type ComputeFeatureValue(const ImageSample<data_type, label_type> &sample) const {
+            return ComputePixelDifference(sample);
         }
 
-	};
-
+    };
+    
     template <typename TStatistics, typename TIterator, typename TRandomEngine, typename size_type = std::size_t>
 	// TODO: ImageSplitPoint template parameter
-	class ImageWeakLearner : public WeakLearner<ImageSplitPoint<>, TStatistics, TIterator, TRandomEngine, size_type> {
-        typedef WeakLearner<ImageSplitPoint<>, TStatistics, TIterator, TRandomEngine, size_type> BaseType;
+	class ImageWeakLearner : public WeakLearner<ImageFeature<>, Threshold<>, TStatistics, TIterator, TRandomEngine, size_type> {
+        typedef WeakLearner<ImageFeature<>, Threshold<>, TStatistics, TIterator, TRandomEngine, size_type> BaseType;
 
         const ImageWeakLearnerParameters parameters_;
 
@@ -175,7 +251,7 @@ namespace AIT {
         : parameters_(parameters)
         {}
 
-		virtual ~ImageWeakLearner() {}
+		~ImageWeakLearner() {}
 
 		virtual TStatistics ComputeStatistics(TIterator first_sample, TIterator last_sample) const {
 			TStatistics statistics;
@@ -188,6 +264,10 @@ namespace AIT {
 		virtual std::vector<ImageSplitPoint<> > SampleSplitPoints(TIterator first_sample, TIterator last_sample, size_type num_of_features, size_type num_of_thresholds, TRandomEngine &rnd_engine) const {
 			typedef typename std::vector<int>::size_type vec_size_type;
 			std::vector<ImageSplitPoint<> > split_points;
+		virtual SplitPointCollection<ImageFeature<>, Threshold<> > SampleSplitPoints(TIterator first_sample, TIterator last_sample, size_type num_of_features, size_type num_of_thresholds, TRandomEngine &rnd_engine) const {
+			typedef typename std::vector<int>::size_type vec_size_type;
+            SplitPointCollection<ImageFeature<>, Threshold<> > split_points;
+//			std::vector<ImageSplitPoint<> > split_points;
             // TODO: Seed with parameter value
             // TOOD: Image width?
 
@@ -219,56 +299,53 @@ namespace AIT {
                 int offset_y1 = offsets_y[offset_y_distribution(rnd_engine)];
                 int offset_x2 = offsets_x[offset_x_distribution(rnd_engine)];
                 int offset_y2 = offsets_y[offset_y_distribution(rnd_engine)];
+                ImageFeature<> feature(offset_x1, offset_y1, offset_x2, offset_y2);
+                split_points.AddFeature(feature);
 				for (size_type i_t=0; i_t < num_of_thresholds; i_t++) {
                     double threshold = threshold_distribution(rnd_engine);
-                    ImageSplitPoint<> split_point(offset_x1, offset_y1, offset_x2, offset_y2, threshold);
-					split_points.push_back(split_point);
+//                    ImageSplitPoint<> split_point(offset_x1, offset_y1, offset_x2, offset_y2, threshold);)
+//					split_points.push_back(split_point);
+                    split_points.AddThreshold(i_f, threshold);
 				}
 			}
 			return split_points;
 		}
 
-		virtual SplitStatistics<TStatistics> ComputeSplitStatistics(TIterator first_sample, TIterator last_sample, const std::vector<ImageSplitPoint<> > &split_points) const {
-			std::vector<TStatistics> left_statistics_collection;
-			std::vector<TStatistics> right_statistics_collection;
-			for (auto split_point_it = split_points.cbegin(); split_point_it != split_points.cend(); split_point_it++) {
-				TStatistics left_statistics;
-				TStatistics right_statistics;
-				for (TIterator sample_it=first_sample; sample_it != last_sample; sample_it++) {
-					Direction direction = split_point_it->Evaluate(*sample_it);
-					if (direction == Direction::LEFT)
-						left_statistics.Accumulate(*sample_it);
-					else
-						right_statistics.Accumulate(*sample_it);
-				}
-				left_statistics_collection.push_back(std::move(left_statistics));
-				right_statistics_collection.push_back(std::move(right_statistics));
-			}
-			return SplitStatistics<TStatistics>(std::move(left_statistics_collection), std::move(right_statistics_collection));
-		}
-
-		virtual std::tuple<size_type, entropy_type> FindBestSplitPoint(const TStatistics &current_statistics, const SplitStatistics<TStatistics> &split_statistics) const {
-			size_type best_index = 0;
-            entropy_type best_information_gain = -std::numeric_limits<entropy_type>::infinity();
-            for (size_type i=0; i < split_statistics.Count(); i++) {
-                entropy_type information_gain = ComputeInformationGain(current_statistics, split_statistics.GetLeftStatistics(i), split_statistics.GetRightStatistics(i));
-                if (information_gain > best_information_gain) {
-                    best_information_gain = information_gain;
-                    best_index = i;
-                }
+        virtual SplitStatistics<TStatistics> ComputeSplitStatistics(TIterator first_sample, TIterator last_sample, const SplitPointCollection<ImageFeature<>, Threshold<> > &split_points) const {
+            std::vector<std::vector<TStatistics> > left_statistics_collection;
+            std::vector<std::vector<TStatistics> > right_statistics_collection;
+            left_statistics_collection.resize(split_points.GetNumOfFeatures());
+            right_statistics_collection.resize(split_points.GetNumOfFeatures());
+            for (size_type i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
+                left_statistics_collection[i_f].resize(split_points.GetNumOfThresholds(i_f));
+                right_statistics_collection[i_f].resize(split_points.GetNumOfThresholds(i_f));
             }
-            return std::make_tuple(best_index, best_information_gain);
+            // TODO
+//			std::vector<TStatistics> left_statistics_collection;
+//			std::vector<TStatistics> right_statistics_collection;
+//            for (auto feature_it = features.cbegin(); feature_it !+ features.cend(); feature_it++) {
+            for (size_type i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
+                const ImageFeature<> &feature = split_points.GetFeature(i_f);
+//			for (auto split_point_it = split_points.cbegin(); split_point_it != split_points.cend(); split_point_it++) {
+                for (TIterator sample_it=first_sample; sample_it != last_sample; sample_it++) {
+                    double value = feature.ComputeFeatureValue(*sample_it);
+//                    Direction direction = split_point_it->Evaluate(*sample_it);
+                     for (size_type i_t = 0; i_t < split_points.GetNumOfThresholds(i_f); i_t++) {
+                         Direction direction = split_points.GetThreshold(i_f, i_t).Evaluate(value);
+                        if (direction == Direction::LEFT)
+                            left_statistics_collection[i_f][i_t].Accumulate(*sample_it);
+                        else
+                            right_statistics_collection[i_f][i_t].Accumulate(*sample_it);
+                     }
+				}
+//				left_statistics_collection.push_back(std::move(left_statistics));
+//				right_statistics_collection.push_back(std::move(right_statistics));
+            }
+            SplitStatistics<TStatistics> split_statistics(std::move(left_statistics_collection), std::move(right_statistics_collection));
+            return split_statistics;
 		}
 
-        entropy_type ComputeInformationGain(const TStatistics &current_statistics, const TStatistics &left_statistics, const TStatistics &right_statistics) const {
-            entropy_type current_entropy = current_statistics.Entropy();
-            entropy_type left_entropy = left_statistics.Entropy();
-            entropy_type right_entropy = right_statistics.Entropy();
-            entropy_type information_gain = current_entropy
-                - (left_statistics.NumOfSamples() * left_entropy + right_statistics.NumOfSamples() * right_entropy) / static_cast<entropy_type>(current_statistics.NumOfSamples());
-            return information_gain;
-        }
-	};
+    };
 
       //friend std::ostream & operator<<(std::ostream &os, const SplitPoint &splitPoint);
       //virtual void writeToStream(std::ostream &os);

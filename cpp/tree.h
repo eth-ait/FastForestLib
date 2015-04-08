@@ -264,7 +264,6 @@ namespace AIT {
             TMatrix confusion_matrix = ComputeConfusionMatrix<num_of_labels>(samples);
             auto row_sum = confusion_matrix.rowwise().sum();
             TMatrix normalized_confusion_matrix = confusion_matrix;
-            std::cout << "row_sum: " << row_sum << std::endl;
             for (int col=0; col < confusion_matrix.cols(); col++) {
                 for (int row=0; row < confusion_matrix.rows(); row++) {
                     normalized_confusion_matrix(row, col) /= row_sum(row);

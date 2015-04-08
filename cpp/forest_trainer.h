@@ -33,10 +33,11 @@ namespace AIT {
 
 	template <typename TSample, typename TWeakLearner, typename TTrainingParameters, typename TRandomEngine>
 	class ForestTrainer {
-	public:
-        typedef typename TWeakLearner::SplitPoint SplitPoint;
+    public:
         typedef typename TWeakLearner::Statistics Statistics;
-        typedef typename TWeakLearner::Iterator SampleIterator;
+        typedef typename TWeakLearner::SampleIterator SampleIterator;
+        typedef typename TWeakLearner::_SplitPoint SplitPoint;
+        typedef typename TWeakLearner::_SplitPointCollection SplitPointCollection;
         typedef typename AIT::Tree<SplitPoint, Statistics>::NodeIterator NodeIterator;
 
 	private:
@@ -74,7 +75,7 @@ namespace AIT {
                 return;
             }
 
-			std::vector<typename TWeakLearner::SplitPoint> split_points = weak_learner_.SampleSplitPoints(i_start, i_end, training_parameters_.NumOfFeatures(), training_parameters_.NumOfThresholds(), rnd_engine);
+            SplitPointCollection split_points = weak_learner_.SampleSplitPoints(i_start, i_end, training_parameters_.NumOfFeatures(), training_parameters_.NumOfThresholds(), rnd_engine);
 
 			// TODO: distribute features and thresholds to ranks > 0
 
@@ -89,11 +90,11 @@ namespace AIT {
 				// split_statistics.accumulate(statistics)
 
 			// find the best feature(only on rank 0)
-			std::tuple<typename TWeakLearner::size_type, typename TWeakLearner::entropy_type> best_split_point_tuple = weak_learner_.FindBestSplitPoint(statistics, split_statistics);
+			std::tuple<typename TWeakLearner::size_type, typename TWeakLearner::size_type, typename TWeakLearner::entropy_type> best_split_point_tuple = weak_learner_.FindBestSplitPoint(statistics, split_statistics);
 
 			// TODO: send best feature, threshold and information gain to ranks > 0
 
-			typename TWeakLearner::entropy_type best_information_gain = std::get<1>(best_split_point_tuple);
+			typename TWeakLearner::entropy_type best_information_gain = std::get<2>(best_split_point_tuple);
 			// TODO: move criterion into trainingContext ?
 			// stop splitting the node if the best information gain is below the minimum information gain
 			if (best_information_gain < training_parameters_.MinimumInformationGain()) {
@@ -105,9 +106,10 @@ namespace AIT {
 			// partition sample_indices according to the selected feature and threshold.
 			// i.e.sample_indices[:i_split] will contain the left child indices
 			// and sample_indices[i_split:] will contain the right child indices
-			typename TWeakLearner::size_type best_split_point_index = std::get<0>(best_split_point_tuple);
-			typename TWeakLearner::SplitPoint best_split_point = split_points[best_split_point_index];
-			typename TWeakLearner::Iterator i_split = weak_learner_.Partition(i_start, i_end, best_split_point);
+            typename TWeakLearner::size_type best_feature_index = std::get<0>(best_split_point_tuple);
+            typename TWeakLearner::size_type best_threshold_index = std::get<1>(best_split_point_tuple);
+            typename TWeakLearner::_SplitPoint best_split_point = split_points.GetSplitPoint(best_feature_index, best_threshold_index);
+			typename TWeakLearner::SampleIterator i_split = weak_learner_.Partition(i_start, i_end, best_split_point);
 
 			node_iter->SetSplitPoint(best_split_point);
 
