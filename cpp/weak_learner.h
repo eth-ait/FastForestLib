@@ -107,6 +107,17 @@ namespace AIT {
         SplitStatistics()
         {}
 
+		template <typename TFeature, typename TThreshold>
+		SplitStatistics(const SplitPointCollection<TFeature, TThreshold> &split_points)
+		{
+			left_statistics_collection_.resize(split_points.GetNumOfFeatures());
+			right_statistics_collection_.resize(split_points.GetNumOfFeatures());
+			for (size_type i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
+				left_statistics_collection_[i_f].resize(split_points.GetNumOfThresholds(i_f));
+				right_statistics_collection_[i_f].resize(split_points.GetNumOfThresholds(i_f));
+			}
+		}
+
         // TODO
         SplitStatistics(std::vector<std::vector<TStatistics> > &&left_statistics_collection, std::vector<std::vector<TStatistics> > &&right_statistics_collection)
 			: left_statistics_collection_(left_statistics_collection), right_statistics_collection_(right_statistics_collection)

@@ -309,36 +309,23 @@ namespace AIT {
 		}
 
         virtual SplitStatistics<TStatistics> ComputeSplitStatistics(TIterator first_sample, TIterator last_sample, const SplitPointCollection<ImageFeature<>, Threshold<> > &split_points) const {
-            std::vector<std::vector<TStatistics> > left_statistics_collection;
-            std::vector<std::vector<TStatistics> > right_statistics_collection;
-            left_statistics_collection.resize(split_points.GetNumOfFeatures());
-            right_statistics_collection.resize(split_points.GetNumOfFeatures());
-            for (size_type i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
-                left_statistics_collection[i_f].resize(split_points.GetNumOfThresholds(i_f));
-                right_statistics_collection[i_f].resize(split_points.GetNumOfThresholds(i_f));
-            }
-            // TODO
-//			std::vector<TStatistics> left_statistics_collection;
-//			std::vector<TStatistics> right_statistics_collection;
-//            for (auto feature_it = features.cbegin(); feature_it !+ features.cend(); feature_it++) {
-            for (size_type i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
+			// we create statistics for all features and thresholds here so that we can easily parallelize the loop below
+			SplitStatistics<TStatistics> split_statistics(split_points);
+			#pragma omp parallel for
+			// we have to use signed int here because of OpenMP < 3.0
+			for (int i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
                 const ImageFeature<> &feature = split_points.GetFeature(i_f);
-//			for (auto split_point_it = split_points.cbegin(); split_point_it != split_points.cend(); split_point_it++) {
                 for (TIterator sample_it=first_sample; sample_it != last_sample; sample_it++) {
                     double value = feature.ComputeFeatureValue(*sample_it);
-//                    Direction direction = split_point_it->Evaluate(*sample_it);
                      for (size_type i_t = 0; i_t < split_points.GetNumOfThresholds(i_f); i_t++) {
                          Direction direction = split_points.GetThreshold(i_f, i_t).Evaluate(value);
-                        if (direction == Direction::LEFT)
-                            left_statistics_collection[i_f][i_t].Accumulate(*sample_it);
+						 if (direction == Direction::LEFT)
+							 split_statistics.GetLeftStatistics(i_f, i_t).Accumulate(*sample_it);
                         else
-                            right_statistics_collection[i_f][i_t].Accumulate(*sample_it);
+							split_statistics.GetRightStatistics(i_f, i_t).Accumulate(*sample_it);
                      }
 				}
-//				left_statistics_collection.push_back(std::move(left_statistics));
-//				right_statistics_collection.push_back(std::move(right_statistics));
-            }
-            SplitStatistics<TStatistics> split_statistics(std::move(left_statistics_collection), std::move(right_statistics_collection));
+			}
             return split_statistics;
 		}
 

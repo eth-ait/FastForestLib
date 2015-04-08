@@ -176,10 +176,27 @@ namespace AIT {
             }
             return node_iter.GetNodeIndex();
         }
-        
+
+		template <typename Sample>
+		void EvaluateParallel(const std::vector<Sample> &samples, std::function<void(const Sample &, ConstNodeIterator &)> &func) const {
+			#pragma omp parallel for
+			for (int i = 0; i < samples.size(); i++) {
+				ConstNodeIterator node_iter = EvaluateToIterator(samples[i]);
+				func(samples[i], node_iter);
+			}
+		}
+
+		template <typename Sample>
+		void EvaluateParallel(const std::vector<Sample> &samples, const std::function<void(const Sample &, const NodeType &)> &func) const {
+			std::function<void(const Sample &, ConstNodeIterator &)> func_wrapper = [&func](const Sample &sample, ConstNodeIterator &node_iter) {
+				func(sample, *node_iter);
+			};
+			EvaluateParallel(samples, func_wrapper);
+		}
+
         template <typename Sample>
-        void Evaluate(const std::vector<Sample> &samples, std::function<void (const Sample &, ConstNodeIterator &)> &func) const {
-            for (auto it = samples.cbegin(); it != samples.cend(); it++) {
+		void Evaluate(const std::vector<Sample> &samples, std::function<void(const Sample &, ConstNodeIterator &)> &func) const {
+			for (auto it = samples.cbegin(); it != samples.cend(); it++) {
                 ConstNodeIterator node_iter = EvaluateToIterator(*it);
                 func(*it, node_iter);
             }
@@ -249,13 +266,20 @@ namespace AIT {
         TMatrix ComputeConfusionMatrix(const std::vector<TSample> &samples) const {
             TMatrix confusion_matrix(num_of_labels, num_of_labels);
             confusion_matrix.setZero();
-            tree_.template Evaluate<TSample>(samples, [&confusion_matrix] (const TSample &sample, const typename TreeType::NodeType &node) {
+            /*tree_.template Evaluate<TSample>(samples, [&confusion_matrix] (const TSample &sample, const typename TreeType::NodeType &node) {
                                 typename TSample::label_type true_label = sample.GetLabel();
                                 const TStatistics &statistics = node.GetStatistics();
                                 const auto &histogram = statistics.GetHistogram();
                                 typename TSample::label_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
                                 confusion_matrix(true_label, predicted_label)++;
-            });
+			});*/
+			tree_.template EvaluateParallel<TSample>(samples, [&confusion_matrix](const TSample &sample, const typename TreeType::NodeType &node) {
+				typename TSample::label_type true_label = sample.GetLabel();
+				const TStatistics &statistics = node.GetStatistics();
+				const auto &histogram = statistics.GetHistogram();
+				typename TSample::label_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
+				confusion_matrix(true_label, predicted_label)++;
+			});
             return confusion_matrix;
         }
         

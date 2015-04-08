@@ -3,6 +3,7 @@
 #include <map>
 #include <random>
 #include <iostream>
+#include <chrono>
 
 #include "histogram_statistics.h"
 #include "image_weak_learner.h"
@@ -26,7 +27,7 @@ int main(int argc, const char *argv[]) {
         for (auto i = 0; i < images.size(); i++) {
             for (int x=0; x < images[i].GetDataMatrix().rows(); x++) {
                 for (int y=0; y < images[i].GetDataMatrix().cols(); y++) {
-//                int y = 0;
+                //int y = 0;
 					AIT::ImageSample<> sample(&images[i], x, y);
 					samples.push_back(std::move(sample));
                 }
@@ -46,7 +47,16 @@ int main(int argc, const char *argv[]) {
         AIT::ForestTrainer<AIT::ImageSample<>, WeakLearnerType, AIT::TrainingParameters, RandomEngine> trainer(iwl, training_parameters);
 		typedef AIT::SplitPoint<AIT::ImageFeature<>, AIT::Threshold<> > ImageSplitPoint;
         typedef AIT::Forest<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> > > ForestType;
-        ForestType forest = trainer.TrainForest(samples);
+
+		//std::time_t start_time = std::time(nullptr);
+		auto start_time = std::chrono::high_resolution_clock::now();
+		ForestType forest = trainer.TrainForest(samples);
+		auto stop_time = std::chrono::high_resolution_clock::now();
+		auto duration = stop_time - start_time;
+		auto period = std::chrono::high_resolution_clock::period();
+		double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
+		//std::time_t stop_time = std::time(nullptr);
+		std::cout << "Running time: " << elapsed_seconds<< std::endl;
         
         std::vector<std::vector<std::size_t> > forest_leaf_indices = forest.Evaluate<AIT::ImageSample<> >(samples);
         
