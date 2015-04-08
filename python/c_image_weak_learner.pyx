@@ -517,7 +517,7 @@ cdef class Predictor:
             for k in xrange(num_of_samples):
             #for k in prange(num_of_samples):
                 sample_index = sample_indices[k]
-                node_index = self._find_node(tree_matrix, sample_index, evaluator, max_evaluation_depth)
+                node_index = self._find_node(tree_matrix, sample_index, evaluator, stop_node_index)
                 for j in xrange(num_of_labels):
                     aggregate_histogram[k, j] += <np.int64_t>tree_matrix[node_index, 5 + j]
         return HistogramStatistics.create_from_histogram_array(aggregate_histogram)

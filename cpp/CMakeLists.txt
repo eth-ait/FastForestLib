@@ -4,13 +4,16 @@ project("AITDistributedRandomForest")
 
 set(CMAKE_MODULE_PATH ${AITDistributedRandomForest_SOURCE_DIR}/cmake)
 
-find_package(OpenMP)
+if(!${APPLE})
+    find_package(OpenMP)
+endif(!${APPLE})
+
 find_package(Eigen3 3.1.2 REQUIRED)
 
-if(!${MSVC})
+if(!${MSVC} AND !${APPLE})
 	find_package(MATLAB REQUIRED)
 	set(MATLAB_LIB_DIR ${MATLAB_MX_LIBRARY})
-endif(!${MSVC})
+endif(!${MSVC} AND !${APPLE})
 
 include_directories( ${EIGEN3_INCLUDE_DIR} )
 include_directories( ${MATLAB_INCLUDE_DIR} )
@@ -34,5 +37,6 @@ endif(${MSVC})
 if(${MSVC})
 	target_link_libraries(forest_trainer libmat libmx)
 else(${MSVC})
-	target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
+	target_link_libraries(forest_trainer mat mx)
+    #target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
 endif(${MSVC})

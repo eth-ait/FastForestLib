@@ -30,7 +30,6 @@ def run(forest_file, test_data_file, config, profiler=None):
             max_evaluation_depth = config.testing_parameters['max_evaluation_depth']
         else:
             max_evaluation_depth = -1
-        print('max_evaluation_depth={}'.format(max_evaluation_depth))
         aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image,
                                                                             max_evaluation_depth=max_evaluation_depth)
         predicted_labels = np.argmax(aggregate_statistics.histogram, 1)

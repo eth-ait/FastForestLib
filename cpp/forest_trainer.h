@@ -44,6 +44,11 @@ namespace AIT {
 		const TWeakLearner weak_learner_;
 		const TTrainingParameters training_parameters_;
 
+        void output_spaces(std::ostream &stream, int num_of_spaces) const {
+            for (int i = 0; i < num_of_spaces; i++)
+                stream << " ";
+        }
+
 	public:
 		ForestTrainer(const TWeakLearner &weak_learner, const TTrainingParameters &training_parameters)
 			: weak_learner_(weak_learner), training_parameters_(training_parameters)
@@ -52,11 +57,12 @@ namespace AIT {
         void TrainTreeRecursive(NodeIterator node_iter, SampleIterator i_start, SampleIterator i_end, TRandomEngine &rnd_engine, int current_depth = 0) const
         {
             // TODO: Remove io operations
-			std::ostringstream o_stream;
-			for (int i = 0; i < current_depth; i++)
-				o_stream << " ";
-			const std::string prefix = o_stream.str();
-			std::cout << prefix << "depth: " << current_depth << ", samples: " << (i_end - i_start) << std::endl;
+//			std::ostringstream o_stream;
+//			for (int i = 0; i < current_depth; i++)
+//				o_stream << " ";
+//			const std::string prefix = o_stream.str();
+            output_spaces(std::cout, current_depth);
+			std::cout << "depth: " << current_depth << ", samples: " << (i_end - i_start) << std::endl;
 
 			// assign statistics to node
 			typename TWeakLearner::Statistics statistics = weak_learner_.ComputeStatistics(i_start, i_end);
@@ -64,14 +70,16 @@ namespace AIT {
 
 			// stop splitting the node if the minimum number of samples has been reached
 			if (i_end - i_start < training_parameters_.MinimumNumOfSamples()) {
-				//node.leaf_node = True
-				std::cout << prefix << "Minimum number of samples. Stopping." << std::endl;
+                //node.leaf_node = True
+                output_spaces(std::cout, current_depth);
+				std::cout << "Minimum number of samples. Stopping." << std::endl;
 				return;
 			}
 
 			// stop splitting the node if it is a leaf node
             if (node_iter.IsLeafNode()) {
-                std::cout << prefix << "Reached leaf node. Stopping." << std::endl;
+                output_spaces(std::cout, current_depth);
+                std::cout << "Reached leaf node. Stopping." << std::endl;
                 return;
             }
 
@@ -98,8 +106,9 @@ namespace AIT {
 			// TODO: move criterion into trainingContext ?
 			// stop splitting the node if the best information gain is below the minimum information gain
 			if (best_information_gain < training_parameters_.MinimumInformationGain()) {
-				//node.leaf_node = True
-				std::cout << prefix << "Too little information gain. Stopping." << std::endl;
+                //node.leaf_node = True
+                output_spaces(std::cout, current_depth);
+				std::cout << "Too little information gain. Stopping." << std::endl;
 				return;
 			}
 

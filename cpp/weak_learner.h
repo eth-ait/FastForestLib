@@ -62,10 +62,6 @@ namespace AIT {
             thresholds_[feature_index].push_back(threshold);
         }
 
-//        const std::vector<TThreshold> & GetThresholds(size_type feature_index) const {
-//            return thresholds_[feature_index];
-//        }
-
         size_type GetNumOfFeatures() const {
             return features_.size();
         }
@@ -85,14 +81,6 @@ namespace AIT {
         SplitPoint<TFeature, TThreshold> GetSplitPoint(size_type feature_index, size_type threshold_index) const {
             return SplitPoint<TFeature, TThreshold>(features_[feature_index], thresholds_[feature_index][threshold_index]);
         }
-
-        // TODO
-        /*template <typename TSample>
-        Direction Evaluate(size_type feature_index, size_type threshold_index, const TSample &sample) const {
-            const TFeature &feature = features_[feature_index];
-            const TThreshold &threshold = thresholds_[feature_index][threshold_index];
-            return threshold.Evaluate(sample);
-        }*/
 
     };
 
@@ -190,7 +178,7 @@ namespace AIT {
 
         WeakLearner()
         {}
-        
+
 		virtual ~WeakLearner()
         {}
         
@@ -207,8 +195,6 @@ namespace AIT {
             size_type best_feature_index = 0;
             size_type best_threshold_index = 0;
             entropy_type best_information_gain = -std::numeric_limits<entropy_type>::infinity();
-            // TODO: use iterator
-//            for (auto it = split_statistics.cbegin(); it != split_statistics.cend(); it++) {
             for (size_type i_f=0; i_f < split_statistics.GetNumOfFeatures(); i_f++) {
                 for (size_type i_t=0; i_t < split_statistics.GetNumOfThresholds(i_f); i_t++) {
                     entropy_type information_gain = ComputeInformationGain(current_statistics,
@@ -221,7 +207,6 @@ namespace AIT {
                     }
                 }
             }
-            // TODO
             return std::make_tuple(best_feature_index, best_threshold_index, best_information_gain);
         }
         

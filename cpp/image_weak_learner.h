@@ -238,7 +238,6 @@ namespace AIT {
     };
     
     template <typename TStatistics, typename TIterator, typename TRandomEngine, typename size_type = std::size_t>
-	// TODO: ImageSplitPoint template parameter
 	class ImageWeakLearner : public WeakLearner<ImageFeature<>, Threshold<>, TStatistics, TIterator, TRandomEngine, size_type> {
         typedef WeakLearner<ImageFeature<>, Threshold<>, TStatistics, TIterator, TRandomEngine, size_type> BaseType;
 
@@ -268,7 +267,7 @@ namespace AIT {
             // TODO: Seed with parameter value
             // TOOD: Image width?
 
-            // TODO: Fix discrete distributions
+            // TODO: Fix discrete offset distributions
             int offset_x_range_low = parameters_.FeatureOffsetXRangeLow();
             int offset_x_range_high = parameters_.FeatureOffsetXRangeHigh();
             std::vector<int> offsets_x;
@@ -300,8 +299,6 @@ namespace AIT {
                 split_points.AddFeature(feature);
 				for (size_type i_t=0; i_t < num_of_thresholds; i_t++) {
                     double threshold = threshold_distribution(rnd_engine);
-//                    ImageSplitPoint<> split_point(offset_x1, offset_y1, offset_x2, offset_y2, threshold);)
-//					split_points.push_back(split_point);
                     split_points.AddThreshold(i_f, threshold);
 				}
 			}
