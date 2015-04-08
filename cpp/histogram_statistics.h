@@ -38,7 +38,7 @@ namespace AIT {
 		: histogram_(histogram),
         num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend())) {}
 
-		void Accumulate(const TSample &sample) {
+		inline void Accumulate(const TSample &sample) {
 			label_type label = sample.GetLabel();
 			if (label >= histogram_.size())
 				histogram_.resize(label + 1);
@@ -57,7 +57,7 @@ namespace AIT {
 		}
 
 		/// @return: The Shannon entropy of the histogram.
-		const entropy_type Entropy() const {
+		inline const entropy_type Entropy() const {
 			entropy_type entropy = 0;
 			for (auto it=histogram_.cbegin(); it != histogram_.cend(); it++) {
 				const entropy_type count = static_cast<entropy_type>(*it);

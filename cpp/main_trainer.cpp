@@ -44,7 +44,8 @@ int main(int argc, const char *argv[]) {
         AIT::TrainingParameters training_parameters;
         
         AIT::ForestTrainer<AIT::ImageSample<>, WeakLearnerType, AIT::TrainingParameters, RandomEngine> trainer(iwl, training_parameters);
-        typedef AIT::Forest<AIT::ImageSplitPoint<>, AIT::HistogramStatistics<AIT::ImageSample<> > > ForestType;
+		typedef AIT::SplitPoint<AIT::ImageFeature<>, AIT::Threshold<> > ImageSplitPoint;
+        typedef AIT::Forest<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> > > ForestType;
         ForestType forest = trainer.TrainForest(samples);
         
         std::vector<std::vector<std::size_t> > forest_leaf_indices = forest.Evaluate<AIT::ImageSample<> >(samples);
@@ -65,13 +66,13 @@ int main(int argc, const char *argv[]) {
             }
         }
         std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
-        
+
         //        forest.Evaluate(samples, [] (const typename ForestType::NodeType &node) {
         //            std::cout << "a" << std::endl;
         //        });
 
-        AIT::Tree<AIT::ImageSplitPoint<>, AIT::HistogramStatistics<AIT::ImageSample<> > > tree = forest.GetTree(0);
-        AIT::TreeUtilities<AIT::ImageSplitPoint<>, AIT::HistogramStatistics<AIT::ImageSample<> >,
+        AIT::Tree<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> > > tree = forest.GetTree(0);
+        AIT::TreeUtilities<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> >,
         AIT::ImageSample<> > tree_utils(tree);
         auto matrix = tree_utils.ComputeConfusionMatrix<3>(samples);
         std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;

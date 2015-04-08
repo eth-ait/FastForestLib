@@ -20,12 +20,7 @@ namespace AIT {
         {}
 
         template <typename TSample>
-        Direction operator()(const TSample &sample) const {
-            return Evaluate(sample);
-        }
-
-        template <typename TSample>
-        Direction Evaluate(const TSample &sample) const {
+        inline Direction Evaluate(const TSample &sample) const {
             auto value = feature_.ComputeFeatureValue(sample);
             return threshold_.Evaluate(value);
         }
@@ -92,12 +87,12 @@ namespace AIT {
         }
 
         // TODO
-        template <typename TSample>
+        /*template <typename TSample>
         Direction Evaluate(size_type feature_index, size_type threshold_index, const TSample &sample) const {
             const TFeature &feature = features_[feature_index];
             const TThreshold &threshold = thresholds_[feature_index][threshold_index];
             return threshold.Evaluate(sample);
-        }
+        }*/
 
     };
 

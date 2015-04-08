@@ -68,19 +68,19 @@ namespace AIT {
             CheckEqualDimensions(data_matrix, label_matrix);
         }
 
-		const DataMatrixType & GetDataMatrix() const {
+		inline const DataMatrixType & GetDataMatrix() const {
 			return data_matrix_;
 		}
 
-		const LabelMatrixType & GetLabelMatrix() const {
+		inline const LabelMatrixType & GetLabelMatrix() const {
 			return label_matrix_;
 		}
         
-        size_type Width() const {
+		inline size_type Width() const {
             return data_matrix_.rows();
         }
 
-        size_type Height() const {
+		inline size_type Height() const {
             return data_matrix_.cols();
         }
 	};
@@ -102,19 +102,19 @@ namespace AIT {
         ImageSample(const ImageSample &other)
         : image_ptr_(other.image_ptr_), x_(other.x_), y_(other.y_) {}
 
-		const label_type GetLabel() const {
+		inline const label_type GetLabel() const {
 			return image_ptr_->GetLabelMatrix()(x_, y_);
 		}
 
-        const Image<data_type, label_type> & GetImage() const {
+		inline const Image<data_type, label_type> & GetImage() const {
             return *image_ptr_;
         }
 
-        int GetX() const {
+		inline int GetX() const {
             return x_;
         }
 
-        int GetY() const {
+		inline int GetY() const {
             return y_;
         }
 	};
@@ -190,7 +190,7 @@ namespace AIT {
             return threshold_;
         }
 
-        Direction Evaluate(data_type value) const {
+		inline Direction Evaluate(data_type value) const {
             if (value < threshold_)
                 return Direction::LEFT;
             else
@@ -231,7 +231,7 @@ namespace AIT {
         : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2)
         {}
         
-        data_type ComputeFeatureValue(const ImageSample<data_type, label_type> &sample) const {
+		inline data_type ComputeFeatureValue(const ImageSample<data_type, label_type> &sample) const {
             return ComputePixelDifference(sample);
         }
 
@@ -261,9 +261,6 @@ namespace AIT {
 			return statistics;
 		}
 
-		virtual std::vector<ImageSplitPoint<> > SampleSplitPoints(TIterator first_sample, TIterator last_sample, size_type num_of_features, size_type num_of_thresholds, TRandomEngine &rnd_engine) const {
-			typedef typename std::vector<int>::size_type vec_size_type;
-			std::vector<ImageSplitPoint<> > split_points;
 		virtual SplitPointCollection<ImageFeature<>, Threshold<> > SampleSplitPoints(TIterator first_sample, TIterator last_sample, size_type num_of_features, size_type num_of_thresholds, TRandomEngine &rnd_engine) const {
 			typedef typename std::vector<int>::size_type vec_size_type;
             SplitPointCollection<ImageFeature<>, Threshold<> > split_points;
