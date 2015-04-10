@@ -5,6 +5,8 @@
 #include <memory>
 #include <iostream>
 
+#include <cereal/types/vector.hpp>
+
 #include "node.h"
 
 namespace AIT {
@@ -17,8 +19,8 @@ namespace AIT {
 		typedef std::vector<int>::size_type size_type;
 
 	private:
-		const size_type depth_;
-		const size_type first_leaf_node_index_;
+		size_type depth_;
+		size_type first_leaf_node_index_;
 		std::vector<NodeType> nodes_;
 
         template <typename TreeType, typename ValueType>
@@ -85,14 +87,19 @@ namespace AIT {
     public:
         typedef NodeIterator_<Tree<TSplitPoint, TStatistics>, NodeType> NodeIterator;
         typedef NodeIterator_<Tree<TSplitPoint, TStatistics> const, NodeType const> ConstNodeIterator;
+        
+        /// @brief Create an empty tree with no nodes.
+        Tree()
+        : depth_(0), first_leaf_node_index_(0)
+        {}
 
 		/// @brief Create a tree.
-		/// @param depth The depth of the tree. A depth of 0 corresponds to a tree
+		/// @param depth The depth of the tree. A depth of 1 corresponds to a tree
 		///              with a single node.
 		Tree(size_type depth)
-        : depth_(depth), first_leaf_node_index_((1 << depth) - 1)
+        : depth_(depth), first_leaf_node_index_((1 << (depth - 1)) - 1)
         {
-			size_type num_of_nodes = (1 << (depth_ + 1)) - 1;
+			size_type num_of_nodes = (1 << depth_) - 1;
 			nodes_.resize(num_of_nodes);
 		}
 
@@ -120,7 +127,7 @@ namespace AIT {
             return ConstNodeIterator(this, index);
         }
         
-		/// @brief Return depth of the tree. A depth of 0 corresponds to a tree
+		/// @brief Return depth of the tree. A depth of 1 corresponds to a tree
 		///        with a single node.
 		size_type Depth() const
         {
@@ -225,9 +232,16 @@ namespace AIT {
 			}
 			return node_iter;
 		}
-        
 
-	private:
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("depth", depth_));
+            archive(cereal::make_nvp("first_leaf_node_index", first_leaf_node_index_));
+//            archive(cereal::make_nvp("nodes", nodes_));
+        }
+
+    private:
 		// @brief Return the left child index of the specified node.
 		size_type GetLeftChildIndex(size_type index) const
         {

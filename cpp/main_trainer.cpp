@@ -1,9 +1,13 @@
 #include <sstream>
+#include <fstream>
 #include <vector>
 #include <map>
 #include <random>
 #include <iostream>
 #include <chrono>
+
+#include <cereal/archives/json.hpp>
+#include <cereal/archives/binary.hpp>
 
 #include "histogram_statistics.h"
 #include "image_weak_learner.h"
@@ -26,11 +30,11 @@ int main(int argc, const char *argv[]) {
         std::vector<AIT::ImageSample<> > samples;
         for (auto i = 0; i < images.size(); i++) {
             for (int x=0; x < images[i].GetDataMatrix().rows(); x++) {
-                for (int y=0; y < images[i].GetDataMatrix().cols(); y++) {
-                //int y = 0;
+//                for (int y=0; y < images[i].GetDataMatrix().cols(); y++) {
+                int y = 0;
 					AIT::ImageSample<> sample(&images[i], x, y);
 					samples.push_back(std::move(sample));
-                }
+//                }
             }
         }
         std::cout << "Done." << std::endl;
@@ -57,9 +61,42 @@ int main(int argc, const char *argv[]) {
 		double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
 		//std::time_t stop_time = std::time(nullptr);
 		std::cout << "Running time: " << elapsed_seconds<< std::endl;
-        
+
+        // Serialize forest
+        {
+            std::cout << "Writing json forest file ... " << std::flush;
+            std::ofstream ofile("forest.json");
+            cereal::JSONOutputArchive oarchive(ofile);
+            oarchive(cereal::make_nvp("forest", forest));
+            std::cout << "done." << std::endl;
+        }
+
+        {
+            std::cout << "Writing binary forest file ... " << std::flush;
+            std::ofstream bin_ofile("forest.bin", std::ios::binary);
+            cereal::BinaryOutputArchive bin_oarchive(bin_ofile);
+            bin_oarchive(cereal::make_nvp("forest", forest));
+            std::cout << "done." << std::endl;
+        }
+
+//        {
+//            std::cout << "Reading json forest file ... " << std::flush;
+//            std::ifstream ifile("forest.json");
+//            cereal::JSONInputArchive iarchive(ifile);
+//            iarchive(forest);
+//            std::cout << "done." << std::endl;
+//        }
+//
+//        {
+//            std::cout << "Reading binary forest file ... " << std::flush;
+//            std::ifstream bin_ifile("forest.bin", std::ios::binary);
+//            cereal::BinaryInputArchive bin_iarchive(bin_ifile);
+//            bin_iarchive(forest);
+//            std::cout << "done." << std::endl;
+//        }
+
         std::vector<std::vector<std::size_t> > forest_leaf_indices = forest.Evaluate<AIT::ImageSample<> >(samples);
-        
+
         int match = 0;
         int no_match = 0;
         for (std::size_t i=0; i < forest.NumOfTrees(); i++) {

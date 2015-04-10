@@ -24,21 +24,38 @@ namespace AIT {
 		// TODO: unused
 		/// @brief Create an empty histogram.
 		HistogramStatistics()
-		: num_of_samples_(0) {}
+		: num_of_samples_(0)
+        {}
       
 		// TODO: unused
 		/// @brief Create an empty histogram.
 		/// @param num_of_classes The number of classes.
 		HistogramStatistics(size_type num_of_classes)
 		: histogram_(num_of_classes, 0),
-			num_of_samples_(0) {}
+			num_of_samples_(0)
+        {}
 
 		/// @brief Create a histogram from a vector of counts per class.
 		HistogramStatistics(const std::vector<count_type> &histogram)
 		: histogram_(histogram),
-        num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend())) {}
+        num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend(), 0))
+        {}
+        
+        inline void LazyAccumulate(const TSample &sample)
+        {
+            label_type label = sample.GetLabel();
+            if (label >= histogram_.size())
+                histogram_.resize(label + 1);
+            histogram_[label]++;
+        }
 
-		inline void Accumulate(const TSample &sample) {
+        inline void FinishLazyAccumulation()
+        {
+            ComputeNumOfSamples();
+        }
+
+		inline void Accumulate(const TSample &sample)
+        {
 			label_type label = sample.GetLabel();
 			if (label >= histogram_.size())
 				histogram_.resize(label + 1);
@@ -47,17 +64,20 @@ namespace AIT {
 		}
 
 		/// @brief Return the numbers of samples contributing to the histogram.
-		count_type NumOfSamples() const {
+		count_type NumOfSamples() const
+        {
 			return num_of_samples_;
 		}
 
 		/// @brief Return the vector of counts per class.
-		const std::vector<count_type> & GetHistogram() const {
+		const std::vector<count_type> & GetHistogram() const
+        {
 			return histogram_;
 		}
 
 		/// @return: The Shannon entropy of the histogram.
-		inline const entropy_type Entropy() const {
+		inline const entropy_type Entropy() const
+        {
 			entropy_type entropy = 0;
 			for (auto it=histogram_.cbegin(); it != histogram_.cend(); it++) {
 				const entropy_type count = static_cast<entropy_type>(*it);
@@ -68,6 +88,33 @@ namespace AIT {
 			}
 			return entropy;
 		}
+        
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("histogram", histogram_));
+            archive(cereal::make_nvp("num_of_samples", num_of_samples_));
+        }
+        
+
+//        template <typename Archive>
+//        void save(Archive &archive, const unsigned int version) const
+//        {
+//            archive(cereal::make_nvp("histogram", histogram_));
+//        }
+//
+//        template <typename Archive>
+//        void load(Archive &archive, const unsigned int version)
+//        {
+//            archive(cereal::make_nvp("histogram", histogram_));
+//            ComputeNumOfSamples();
+//        }
+
+    private:
+        void ComputeNumOfSamples()
+        {
+            num_of_samples_ = std::accumulate(histogram_.cbegin(), histogram_.cend(), 0);
+        }
 
 	};
 

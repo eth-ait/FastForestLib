@@ -5,6 +5,7 @@
 #include <vector>
 #include <functional>
 
+#include <cereal/types/vector.hpp>
 #include <Eigen/Dense>
 
 #include "tree.h"
@@ -39,7 +40,6 @@ namespace AIT {
             trees_.push_back(std::move(tree));
         }
         
-
 		/// @brief Return a tree in the forest.
 		const TreeType & GetTree(size_type index) const
 		{
@@ -124,7 +124,13 @@ namespace AIT {
             }
             return forest_leaf_nodes;
         }
-        
+
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("trees", trees_));
+        }
+
 	};
     
     template <typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>

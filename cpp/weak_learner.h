@@ -32,7 +32,14 @@ namespace AIT {
         const TThreshold & GetThreshold() const {
             return threshold_;
         }
-
+        
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("feature", feature_));
+            archive(cereal::make_nvp("threshold", threshold_));
+        }
+        
     };
 
     template <typename TFeature, typename TThreshold>

@@ -54,14 +54,14 @@ namespace AIT {
 			: weak_learner_(weak_learner), training_parameters_(training_parameters)
         {}
 
-        void TrainTreeRecursive(NodeIterator node_iter, SampleIterator i_start, SampleIterator i_end, TRandomEngine &rnd_engine, int current_depth = 0) const
+        void TrainTreeRecursive(NodeIterator node_iter, SampleIterator i_start, SampleIterator i_end, TRandomEngine &rnd_engine, int current_depth = 1) const
         {
             // TODO: Remove io operations
 //			std::ostringstream o_stream;
 //			for (int i = 0; i < current_depth; i++)
 //				o_stream << " ";
 //			const std::string prefix = o_stream.str();
-            output_spaces(std::cout, current_depth);
+            output_spaces(std::cout, current_depth - 1);
 			std::cout << "depth: " << current_depth << ", samples: " << (i_end - i_start) << std::endl;
 
 			// assign statistics to node
@@ -71,14 +71,14 @@ namespace AIT {
 			// stop splitting the node if the minimum number of samples has been reached
 			if (i_end - i_start < training_parameters_.MinimumNumOfSamples()) {
                 //node.leaf_node = True
-                output_spaces(std::cout, current_depth);
+                output_spaces(std::cout, current_depth - 1);
 				std::cout << "Minimum number of samples. Stopping." << std::endl;
 				return;
 			}
 
 			// stop splitting the node if it is a leaf node
             if (node_iter.IsLeafNode()) {
-                output_spaces(std::cout, current_depth);
+                output_spaces(std::cout, current_depth - 1);
                 std::cout << "Reached leaf node. Stopping." << std::endl;
                 return;
             }
@@ -107,7 +107,7 @@ namespace AIT {
 			// stop splitting the node if the best information gain is below the minimum information gain
 			if (best_information_gain < training_parameters_.MinimumInformationGain()) {
                 //node.leaf_node = True
-                output_spaces(std::cout, current_depth);
+                output_spaces(std::cout, current_depth - 1);
 				std::cout << "Too little information gain. Stopping." << std::endl;
 				return;
 			}

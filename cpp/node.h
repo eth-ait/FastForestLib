@@ -35,6 +35,13 @@ namespace AIT {
 		void SetStatistics(const TStatistics &statistics) {
 			statistics_ = statistics;
 		}
+        
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("split_point", split_point_));
+            archive(cereal::make_nvp("statistics", statistics_));
+        }
 
 	};
 

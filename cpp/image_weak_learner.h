@@ -197,6 +197,12 @@ namespace AIT {
                 return Direction::RIGHT;
         }
         
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("threshold", threshold_));
+        }
+        
     };
 
     template <typename data_type = double, typename label_type = std::size_t, typename offset_type = int>
@@ -223,7 +229,7 @@ namespace AIT {
                 pixel_value = image.GetDataMatrix()(x + offset_x, y + offset_y);
             return pixel_value;
         }
-        
+
     public:
         ImageFeature() {}
         
@@ -233,6 +239,15 @@ namespace AIT {
         
 		inline data_type ComputeFeatureValue(const ImageSample<data_type, label_type> &sample) const {
             return ComputePixelDifference(sample);
+        }
+        
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("offset_x1", offset_x1_));
+            archive(cereal::make_nvp("offset_y1", offset_y1_));
+            archive(cereal::make_nvp("offset_x2", offset_x2_));
+            archive(cereal::make_nvp("offset_y2", offset_y2_));
         }
 
     };
@@ -314,15 +329,21 @@ namespace AIT {
                 const ImageFeature<> &feature = split_points.GetFeature(i_f);
                 for (TIterator sample_it=first_sample; sample_it != last_sample; sample_it++) {
                     double value = feature.ComputeFeatureValue(*sample_it);
-                     for (size_type i_t = 0; i_t < split_points.GetNumOfThresholds(i_f); i_t++) {
-                         Direction direction = split_points.GetThreshold(i_f, i_t).Evaluate(value);
-						 if (direction == Direction::LEFT)
-							 split_statistics.GetLeftStatistics(i_f, i_t).Accumulate(*sample_it);
+                    for (size_type i_t = 0; i_t < split_points.GetNumOfThresholds(i_f); i_t++) {
+                        Direction direction = split_points.GetThreshold(i_f, i_t).Evaluate(value);
+                        if (direction == Direction::LEFT)
+                            split_statistics.GetLeftStatistics(i_f, i_t).LazyAccumulate(*sample_it);
                         else
-							split_statistics.GetRightStatistics(i_f, i_t).Accumulate(*sample_it);
-                     }
+							split_statistics.GetRightStatistics(i_f, i_t).LazyAccumulate(*sample_it);
+                    }
 				}
-			}
+            }
+            for (int i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
+                for (size_type i_t = 0; i_t < split_points.GetNumOfThresholds(i_f); i_t++) {
+                    split_statistics.GetLeftStatistics(i_f, i_t).FinishLazyAccumulation();
+                    split_statistics.GetRightStatistics(i_f, i_t).FinishLazyAccumulation();
+                }
+            }
             return split_statistics;
 		}
 

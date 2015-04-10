@@ -4,9 +4,11 @@ project("AITDistributedRandomForest")
 
 set(CMAKE_MODULE_PATH ${AITDistributedRandomForest_SOURCE_DIR}/cmake)
 
-if(!${APPLE})
+if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     find_package(OpenMP)
-endif(!${APPLE})
+endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+
+find_package(cereal REQUIRED)
 
 find_package(Eigen3 3.1.2 REQUIRED)
 
@@ -17,6 +19,9 @@ endif(!${MSVC} AND !${APPLE})
 
 include_directories( ${EIGEN3_INCLUDE_DIR} )
 include_directories( ${MATLAB_INCLUDE_DIR} )
+include_directories( ${cereal_INCLUDE_DIRS} )
+
+set(CMAKE_CXX_FLAGS ${OpenMP_CXX_FLAGS} ${CMAKE_CXX_FLAGS})
 
 link_directories( ${MATLAB_LIB_DIR} )
 
@@ -30,13 +35,14 @@ add_executable(forest_trainer main_trainer.cpp ${headers})
 if(${MSVC})
 	target_compile_features(forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 else(${MSVC})
-	list(APPEND CMAKE_CXX_FLAGS "-std=c++0x" ${CMAKE_CXX_FLAGS})
+	set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 endif(${MSVC})
 
 
 if(${MSVC})
-	target_link_libraries(forest_trainer libmat libmx)
+    set(MATLAB_LIBRARIES libmat libmx)
 else(${MSVC})
-	target_link_libraries(forest_trainer mat mx)
-    #target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
+    set(MATLAB_LIBRARIES mat mx)
 endif(${MSVC})
+
+target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
