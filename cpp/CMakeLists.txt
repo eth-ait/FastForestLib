@@ -6,6 +6,10 @@ set(CMAKE_MODULE_PATH ${AITDistributedRandomForest_SOURCE_DIR}/cmake)
 
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     find_package(OpenMP)
+	if (OPENMP_FOUND)
+		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+	endif()
 endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
 find_package(cereal REQUIRED)
@@ -20,8 +24,6 @@ endif(!${MSVC} AND !${APPLE})
 include_directories( ${EIGEN3_INCLUDE_DIR} )
 include_directories( ${MATLAB_INCLUDE_DIR} )
 include_directories( ${cereal_INCLUDE_DIRS} )
-
-set(CMAKE_CXX_FLAGS ${OpenMP_CXX_FLAGS} ${CMAKE_CXX_FLAGS})
 
 link_directories( ${MATLAB_LIB_DIR} )
 

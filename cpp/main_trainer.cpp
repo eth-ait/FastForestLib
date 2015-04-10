@@ -5,6 +5,7 @@
 #include <random>
 #include <iostream>
 #include <chrono>
+#include <ctime>
 
 #include <cereal/archives/json.hpp>
 #include <cereal/archives/binary.hpp>
@@ -30,11 +31,11 @@ int main(int argc, const char *argv[]) {
         std::vector<AIT::ImageSample<> > samples;
         for (auto i = 0; i < images.size(); i++) {
             for (int x=0; x < images[i].GetDataMatrix().rows(); x++) {
-//                for (int y=0; y < images[i].GetDataMatrix().cols(); y++) {
-                int y = 0;
+                for (int y=0; y < images[i].GetDataMatrix().cols(); y++) {
+                //int y = 0;
 					AIT::ImageSample<> sample(&images[i], x, y);
 					samples.push_back(std::move(sample));
-//                }
+                }
             }
         }
         std::cout << "Done." << std::endl;
@@ -53,14 +54,17 @@ int main(int argc, const char *argv[]) {
         typedef AIT::Forest<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> > > ForestType;
 
 		//std::time_t start_time = std::time(nullptr);
+		std::time_t time1 = std::time(nullptr);
 		auto start_time = std::chrono::high_resolution_clock::now();
 		ForestType forest = trainer.TrainForest(samples);
 		auto stop_time = std::chrono::high_resolution_clock::now();
+		std::time_t time2 = std::time(nullptr);
 		auto duration = stop_time - start_time;
 		auto period = std::chrono::high_resolution_clock::period();
 		double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
 		//std::time_t stop_time = std::time(nullptr);
-		std::cout << "Running time: " << elapsed_seconds<< std::endl;
+		std::cout << "Running time: " << elapsed_seconds << std::endl;
+		std::cout << "Running time: " << (time2 - time1) << std::endl;
 
         // Serialize forest
         {
