@@ -20,7 +20,7 @@ namespace AIT {
         {}
 
         template <typename TSample>
-        inline Direction Evaluate(const TSample &sample) const {
+        Direction Evaluate(const TSample &sample) const {
             auto value = feature_.ComputeFeatureValue(sample);
             return threshold_.Evaluate(value);
         }

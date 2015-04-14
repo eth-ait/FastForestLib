@@ -186,7 +186,7 @@ namespace AIT {
 
 		template <typename Sample>
 		void EvaluateParallel(const std::vector<Sample> &samples, std::function<void(const Sample &, ConstNodeIterator &)> &func) const {
-			#pragma omp parallel for
+			//#pragma omp parallel for
 			for (int i = 0; i < samples.size(); i++) {
 				ConstNodeIterator node_iter = EvaluateToIterator(samples[i]);
 				func(samples[i], node_iter);

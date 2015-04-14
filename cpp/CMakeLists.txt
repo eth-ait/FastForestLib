@@ -16,10 +16,10 @@ find_package(cereal REQUIRED)
 
 find_package(Eigen3 3.1.2 REQUIRED)
 
-if(!${MSVC} AND !${APPLE})
+if(!${WIN32} AND !${APPLE})
 	find_package(MATLAB REQUIRED)
 	set(MATLAB_LIB_DIR ${MATLAB_MX_LIBRARY})
-endif(!${MSVC} AND !${APPLE})
+endif(!${WIN32} AND !${APPLE})
 
 include_directories( ${EIGEN3_INCLUDE_DIR} )
 include_directories( ${MATLAB_INCLUDE_DIR} )
@@ -41,10 +41,10 @@ else(${MSVC})
 endif(${MSVC})
 
 
-if(${MSVC})
+if(${WIN32})
     set(MATLAB_LIBRARIES libmat libmx)
-else(${MSVC})
+else(${WIN32})
     set(MATLAB_LIBRARIES mat mx)
-endif(${MSVC})
+endif(${WIN32})
 
 target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})

@@ -24,10 +24,9 @@ namespace AIT {
 		// TODO: unused
 		/// @brief Create an empty histogram.
 		HistogramStatistics()
-		: num_of_samples_(0)
-        {}
-      
-		// TODO: unused
+			: histogram_(3, 0), num_of_samples_(0)
+		{}
+
 		/// @brief Create an empty histogram.
 		/// @param num_of_classes The number of classes.
 		HistogramStatistics(size_type num_of_classes)
@@ -40,25 +39,21 @@ namespace AIT {
 		: histogram_(histogram),
         num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend(), 0))
         {}
-        
-        inline void LazyAccumulate(const TSample &sample)
+
+        void LazyAccumulate(const TSample &sample)
         {
             label_type label = sample.GetLabel();
-            if (label >= histogram_.size())
-                histogram_.resize(label + 1);
             histogram_[label]++;
         }
 
-        inline void FinishLazyAccumulation()
+        void FinishLazyAccumulation()
         {
             ComputeNumOfSamples();
         }
 
-		inline void Accumulate(const TSample &sample)
+		void Accumulate(const TSample &sample)
         {
 			label_type label = sample.GetLabel();
-			if (label >= histogram_.size())
-				histogram_.resize(label + 1);
 			histogram_[label]++;
 			num_of_samples_++;
 		}
@@ -76,7 +71,7 @@ namespace AIT {
 		}
 
 		/// @return: The Shannon entropy of the histogram.
-		inline const entropy_type Entropy() const
+		const entropy_type Entropy() const
         {
 			entropy_type entropy = 0;
 			for (auto it=histogram_.cbegin(); it != histogram_.cend(); it++) {

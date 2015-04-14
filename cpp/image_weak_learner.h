@@ -68,19 +68,19 @@ namespace AIT {
             CheckEqualDimensions(data_matrix, label_matrix);
         }
 
-		inline const DataMatrixType & GetDataMatrix() const {
+		const DataMatrixType & GetDataMatrix() const {
 			return data_matrix_;
 		}
 
-		inline const LabelMatrixType & GetLabelMatrix() const {
+		const LabelMatrixType & GetLabelMatrix() const {
 			return label_matrix_;
 		}
         
-		inline size_type Width() const {
+		size_type Width() const {
             return data_matrix_.rows();
         }
 
-		inline size_type Height() const {
+		size_type Height() const {
             return data_matrix_.cols();
         }
 	};
@@ -102,19 +102,19 @@ namespace AIT {
         ImageSample(const ImageSample &other)
         : image_ptr_(other.image_ptr_), x_(other.x_), y_(other.y_) {}
 
-		inline const label_type GetLabel() const {
+		const label_type GetLabel() const {
 			return image_ptr_->GetLabelMatrix()(x_, y_);
 		}
 
-		inline const Image<data_type, label_type> & GetImage() const {
+		const Image<data_type, label_type> & GetImage() const {
             return *image_ptr_;
         }
 
-		inline int GetX() const {
+		int GetX() const {
             return x_;
         }
 
-		inline int GetY() const {
+		int GetY() const {
             return y_;
         }
 	};
@@ -127,13 +127,13 @@ namespace AIT {
 //        offset_type offset_y2_;
 //        data_type threshold_;
 //        
-//        inline data_type ComputePixelDifference(const ImageSample<data_type, label_type> &sample) const {
+//        data_type ComputePixelDifference(const ImageSample<data_type, label_type> &sample) const {
 //            data_type pixel1_value = ComputePixelValue(sample, offset_x1_, offset_y1_);
 //            data_type pixel2_value = ComputePixelValue(sample, offset_x2_, offset_y2_);
 //            return  pixel1_value - pixel2_value;
 //        }
 //        
-//        inline data_type ComputePixelValue(const ImageSample<data_type, label_type> &sample, offset_type offset_x, offset_type offset_y) const {
+//        data_type ComputePixelValue(const ImageSample<data_type, label_type> &sample, offset_type offset_x, offset_type offset_y) const {
 //            const Image<data_type, label_type> &image = sample.GetImage();
 //            offset_type x = sample.GetX();
 //            offset_type y = sample.GetY();
@@ -190,7 +190,7 @@ namespace AIT {
             return threshold_;
         }
 
-		inline Direction Evaluate(data_type value) const {
+		Direction Evaluate(data_type value) const {
             if (value < threshold_)
                 return Direction::LEFT;
             else
@@ -212,13 +212,13 @@ namespace AIT {
         offset_type offset_x2_;
         offset_type offset_y2_;
         
-        inline data_type ComputePixelDifference(const ImageSample<data_type, label_type> &sample) const {
+        data_type ComputePixelDifference(const ImageSample<data_type, label_type> &sample) const {
             data_type pixel1_value = ComputePixelValue(sample, offset_x1_, offset_y1_);
             data_type pixel2_value = ComputePixelValue(sample, offset_x2_, offset_y2_);
             return  pixel1_value - pixel2_value;
         }
         
-        inline data_type ComputePixelValue(const ImageSample<data_type, label_type> &sample, offset_type offset_x, offset_type offset_y) const {
+        data_type ComputePixelValue(const ImageSample<data_type, label_type> &sample, offset_type offset_x, offset_type offset_y) const {
             const Image<data_type, label_type> &image = sample.GetImage();
             offset_type x = sample.GetX();
             offset_type y = sample.GetY();
@@ -237,7 +237,7 @@ namespace AIT {
         : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2)
         {}
         
-		inline data_type ComputeFeatureValue(const ImageSample<data_type, label_type> &sample) const {
+		data_type ComputeFeatureValue(const ImageSample<data_type, label_type> &sample) const {
             return ComputePixelDifference(sample);
         }
         
@@ -323,7 +323,7 @@ namespace AIT {
         virtual SplitStatistics<TStatistics> ComputeSplitStatistics(TIterator first_sample, TIterator last_sample, const SplitPointCollection<ImageFeature<>, Threshold<> > &split_points) const {
 			// we create statistics for all features and thresholds here so that we can easily parallelize the loop below
 			SplitStatistics<TStatistics> split_statistics(split_points);
-			#pragma omp parallel for
+			//#pragma omp parallel for
 			// we have to use signed int here because of OpenMP < 3.0
 			for (int i_f = 0; i_f < split_points.GetNumOfFeatures(); i_f++) {
                 const ImageFeature<> &feature = split_points.GetFeature(i_f);

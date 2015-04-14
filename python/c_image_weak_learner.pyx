@@ -174,9 +174,9 @@ cdef class WeakLearnerContext:
         cdef double v, threshold
         #cdef int offset1, offset2
         cdef int offset_x1, offset_y1, offset_x2, offset_y2
-        with nogil, parallel():
-            # for i in xrange(features.shape[0]):
-            for i in prange(offsets.shape[0]):
+        for i in xrange(offsets.shape[0]):
+        #with nogil, parallel():
+            #for i in prange(offsets.shape[0]):
                 offset_x1 = offsets[i, 0]
                 offset_y1 = offsets[i, 1]
                 offset_x2 = offsets[i, 2]
