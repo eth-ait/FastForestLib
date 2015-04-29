@@ -17,10 +17,10 @@ def run(forest_file, test_data_file, config, profiler=None):
     if profiler is not None:
         profiler.enable()
 
-    print("Computing confusion matrix...")
+    print("Computing per-pixel confusion matrix...")
     confusion_matrix = np.zeros((test_data.num_of_labels, test_data.num_of_labels), dtype=np.int64)
     for i in xrange(test_data.num_of_images):
-        print("Testing image {}".format(i + 1))
+        # print("Testing image {}".format(i + 1))
         image = test_data.data[i, :, :]
         labels = test_data.labels[i, :, :]
         flat_labels = labels.reshape((labels.size,))
@@ -50,7 +50,7 @@ def run(forest_file, test_data_file, config, profiler=None):
     normalization_coeff = np.asarray(np.sum(confusion_matrix, 1), dtype=np.float64)[:, np.newaxis]
     norm_confusion_matrix = confusion_matrix / normalization_coeff
 
-    print("Sample-counts for each label:")
+    print("Pixel-counts for each label:")
     print normalization_coeff
 
     print("Non-normalized confusion matrix:")
@@ -58,6 +58,46 @@ def run(forest_file, test_data_file, config, profiler=None):
 
     print("Normalized confusion matrix:")
     print norm_confusion_matrix
+
+
+    print("")
+    print("Computing per-frame confusion matrix...")
+
+    confusion_matrix = np.zeros((test_data.num_of_labels, test_data.num_of_labels), dtype=np.int64)
+    for i in xrange(test_data.num_of_images):
+        # print("Testing image {}".format(i + 1))
+        image = test_data.data[i, :, :]
+        labels = test_data.labels[i, :, :]
+        flat_labels = labels.reshape((labels.size,))
+        sample_indices = np.arange(image.size, dtype=np.int64)
+        sample_indices = sample_indices[flat_labels >= 0]
+        if len(sample_indices) == 0:
+            continue
+        if 'max_evaluation_depth' in config.testing_parameters:
+            max_evaluation_depth = config.testing_parameters['max_evaluation_depth']
+        else:
+            max_evaluation_depth = -1
+        aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image,
+                                                                            max_evaluation_depth=max_evaluation_depth)
+        predicted_labels = np.argmax(aggregate_statistics.histogram, 1)
+        frame_gt_label = np.max(flat_labels[sample_indices])
+        predicted_label_hist = np.bincount(predicted_labels, minlength=test_data.num_of_labels)
+        frame_label = np.argmax(predicted_label_hist)
+        confusion_matrix[frame_gt_label, frame_label] += 1
+
+    # normalize confusion matrix
+    normalization_coeff = np.asarray(np.sum(confusion_matrix, 1), dtype=np.float64)[:, np.newaxis]
+    norm_confusion_matrix = confusion_matrix / normalization_coeff
+
+    print("Frame-counts for each label:")
+    print normalization_coeff
+
+    print("Non-normalized confusion matrix:")
+    print confusion_matrix
+
+    print("Normalized confusion matrix:")
+    print norm_confusion_matrix
+
 
     # def traverse_tree(node, sample_index):
     #     if node.left_child is None or node.left_child.statistics is None or node.right_child.statistics is None:

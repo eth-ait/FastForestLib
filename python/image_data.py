@@ -121,17 +121,19 @@ class ImageSampleData(ImageData):
         return image_data
 
     @staticmethod
-    def create_with_random_samples(data, labels, num_of_samples_per_image):
+    def create_with_random_samples(data, labels, num_of_samples_per_image, \
+                                   enforce_num_of_samples_per_image=False):
         """
         Create a new L{ImageSampleData} object with a random number of pixels from each image selected as samples.
 
         @param data: A C-contiguous L{numpy} array of the image data with dimensions (numOfImages x width x height)
         @param labels: A C-contiguous L{numpy} array of the pixel labels with dimensions (numOfImages x width x height)
         @param num_of_samples_per_image: The number of samples that will be selected from each image.
+        @param enforce_num_of_samples_per_image: A flag indicating whether to fail if an image has less than L{num_of_samples_per_image} foreground pixels
         @return: A new L{ImageSampleData} object
         """
         image_data = ImageSampleData(data, labels, None)
-        image_data._sample_indices = image_data._select_random_samples(num_of_samples_per_image)
+        image_data._sample_indices = image_data._select_random_samples(num_of_samples_per_image, enforce_num_of_samples_per_image)
         return image_data
 
     def _select_all_samples(self):
@@ -146,19 +148,26 @@ class ImageSampleData(ImageData):
         sample_indices = np.hstack(sample_indices_list)
         return sample_indices
 
-    def _select_random_samples(self, num_of_samples_per_image):
+    def _select_random_samples(self, num_of_samples_per_image, enforce_num_of_samples_per_image=False):
         sample_indices = np.empty((self.num_of_images * num_of_samples_per_image,), dtype=np.int)
         assert isinstance(sample_indices, np.ndarray)
         image_stride = self.image_width * self.image_height
+        sample_index_offset = 0
         for image_index in xrange(self.num_of_images):
             pixel_indices = np.arange(image_stride)
             image_index_offset = image_index * image_stride
             image_labels = self.flat_labels[image_index_offset:image_index_offset + image_stride]
             foreground_indices = pixel_indices[image_labels >= 0]
-            assert len(foreground_indices) > num_of_samples_per_image
-            selected_indices = np.random.choice(foreground_indices, size=num_of_samples_per_image, replace=False)
-            sample_indices[image_index * num_of_samples_per_image:(image_index + 1) * num_of_samples_per_image] \
+            if enforce_num_of_samples_per_image:
+                assert len(foreground_indices) > num_of_samples_per_image
+            if len(foreground_indices) < num_of_samples_per_image:
+                selected_indices = foreground_indices
+            else:
+                selected_indices = np.random.choice(foreground_indices, size=num_of_samples_per_image, replace=False)
+            sample_indices[sample_index_offset:(sample_index_offset + len(selected_indices))] \
                 = image_index_offset + selected_indices
+            sample_index_offset += len(selected_indices)
+        sample_indices = sample_indices[:sample_index_offset]
         return sample_indices
 
     def create_sample_indices(self):
