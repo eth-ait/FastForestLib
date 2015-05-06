@@ -174,9 +174,9 @@ cdef class WeakLearnerContext:
         cdef double v, threshold
         #cdef int offset1, offset2
         cdef int offset_x1, offset_y1, offset_x2, offset_y2
-        for i in xrange(offsets.shape[0]):
-        #with nogil, parallel():
-            #for i in prange(offsets.shape[0]):
+        #for i in xrange(offsets.shape[0]):
+        with nogil, parallel():
+            for i in prange(offsets.shape[0]):
                 offset_x1 = offsets[i, 0]
                 offset_y1 = offsets[i, 1]
                 offset_x2 = offsets[i, 2]
@@ -515,7 +515,6 @@ cdef class Predictor:
             else:
                 stop_node_index = 2 ** (max_evaluation_depth - 1) - 1
             for k in xrange(num_of_samples):
-            #for k in prange(num_of_samples):
                 sample_index = sample_indices[k]
                 node_index = self._find_node(tree_matrix, sample_index, evaluator, stop_node_index)
                 for j in xrange(num_of_labels):

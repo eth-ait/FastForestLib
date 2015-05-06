@@ -1,6 +1,7 @@
 from __future__ import division
 
 import numpy as np
+import scipy.io
 import imp
 
 from image_data import ImageDataReader
@@ -8,7 +9,7 @@ from image_data import ImageDataReader
 import c_image_weak_learner as image_weak_learner
 
 
-def run(forest_file, test_data_file, config, profiler=None):
+def run(forest_file, test_data_file, config, prediction_output_file=None, profiler=None):
     predictor = image_weak_learner.Predictor.read_from_matlab_file(forest_file)
     test_data = ImageDataReader.read_from_matlab_file_with_all_samples(test_data_file, **config.testing_data_parameters)
 
@@ -17,8 +18,13 @@ def run(forest_file, test_data_file, config, profiler=None):
     if profiler is not None:
         profiler.enable()
 
+    if prediction_output_file is not None:
+        output_mat_dict = {}
+
     print("Computing per-pixel confusion matrix...")
     confusion_matrix = np.zeros((test_data.num_of_labels, test_data.num_of_labels), dtype=np.int64)
+    if prediction_output_file is not None:
+        pixel_predicted_labels = - np.ones((test_data.num_of_images, test_data.image_width * test_data.image_height), dtype=np.int64)
     for i in xrange(test_data.num_of_images):
         # print("Testing image {}".format(i + 1))
         image = test_data.data[i, :, :]
@@ -33,7 +39,7 @@ def run(forest_file, test_data_file, config, profiler=None):
         aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image,
                                                                             max_evaluation_depth=max_evaluation_depth)
         predicted_labels = np.argmax(aggregate_statistics.histogram, 1)
-        num_of_matches = np.sum(flat_labels[sample_indices] == predicted_labels)
+        # num_of_matches = np.sum(flat_labels[sample_indices] == predicted_labels)
         # gt_label = np.max(flat_labels)
         # for label in xrange(test_data.num_of_labels):
         #     confusion_matrix[gt_label, label] += np.sum(predicted_labels == label)
@@ -45,6 +51,14 @@ def run(forest_file, test_data_file, config, profiler=None):
         # confusion_matrix[gt_label_index, gt_label_index] += num_of_matches
         # other_label_index = 1 if gt_label_index == 0 else 0
         # confusion_matrix[gt_label_index, other_label_index ] += predicted_labels.size - num_of_matches
+
+        if prediction_output_file is not None:
+            pixel_predicted_labels[i, sample_indices] = predicted_labels
+
+    if prediction_output_file is not None:
+        pixel_predicted_labels = pixel_predicted_labels.reshape((test_data.num_of_images, test_data.image_width, test_data.image_height))
+        output_mat_dict['pixel_predicted_labels'] = pixel_predicted_labels
+        output_mat_dict['pixel_confusion_matrix'] = confusion_matrix
 
     # normalize confusion matrix
     normalization_coeff = np.asarray(np.sum(confusion_matrix, 1), dtype=np.float64)[:, np.newaxis]
@@ -64,6 +78,8 @@ def run(forest_file, test_data_file, config, profiler=None):
     print("Computing per-frame confusion matrix...")
 
     confusion_matrix = np.zeros((test_data.num_of_labels, test_data.num_of_labels), dtype=np.int64)
+    if prediction_output_file is not None:
+        frame_predicted_labels = - np.ones((test_data.num_of_images,), dtype=np.int64)
     for i in xrange(test_data.num_of_images):
         # print("Testing image {}".format(i + 1))
         image = test_data.data[i, :, :]
@@ -84,6 +100,13 @@ def run(forest_file, test_data_file, config, profiler=None):
         predicted_label_hist = np.bincount(predicted_labels, minlength=test_data.num_of_labels)
         frame_label = np.argmax(predicted_label_hist)
         confusion_matrix[frame_gt_label, frame_label] += 1
+
+        if prediction_output_file is not None:
+            frame_predicted_labels[i] = frame_label
+
+    if prediction_output_file is not None:
+        output_mat_dict['frame_predicted_labels'] = frame_predicted_labels
+        output_mat_dict['frame_confusion_matrix'] = confusion_matrix
 
     # normalize confusion matrix
     normalization_coeff = np.asarray(np.sum(confusion_matrix, 1), dtype=np.float64)[:, np.newaxis]
@@ -128,6 +151,11 @@ def run(forest_file, test_data_file, config, profiler=None):
     stop_time = time()
     print("Testing time: {}".format(stop_time - start_time))
 
+    if prediction_output_file is not None:
+        print("Writing output file ...")
+        scipy.io.savemat(prediction_output_file, output_mat_dict)
+        print("Done.")
+
 
 def load_configuration_from_python_file(filename):
     return imp.load_source('configuration', filename)
@@ -136,7 +164,7 @@ def load_configuration_from_python_file(filename):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
-        print("Usage: python {} <forest file> <test data file> [configuration file]".format(sys.argv[0]))
+        print("Usage: python {} <forest file> <test data file> [configuration file] [prediction output file]".format(sys.argv[0]))
         sys.exit(1)
 
     forest_file = sys.argv[1]
@@ -147,4 +175,8 @@ if __name__ == '__main__':
         config_file = sys.argv[3]
     config = load_configuration_from_python_file(config_file)
 
-    run(forest_file, test_data_file, config)
+    prediction_output_file = None
+    if len(sys.argv) > 4:
+        prediction_output_file = sys.argv[4]
+
+    run(forest_file, test_data_file, config, prediction_output_file)
