@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.11)
 
-project("AITDistributedRandomForest")
+project("DistRandomForest")
 
-set(CMAKE_MODULE_PATH ${AITDistributedRandomForest_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
 
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     find_package(OpenMP)
@@ -12,9 +12,9 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	endif()
 endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
-find_package(cereal REQUIRED)
-
 find_package(Eigen3 3.1.2 REQUIRED)
+
+find_package(Cereal REQUIRED)
 
 if(!${WIN32} AND !${APPLE})
 	find_package(MATLAB REQUIRED)
@@ -23,9 +23,10 @@ endif(!${WIN32} AND !${APPLE})
 
 include_directories( ${EIGEN3_INCLUDE_DIR} )
 include_directories( ${MATLAB_INCLUDE_DIR} )
-include_directories( ${cereal_INCLUDE_DIRS} )
+include_directories( ${CEREAL_INCLUDE_DIR} )
 
 link_directories( ${MATLAB_LIB_DIR} )
+message( ${MATLAB_LIB_DIR} )
 
 file(GLOB headers
 	"*.h"
@@ -47,4 +48,5 @@ else(${WIN32})
     set(MATLAB_LIBRARIES mat mx)
 endif(${WIN32})
 
+message("${MATLAB_LIBRARIES}")
 target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
