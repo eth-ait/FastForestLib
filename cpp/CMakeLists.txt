@@ -26,7 +26,6 @@ include_directories( ${MATLAB_INCLUDE_DIR} )
 include_directories( ${CEREAL_INCLUDE_DIR} )
 
 link_directories( ${MATLAB_LIB_DIR} )
-message( ${MATLAB_LIB_DIR} )
 
 file(GLOB headers
 	"*.h"
@@ -48,5 +47,5 @@ else(${WIN32})
     set(MATLAB_LIBRARIES mat mx)
 endif(${WIN32})
 
-message("${MATLAB_LIBRARIES}")
 target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
+
