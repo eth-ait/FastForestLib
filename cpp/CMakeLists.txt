@@ -27,12 +27,12 @@ include_directories( ${CEREAL_INCLUDE_DIR} )
 
 link_directories( ${MATLAB_LIB_DIR} )
 
-file(GLOB headers
+file(GLOB sources
 	"*.h"
     "forest_trainer.cpp"
 )
 
-add_executable(forest_trainer main_trainer.cpp ${headers})
+add_executable(forest_trainer main_trainer.cpp ${sources})
 
 if(${MSVC})
 	target_compile_features(forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)

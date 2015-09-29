@@ -24,16 +24,16 @@ int main(int argc, const char *argv[]) {
         //		array_names.push_back("labels");
         //		std::map<std::string, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> array_map = LoadMatlabFile("trainingData.mat", array_names);
         std::cout << "Reading images... " << std::flush;
-        std::vector<AIT::Image<> > images = AIT::LoadImagesFromMatlabFile("../../data/trainingData.mat", "data", "labels");
+        std::vector<ait::Image> images = ait::load_images_from_matlab_file("../../data/trainingData.mat", "data", "labels");
         std::cout << "Done." << std::endl;
         
         std::cout << "Creating samples... " << std::flush;
-        std::vector<AIT::ImageSample<> > samples;
+        std::vector<ait::ImageSample> samples;
         for (auto i = 0; i < images.size(); i++) {
-            for (int x=0; x < images[i].GetDataMatrix().rows(); x++) {
-                for (int y=0; y < images[i].GetDataMatrix().cols(); y++) {
+            for (int x=0; x < images[i].get_data_matrix().rows(); x++) {
+                for (int y=0; y < images[i].get_data_matrix().cols(); y++) {
                 //int y = 0;
-					AIT::ImageSample<> sample(&images[i], x, y);
+					ait::ImageSample sample(&images[i], x, y);
 					samples.push_back(std::move(sample));
                 }
             }
@@ -41,22 +41,20 @@ int main(int argc, const char *argv[]) {
         std::cout << "Done." << std::endl;
 
         typedef std::mt19937_64 RandomEngine;
-        typedef AIT::ImageSample<> SampleType;
-        typedef std::vector<AIT::ImageSample<> >::iterator SampleIteratorType;
+        typedef std::vector<ait::ImageSample>::iterator SampleIteratorType;
         
-        AIT::ImageWeakLearnerParameters weak_learner_parameters;
-        typedef AIT::ImageWeakLearner<AIT::HistogramStatistics<AIT::ImageSample<> >, SampleIteratorType, RandomEngine> WeakLearnerType;
+        ait::ImageWeakLearnerParameters weak_learner_parameters;
+        typedef ait::ImageWeakLearner<ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType, RandomEngine> WeakLearnerType;
         WeakLearnerType iwl(weak_learner_parameters);
-        AIT::TrainingParameters training_parameters;
+        ait::TrainingParameters training_parameters;
         
-        AIT::ForestTrainer<AIT::ImageSample<>, WeakLearnerType, AIT::TrainingParameters, RandomEngine> trainer(iwl, training_parameters);
-		typedef AIT::SplitPoint<AIT::ImageFeature<>, AIT::Threshold<> > ImageSplitPoint;
-        typedef AIT::Forest<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> > > ForestType;
+        ait::ForestTrainer<ait::ImageSample, WeakLearnerType, ait::TrainingParameters, RandomEngine> trainer(iwl, training_parameters);
+        typedef ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > ForestType;
 
 		//std::time_t start_time = std::time(nullptr);
 		std::time_t time1 = std::time(nullptr);
 		auto start_time = std::chrono::high_resolution_clock::now();
-		ForestType forest = trainer.TrainForest(samples);
+		ForestType forest = trainer.train_forest(samples);
 		auto stop_time = std::chrono::high_resolution_clock::now();
 		std::time_t time2 = std::time(nullptr);
 		auto duration = stop_time - start_time;
@@ -83,34 +81,34 @@ int main(int argc, const char *argv[]) {
             std::cout << "done." << std::endl;
         }
 
-//        {
-//            std::cout << "Reading json forest file ... " << std::flush;
-//            std::ifstream ifile("forest.json");
-//            cereal::JSONInputArchive iarchive(ifile);
-//            iarchive(forest);
-//            std::cout << "done." << std::endl;
-//        }
-//
-//        {
-//            std::cout << "Reading binary forest file ... " << std::flush;
-//            std::ifstream bin_ifile("forest.bin", std::ios::binary);
-//            cereal::BinaryInputArchive bin_iarchive(bin_ifile);
-//            bin_iarchive(forest);
-//            std::cout << "done." << std::endl;
-//        }
+        {
+            std::cout << "Reading json forest file ... " << std::flush;
+            std::ifstream ifile("forest.json");
+            cereal::JSONInputArchive iarchive(ifile);
+            iarchive(forest);
+            std::cout << "done." << std::endl;
+        }
 
-        std::vector<std::vector<std::size_t> > forest_leaf_indices = forest.Evaluate<AIT::ImageSample<> >(samples);
+        {
+            std::cout << "Reading binary forest file ... " << std::flush;
+            std::ifstream bin_ifile("forest.bin", std::ios::binary);
+            cereal::BinaryInputArchive bin_iarchive(bin_ifile);
+            bin_iarchive(forest);
+            std::cout << "done." << std::endl;
+        }
+
+        std::vector<std::vector<std::size_t> > forest_leaf_indices = forest.evaluate<ait::ImageSample>(samples);
 
         int match = 0;
         int no_match = 0;
-        for (std::size_t i=0; i < forest.NumOfTrees(); i++) {
-            const ForestType::TreeType &tree = forest.GetTree(i);
+        for (std::size_t i=0; i < forest.size(); i++) {
+            const ForestType::TreeType &tree = forest.get_tree(i);
             for (auto it=samples.cbegin(); it != samples.cend(); it++) {
-                const auto &node = *tree.GetNode(forest_leaf_indices[i][it - samples.cbegin()]);
-                const auto &statistics = node.GetStatistics();
-                auto max_it = std::max_element(statistics.GetHistogram().cbegin(), statistics.GetHistogram().cend());
-                auto label = max_it - statistics.GetHistogram().cbegin();
-                if (label == it->GetLabel())
+                const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
+                const auto &statistics = node.get_statistics();
+                auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
+                auto label = max_it - statistics.get_histogram().cbegin();
+                if (label == it->get_label())
                     match++;
                 else
                     no_match++;
@@ -122,12 +120,12 @@ int main(int argc, const char *argv[]) {
         //            std::cout << "a" << std::endl;
         //        });
 
-        AIT::Tree<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> > > tree = forest.GetTree(0);
-        AIT::TreeUtilities<ImageSplitPoint, AIT::HistogramStatistics<AIT::ImageSample<> >,
-        AIT::ImageSample<> > tree_utils(tree);
-        auto matrix = tree_utils.ComputeConfusionMatrix<3>(samples);
+        ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
+        ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>,
+        ait::ImageSample> tree_utils(tree);
+        auto matrix = tree_utils.compute_confusion_matrix<3>(samples);
         std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
-        auto norm_matrix = tree_utils.ComputeNormalizedConfusionMatrix<3>(samples);
+        auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples);
         std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
     }
     catch (const std::runtime_error &error) {

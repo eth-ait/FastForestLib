@@ -1,5 +1,4 @@
-#ifndef AIT_eigen_matrix_io_h
-#define AIT_eigen_matrix_io_h
+#pragma once
 
 #include <iostream>
 #include <fstream>
@@ -7,8 +6,12 @@
 
 #include <Eigen/Dense>
 
+namespace ait
+{
+
 template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime>
-std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> LoadMatrix(const std::string &filename) {
+std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> load_matrix(const std::string &filename)
+{
 	typedef Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> MatrixType;
 
 	std::ifstream input(filename.c_str(), std::ios::binary);
@@ -44,7 +47,8 @@ std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> Loa
 }
 
 template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime>
-void SaveMatrix(const std::string &filename, const Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> &matrix) {
+void save_matrix(const std::string &filename, const Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> &matrix)
+{
 	typedef Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> MatrixType;
 
 	std::ofstream output(filename);
@@ -76,4 +80,4 @@ void SaveMatrix(const std::string &filename, const Eigen::Matrix<Scalar, RowsAtC
 	output.close();
 }
 
-#endif
+}
