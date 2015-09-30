@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <vector>
-
+#include <cereal/cereal.hpp>
 
 namespace ait
 {
@@ -17,8 +17,6 @@ class Node
     TStatistics statistics_;
 
 public:
-    typedef std::vector<int>::size_type size_type;
-
     ~Node() {}
 
     const TSplitPoint & get_split_point() const

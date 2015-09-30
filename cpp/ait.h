@@ -15,7 +15,7 @@ namespace ait
 {
 
 //typedef std::int64_t size_type;
-typedef EIGEN_DEFAULT_DENSE_INDEX_TYPE size_type;
-typedef double scalar_type;
+using size_type = EIGEN_DEFAULT_DENSE_INDEX_TYPE;
+using scalar_type = double;
 
 }

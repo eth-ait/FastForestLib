@@ -5,16 +5,16 @@
 #include <random>
 #include <iostream>
 #include <chrono>
-#include <ctime>
 
 #include <cereal/archives/json.hpp>
 #include <cereal/archives/binary.hpp>
 
+#include "ait.h"
+#include "forest_trainer.h"
 #include "histogram_statistics.h"
 #include "image_weak_learner.h"
 #include "eigen_matrix_io.h"
 #include "matlab_file_io.h"
-#include "forest_trainer.h"
 
 
 int main(int argc, const char *argv[]) {
@@ -40,18 +40,19 @@ int main(int argc, const char *argv[]) {
         }
         std::cout << "Done." << std::endl;
 
-        typedef std::mt19937_64 RandomEngine;
-        typedef std::vector<ait::ImageSample>::iterator SampleIteratorType;
+        using RandomEngine = std::mt19937_64;
+        using SampleIteratorType = std::vector<ait::ImageSample>::iterator;
+        
+        using SampleIteratorType = std::vector<ait::ImageSample>::iterator;
+        using WeakLearnerType = ait::ImageWeakLearner<ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType, RandomEngine>;
+        using ForestType = ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> >;
         
         ait::ImageWeakLearnerParameters weak_learner_parameters;
-        typedef ait::ImageWeakLearner<ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType, RandomEngine> WeakLearnerType;
-        WeakLearnerType iwl(weak_learner_parameters);
         ait::TrainingParameters training_parameters;
-        
-        ait::ForestTrainer<ait::ImageSample, WeakLearnerType, ait::TrainingParameters, RandomEngine> trainer(iwl, training_parameters);
-        typedef ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > ForestType;
+        WeakLearnerType iwl(weak_learner_parameters);
 
-		//std::time_t start_time = std::time(nullptr);
+        ait::ForestTrainer<ait::ImageSample, WeakLearnerType, RandomEngine> trainer(iwl, training_parameters);
+
 		std::time_t time1 = std::time(nullptr);
 		auto start_time = std::chrono::high_resolution_clock::now();
 		ForestType forest = trainer.train_forest(samples);
@@ -60,7 +61,6 @@ int main(int argc, const char *argv[]) {
 		auto duration = stop_time - start_time;
 		auto period = std::chrono::high_resolution_clock::period();
 		double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
-		//std::time_t stop_time = std::time(nullptr);
 		std::cout << "Running time: " << elapsed_seconds << std::endl;
 		std::cout << "Running time: " << (time2 - time1) << std::endl;
 
@@ -97,13 +97,15 @@ int main(int argc, const char *argv[]) {
             std::cout << "done." << std::endl;
         }
 
-        std::vector<std::vector<std::size_t> > forest_leaf_indices = forest.evaluate<ait::ImageSample>(samples);
+        std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate<ait::ImageSample>(samples);
 
         int match = 0;
         int no_match = 0;
-        for (std::size_t i=0; i < forest.size(); i++) {
+        for (std::size_t i=0; i < forest.size(); i++)
+        {
             const ForestType::TreeType &tree = forest.get_tree(i);
-            for (auto it=samples.cbegin(); it != samples.cend(); it++) {
+            for (auto it=samples.cbegin(); it != samples.cend(); it++)
+            {
                 const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
                 const auto &statistics = node.get_statistics();
                 auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
@@ -116,9 +118,10 @@ int main(int argc, const char *argv[]) {
         }
         std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
 
-        //        forest.Evaluate(samples, [] (const typename ForestType::NodeType &node) {
-        //            std::cout << "a" << std::endl;
-        //        });
+//        forest.Evaluate(samples, [] (const typename ForestType::NodeType &node)
+//        {
+//            std::cout << "a" << std::endl;
+//        });
 
         ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
         ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>,
@@ -128,7 +131,8 @@ int main(int argc, const char *argv[]) {
         auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples);
         std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
     }
-    catch (const std::runtime_error &error) {
+    catch (const std::runtime_error &error)
+    {
         std::cerr << "Runtime exception occured" << std::endl;
         std::cerr << error.what() << std::endl;
     }

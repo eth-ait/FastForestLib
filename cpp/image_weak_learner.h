@@ -15,9 +15,9 @@
 namespace ait
 {
  
-typedef std::int16_t pixel_type;
-typedef std::int16_t offset_type;
-typedef std::int16_t label_type;
+using pixel_type = std::int16_t;
+using offset_type = std::int16_t;
+using label_type = std::int16_t;
 
 // TODO: Lowercase
 class ImageWeakLearnerParameters
@@ -60,10 +60,11 @@ public:
 class Image
 {
 public:
-    typedef Eigen::Matrix<pixel_type, Eigen::Dynamic, Eigen::Dynamic> DataMatrixType;
-//		typedef Eigen::Map<DataMatrixType> DataMapType;
-    typedef Eigen::Matrix<label_type, Eigen::Dynamic, Eigen::Dynamic> LabelMatrixType;
-//		typedef Eigen::Map<LabelMatrixType> LabelMapType;
+    using DataMatrixType = Eigen::Matrix<pixel_type, Eigen::Dynamic, Eigen::Dynamic>;
+    using LabelMatrixType = Eigen::Matrix<label_type, Eigen::Dynamic, Eigen::Dynamic>;
+    // TODO
+//    using DataMapType = Eigen::Map<DataMatrixType>;
+//    using LabelMapType = Eigen::Map<LabelMatrixType>;
 
 private:
     DataMatrixType data_matrix_;
@@ -117,10 +118,12 @@ private:
 
 public:
     ImageSample(const Image *image_ptr, offset_type x, offset_type y)
-    : image_ptr_(image_ptr), x_(x), y_(y) {}
+    : image_ptr_(image_ptr), x_(x), y_(y)
+    {}
 
     ImageSample(const ImageSample &other)
-    : image_ptr_(other.image_ptr_), x_(other.x_), y_(other.y_) {}
+    : image_ptr_(other.image_ptr_), x_(other.x_), y_(other.y_)
+    {}
 
     const label_type get_label() const
     {
@@ -218,12 +221,21 @@ public:
         return threshold_;
     }
 
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version)
+    {
+        archive(cereal::make_nvp("offset_x1", offset_x1_));
+        archive(cereal::make_nvp("offset_y1", offset_y1_));
+        archive(cereal::make_nvp("offset_x2", offset_x2_));
+        archive(cereal::make_nvp("offset_y2", offset_y2_));
+        archive(cereal::make_nvp("threshold", threshold_));
+    }
 };
 
 template <typename TStatistics, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
 class ImageWeakLearner : public WeakLearner<ImageSplitPoint, TStatistics, TSampleIterator, TRandomEngine>
 {
-    typedef WeakLearner<ImageSplitPoint, TStatistics, TSampleIterator, TRandomEngine> BaseType;
+    using BaseType = WeakLearner<ImageSplitPoint, TStatistics, TSampleIterator, TRandomEngine>;
 
     const ImageWeakLearnerParameters parameters_;
 

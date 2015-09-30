@@ -6,6 +6,7 @@
 
 #include <cereal/types/vector.hpp>
 
+#include "ait.h"
 #include "node.h"
 
 // TODO: Modify iterator interface to reflect STL usage.
@@ -13,35 +14,48 @@ namespace ait {
 
 /// @brief A decision tree.
 template <typename TSplitPoint, typename TStatistics>
-class Tree {
+class Tree
+{
 public:
-    typedef Node<TSplitPoint, TStatistics> NodeType;
-    typedef std::vector<int>::size_type size_type;
+    using NodeType = Node<TSplitPoint, TStatistics>;
 
 private:
-    size_type depth_;
-    size_type first_leaf_node_index_;
-    std::vector<NodeType> nodes_;
-    
-    template <typename TreeType, typename ValueType>
-    class NodeIterator_ {
-    protected:
-        TreeType *tree_ptr_;
-        size_type node_index_;
+    struct NodeEntry
+    {
+        NodeType node;
+        bool is_leaf;
         
-    public:
-        NodeIterator_(TreeType *tree_ptr, size_type node_index)
-        : tree_ptr_(tree_ptr), node_index_(node_index)
+        NodeEntry() : is_leaf(false)
         {}
         
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version)
+        {
+            archive(cereal::make_nvp("node", node));
+            archive(cereal::make_nvp("is_leaf", is_leaf));
+        }
+    };
+
+    template <typename TreeType, typename ValueType>
+    class TreeIterator_
+    {
+    protected:
+        TreeType &tree_;
+        size_type node_index_;
+
+    public:
+        TreeIterator_(TreeType &tree, size_type node_index)
+        : tree_(tree), node_index_(node_index)
+        {}
+
         ValueType & operator*()
         {
-            return tree_ptr_->nodes_[node_index_];
+            return tree_.node_entries_[node_index_].node;
         }
         
         ValueType * operator->()
         {
-            return &tree_ptr_->nodes_[node_index_];
+            return &tree_.node_entries_[node_index_].node;
         }
         
         //            bool operator==(const NodeType &other) const
@@ -54,31 +68,36 @@ private:
         //                return !this->operator==(other);
         //            }
         
-        size_type get_node_index() const
+        size_type get_index() const
         {
             return node_index_;
         }
         
-        bool is_root_node() const
+        bool is_root() const
         {
             return node_index_ == 0;
         }
-        
-        bool is_leaf_node() const
+
+        bool is_leaf() const
         {
-            return node_index_ >= tree_ptr_->first_leaf_node_index_;
+            return tree_.node_entries_[node_index_].is_leaf;
+        }
+        
+        void set_leaf(bool is_leaf = true)
+        {
+            tree_.node_entries_[node_index_].is_leaf = is_leaf;
         }
         
         void goto_left_child()
         {
-            assert(!this->is_leaf_node());
+            assert(!this->is_leaf());
             size_type left_child_index = 2 * node_index_ + 1;
             node_index_ = left_child_index;
         }
         
         void goto_right_child()
         {
-            assert(!this->is_leaf_node());
+            assert(!this->is_leaf());
             size_type right_child_index = 2 * node_index_ + 2;
             node_index_ = right_child_index;
         }
@@ -90,69 +109,149 @@ private:
             node_index_ = parent_index;
         }
         
-        NodeIterator_ left_child()
+        TreeIterator_ left_child()
         {
-            assert(!this->is_leaf_node());
+            assert(!this->is_leaf());
             size_type left_child_index = 2 * node_index_ + 1;
-            return NodeIterator_(tree_ptr_, left_child_index);
+            return TreeIterator_(tree_, left_child_index);
         }
         
-        NodeIterator_ right_child()
+        TreeIterator_ right_child()
         {
-            assert(!this->is_leaf_node());
+            assert(!this->is_leaf());
             size_type right_child_index = 2 * node_index_ + 2;
-            return NodeIterator_(tree_ptr_, right_child_index);
+            return TreeIterator_(tree_, right_child_index);
         }
         
-        NodeIterator_ parent()
+        TreeIterator_ parent()
         {
             assert(!this->is_root_node());
             size_type parent_index = (node_index_ - 1) / 2;
-            return NodeIterator_(tree_ptr_, parent_index);
+            return TreeIterator_(tree_, parent_index);
         }
     };
 
-public:
-    typedef NodeIterator_<Tree<TSplitPoint, TStatistics>, NodeType> NodeIterator;
-    typedef NodeIterator_<Tree<TSplitPoint, TStatistics> const, NodeType const> ConstNodeIterator;
+    size_type depth_;
+    std::vector<NodeEntry> node_entries_;
+
+    // TODO: Use boost::iterator to implement a proper iterator
+    class NodeEntryIteratorWrapper
+    {
+    public:
+        using BaseIterator = typename std::vector<NodeEntry>::iterator;
+
+    private:
+        BaseIterator it_;
+        
+    public:
+        NodeEntryIteratorWrapper(const BaseIterator &it)
+        : it_(it)
+        {}
+        
+        NodeType & operator*()
+        {
+            return it_->node;
+        }
+        
+        NodeType * operator->()
+        {
+            return &it_->node;
+        }
+
+        bool operator==(const NodeEntryIteratorWrapper &other) const
+        {
+            return it_ == other.it_;
+        }
+
+        bool operator!=(const NodeEntryIteratorWrapper &other) const
+        {
+            return it_ != other.it_;
+        }
+        
+        NodeEntryIteratorWrapper & operator++()
+        {
+            ++it_;
+            return *this;
+        }
+        
+        NodeEntryIteratorWrapper operator++(int)
+        {
+            NodeEntryIteratorWrapper tmp(*this);
+            ++(*this);
+            return tmp;
+        }
+    };
     
+public:
+    using TreeIterator = TreeIterator_<Tree<TSplitPoint, TStatistics>, NodeType>;
+    using ConstTreeIterator = TreeIterator_<Tree<TSplitPoint, TStatistics> const, NodeType const>;
+    
+    class TreeLevel
+    {
+    protected:
+        Tree &tree_;
+        size_type level_;
+        
+    public:
+        TreeLevel(Tree &tree, size_type level)
+        : tree_(tree), level_(level)
+        {}
+        
+        NodeEntryIteratorWrapper begin()
+        {
+            size_type offset = (1 << (level_ - 1)) - 1;
+            return NodeEntryIteratorWrapper(tree_.node_entries_.begin() + offset);
+        }
+
+        NodeEntryIteratorWrapper end()
+        {
+            size_type offset = (1 << level_) - 1;
+            return NodeEntryIteratorWrapper(tree_.node_entries_.begin() + offset);
+        }
+    };
+
     /// @brief Create an empty tree with no nodes.
     Tree()
-    : depth_(0), first_leaf_node_index_(0)
+    : depth_(0)
     {}
 
     /// @brief Create a tree.
     /// @param depth The depth of the tree. A depth of 1 corresponds to a tree
     ///              with a single node.
     Tree(size_type depth)
-    : depth_(depth), first_leaf_node_index_((1 << (depth - 1)) - 1)
+    : depth_(depth)
     {
         size_type num_of_nodes = (1 << depth_) - 1;
-        nodes_.resize(num_of_nodes);
+        node_entries_.resize(num_of_nodes);
+        size_type first_leaf_node_index = (1 << (depth - 1)) - 1;
+        for (size_type i = first_leaf_node_index; i < num_of_nodes; i++)
+        {
+            node_entries_[i].is_leaf = true;
+        }
     }
 
     /// @brief Return a node in the tree.
-    NodeIterator get_root()
+    TreeIterator get_root()
     {
-        return NodeIterator(this, 0);
+        return TreeIterator(*this, 0);
     }
     
     /// @brief Return a node in the tree.
-    ConstNodeIterator get_root() const
+    ConstTreeIterator get_root() const
     {
-        return ConstNodeIterator(this, 0);
+        return ConstTreeIterator(*this, 0);
     }
 
     /// @brief Return a node in the tree.
-    NodeIterator get_node(size_type index)
+    TreeIterator get_node(size_type index)
     {
-        return NodeIterator(this, index);
+        return TreeIterator(*this, index);
     }
     
     /// @brief Return a node in the tree.
-    ConstNodeIterator get_node(size_type index) const
+    ConstTreeIterator get_node(size_type index) const
     {
-        return ConstNodeIterator(this, index);
+        return ConstTreeIterator(*this, index);
     }
     
     /// @brief Return depth of the tree. A depth of 1 corresponds to a tree
@@ -165,7 +264,7 @@ public:
     /// @brief Return number of nodes in the tree.
     size_type size() const
     {
-        return nodes_.size();
+        return node_entries_.size();
     }
 
     /// @brief evaluate a collection of data-points on the tree.
@@ -178,47 +277,114 @@ public:
         std::vector<size_type> &leaf_node_indices) const
     {
         leaf_node_indices.reserve(samples.size());
-        for (auto it = samples.cbegin(); it != samples.cend(); it++) {
-            ConstNodeIterator node_iter = evaluate_to_iterator(*it);
-            leaf_node_indices.push_back(node_iter.get_node_index());
+        for (auto it = samples.cbegin(); it != samples.cend(); it++)
+        {
+            ConstTreeIterator node_iter = evaluate_to_iterator(*it);
+            leaf_node_indices.push_back(node_iter.get_index());
         }
     }
     
+    /// @brief evaluate a collection of data-points on the tree and return the iterators (const version).
+    /// @param data The collection of data-points
+    /// @param max_depth The maximum depth to which the tree should be traversed
     template <typename Sample>
-    const std::vector<ConstNodeIterator> evaluate(const std::vector<Sample> &samples) const
+    const std::vector<ConstTreeIterator> evaluate(const std::vector<Sample> &samples, size_type max_depth = std::numeric_limits<size_type>::max()) const
     {
-        std::vector<ConstNodeIterator> leaf_nodes;
+        std::vector<ConstTreeIterator> leaf_nodes;
         leaf_nodes.reserve(samples.size());
-        for (auto it = samples.cbegin(); it != samples.cend(); it++) {
-            ConstNodeIterator node_iter = evaluate(*it);
-            leaf_nodes.push_back(node_iter);
+        for (auto it = samples.cbegin(); it != samples.cend(); it++)
+        {
+            ConstTreeIterator node_iter = evaluate(*it, max_depth);
+            leaf_nodes.push_back(std::move(node_iter));
         }
         return leaf_nodes;
+    }
+    
+    /// @brief evaluate a collection of data-points on the tree and return the iterators.
+    /// @param data The collection of data-points
+    /// @param max_depth The maximum depth to which the tree should be traversed
+    template <typename Sample>
+    std::vector<TreeIterator> evaluate(const std::vector<Sample> &samples, size_type max_depth = std::numeric_limits<size_type>::max())
+    {
+        std::vector<TreeIterator> leaf_nodes;
+        leaf_nodes.reserve(samples.size());
+        for (auto it = samples.cbegin(); it != samples.cend(); it++)
+        {
+            TreeIterator node_iter = evaluate(*it, max_depth);
+            leaf_nodes.push_back(std::move(node_iter));
+        }
+        return leaf_nodes;
+    }
+
+    template <typename Sample>
+    std::vector<ConstTreeIterator> evaluate(const std::vector<Sample> &samples, size_type max_depth = std::numeric_limits<size_type>::max()) const
+    {
+        std::vector<ConstTreeIterator> leaf_nodes;
+        leaf_nodes.reserve(samples.size());
+        for (auto it = samples.cbegin(); it != samples.cend(); it++)
+        {
+            ConstTreeIterator node_iter = evaluate(*it, max_depth);
+            leaf_nodes.push_back(std::move(node_iter));
+        }
+        return leaf_nodes;
+    }
+    
+
+    /// @brief Evaluate a data-points on the tree (const version).
+    /// @param data_point The data-point.
+    /// @return The index of the corresponding leaf-node.
+    template <typename Sample>
+    ConstTreeIterator evaluate(const Sample &sample, size_type max_depth = std::numeric_limits<size_type>::max()) const
+    {
+        size_type current_depth = 1;
+        ConstTreeIterator node_iter = get_root();
+        while (!node_iter.is_leaf() && current_depth < max_depth)
+        {
+            Direction direction = node_iter->get_split_point().evaluate(sample);
+            if (direction == Direction::LEFT)
+            {
+                node_iter.goto_left_child();
+            }
+            else
+            {
+                node_iter.goto_right_child();
+            }
+            ++current_depth;
+        }
+        return node_iter;
     }
     
     /// @brief Evaluate a data-points on the tree.
     /// @param data_point The data-point.
     /// @return The index of the corresponding leaf-node.
     template <typename Sample>
-    size_type evaluate(const Sample &sample) const
+    TreeIterator evaluate(const Sample &sample, size_type max_depth = std::numeric_limits<size_type>::max())
     {
-        ConstNodeIterator node_iter = get_root();
-        while (!node_iter.IsLeafNode()) {
+        size_type current_depth = 1;
+        TreeIterator node_iter = get_root();
+        while (!node_iter.is_leaf() && current_depth < max_depth)
+        {
             Direction direction = node_iter->get_split_point().evaluate(sample);
             if (direction == Direction::LEFT)
+            {
                 node_iter.goto_left_child();
+            }
             else
+            {
                 node_iter.goto_right_child();
+            }
+            ++current_depth;
         }
-        return node_iter.get_node_index();
+        return node_iter;
     }
 
     template <typename Sample>
-    void evaluate_parallel(const std::vector<Sample> &samples, std::function<void(const Sample &, ConstNodeIterator &)> &func) const
+    void evaluate_parallel(const std::vector<Sample> &samples, std::function<void(const Sample &, ConstTreeIterator &)> &func) const
     {
         //#pragma omp parallel for
-        for (int i = 0; i < samples.size(); i++) {
-            ConstNodeIterator node_iter = evaluate_to_iterator(samples[i]);
+        for (int i = 0; i < samples.size(); i++)
+        {
+            ConstTreeIterator node_iter = evaluate_to_iterator(samples[i]);
             func(samples[i], node_iter);
         }
     }
@@ -226,17 +392,19 @@ public:
     template <typename Sample>
     void evaluate_parallel(const std::vector<Sample> &samples, const std::function<void(const Sample &, const NodeType &)> &func) const
     {
-        std::function<void(const Sample &, ConstNodeIterator &)> func_wrapper = [&func](const Sample &sample, ConstNodeIterator &node_iter) {
+        std::function<void(const Sample &, ConstTreeIterator &)> func_wrapper = [&func](const Sample &sample, ConstTreeIterator &node_iter)
+        {
             func(sample, *node_iter);
         };
         evaluate_parallel(samples, func_wrapper);
     }
 
     template <typename Sample>
-    void evaluate(const std::vector<Sample> &samples, std::function<void(const Sample &, ConstNodeIterator &)> &func) const
+    void evaluate(const std::vector<Sample> &samples, std::function<void(const Sample &, ConstTreeIterator &)> &func) const
     {
-        for (auto it = samples.cbegin(); it != samples.cend(); it++) {
-            ConstNodeIterator node_iter = evaluate_to_iterator(*it);
+        for (auto it = samples.cbegin(); it != samples.cend(); it++)
+        {
+            ConstTreeIterator node_iter = evaluate_to_iterator(*it);
             func(*it, node_iter);
         }
     }
@@ -244,7 +412,8 @@ public:
     template <typename Sample>
     void evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &, const NodeType &)> &func) const
     {
-        std::function<void (const Sample &, ConstNodeIterator &)> func_wrapper = [&func] (const Sample &sample, ConstNodeIterator &node_iter) {
+        std::function<void (const Sample &, ConstTreeIterator &)> func_wrapper = [&func] (const Sample &sample, ConstTreeIterator &node_iter)
+        {
             func(sample, *node_iter);
         };
         evaluate(samples, func_wrapper);
@@ -254,15 +423,20 @@ public:
     /// @param data_point The data-point.
     /// @return The index of the corresponding leaf-node.
     template <typename Sample>
-    ConstNodeIterator evaluate_to_iterator(const Sample &sample) const
+    ConstTreeIterator evaluate_to_iterator(const Sample &sample) const
     {
-        ConstNodeIterator node_iter = get_root();
-        while (!node_iter.is_leaf_node()) {
+        ConstTreeIterator node_iter = get_root();
+        while (!node_iter.is_leaf())
+        {
             Direction direction = node_iter->get_split_point().evaluate(sample);
             if (direction == Direction::LEFT)
+            {
                 node_iter.goto_left_child();
+            }
             else
+            {
                 node_iter.goto_right_child();
+            }
         }
         return node_iter;
     }
@@ -271,8 +445,7 @@ public:
     void serialize(Archive &archive, const unsigned int version)
     {
         archive(cereal::make_nvp("depth", depth_));
-        archive(cereal::make_nvp("first_leaf_node_index", first_leaf_node_index_));
-//            archive(cereal::make_nvp("nodes", nodes_));
+        archive(cereal::make_nvp("node_entries", node_entries_));
     }
 
 private:
@@ -287,23 +460,15 @@ private:
     {
         return 2 * index + 2;
     }
-
-    // @brief Check if the specified node is a leaf node.
-    bool is_leaf_node_index(size_type index) const
-    {
-        if (index >= first_leaf_node_index_)
-            return true;
-        else
-            return false;
-    }
-
 };
 
 template <typename TSplitPoint, typename TStatistics, typename TSample, typename TMatrix = Eigen::MatrixXd>
-class TreeUtilities {
-    typedef Tree<TSplitPoint, TStatistics> TreeType;
-    
+class TreeUtilities
+{
+    using TreeType = Tree<TSplitPoint, TStatistics>;
+
     const TreeType &tree_;
+
 public:
     TreeUtilities(const TreeType &tree)
     : tree_(tree)
@@ -322,7 +487,8 @@ public:
                             typename TSample::label_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
                             confusion_matrix(true_label, predicted_label)++;
         });*/
-        tree_.template evaluate_parallel<TSample>(samples, [&confusion_matrix](const TSample &sample, const typename TreeType::NodeType &node) {
+        tree_.template evaluate_parallel<TSample>(samples, [&confusion_matrix](const TSample &sample, const typename TreeType::NodeType &node)
+        {
             size_type true_label = sample.get_label();
             const TStatistics &statistics = node.get_statistics();
             const auto &histogram = statistics.get_histogram();
@@ -338,8 +504,10 @@ public:
         TMatrix confusion_matrix = compute_confusion_matrix<num_of_labels>(samples);
         auto row_sum = confusion_matrix.rowwise().sum();
         TMatrix normalized_confusion_matrix = confusion_matrix;
-        for (int col=0; col < confusion_matrix.cols(); col++) {
-            for (int row=0; row < confusion_matrix.rows(); row++) {
+        for (int col=0; col < confusion_matrix.cols(); col++)
+        {
+            for (int row=0; row < confusion_matrix.rows(); row++)
+            {
                 normalized_confusion_matrix(row, col) /= row_sum(row);
             }
         }

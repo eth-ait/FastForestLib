@@ -12,7 +12,7 @@ namespace ait
 template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime>
 std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> load_matrix(const std::string &filename)
 {
-	typedef Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> MatrixType;
+	using MatrixType = Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>;
 
 	std::ifstream input(filename.c_str(), std::ios::binary);
 	if (input.fail()) {
@@ -49,7 +49,7 @@ std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> loa
 template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime>
 void save_matrix(const std::string &filename, const Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> &matrix)
 {
-	typedef Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> MatrixType;
+	using MatrixType = Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>;
 
 	std::ofstream output(filename);
 	if (output.fail()) {

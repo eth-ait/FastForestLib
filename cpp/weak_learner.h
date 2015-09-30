@@ -2,6 +2,7 @@
 
 #include <tuple>
 #include <iostream>
+#include <random>
 
 #include "ait.h"
 
@@ -15,8 +16,6 @@ class SplitStatistics
     std::vector<TStatistics> right_statistics_collection_;
 
 public:
-    typedef typename std::vector<TStatistics>::size_type size_type;
-
     SplitStatistics() {}
 
     SplitStatistics(size_t num_of_split_points)
@@ -55,9 +54,9 @@ template <typename TSplitPoint, typename TStatistics, typename TSampleIterator, 
 class WeakLearner
 {
 public:
-    typedef TSplitPoint SplitPointT;
-    typedef TStatistics StatisticsT;
-    typedef TSampleIterator SampleIteratorT;
+    using SplitPointT = TSplitPoint;
+    using StatisticsT = TStatistics;
+    using SampleIteratorT = TSampleIterator;
 
 protected:
     virtual scalar_type compute_information_gain(const TStatistics &current_statistics, const TStatistics &left_statistics, const TStatistics &right_statistics) const {

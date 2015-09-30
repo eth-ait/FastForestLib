@@ -19,7 +19,7 @@ namespace ait
 template <typename data_type = double, typename label_type = std::size_t>
 std::vector<ait::Image> load_images_from_matlab_file(const std::string &filename, const std::string &data_array_name = "data", const std::string &label_array_name = "label")
 {
-    typedef ait::Image ImageType;
+    using ImageType = ait::Image;
 
     /*
     * Open file to get directory
@@ -89,7 +89,7 @@ std::vector<ait::Image> load_images_from_matlab_file(const std::string &filename
 // TODO
 //template <typename data_type=double>
 //std::map<std::string, Eigen::Matrix<data_type, Eigen::Dynamic, Eigen::Dynamic>> load_matlab_file(const std::string &filename, const std::vector<std::string> &array_names) {
-//    typedef Eigen::Matrix<data_type, Eigen::Dynamic, Eigen::Dynamic> MatrixType;
+//    using MatrixType = Eigen::Matrix<data_type, Eigen::Dynamic, Eigen::Dynamic>;
 
 //    std::map<std::string, MatrixType> array_map;
 

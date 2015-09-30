@@ -7,6 +7,7 @@
 #include <cereal/types/vector.hpp>
 #include <Eigen/Dense>
 
+#include "ait.h"
 #include "tree.h"
 
 namespace ait
@@ -17,9 +18,8 @@ template <typename TSplitPoint, typename TStatistics>
 class Forest
 {
 public:
-    typedef Tree<TSplitPoint, TStatistics> TreeType;
-    typedef typename TreeType::NodeType NodeType;
-    typedef std::vector<int>::size_type size_type;
+    using TreeType = Tree<TSplitPoint, TStatistics>;
+    using NodeType = typename TreeType::NodeType;
 
 private:
     std::vector<TreeType> trees_;
@@ -61,11 +61,11 @@ public:
 
     // TODO: Think about evaluation methods
     template <typename Sample>
-    void evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &sample, const typename TreeType::ConstNodeIterator &)> &func) const {
+    void evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &sample, const typename TreeType::ConstTreeIterator &)> &func) const {
         for (size_type i=0; i < size(); i++) {
             const TreeType &tree = trees_[i];
             for (auto it = samples.cbegin(); it != samples.cend(); it++) {
-                typename TreeType::ConstNodeIterator node_iter = tree.evaluate_to_iterator(*it);
+                typename TreeType::ConstTreeIterator node_iter = tree.evaluate_to_iterator(*it);
                 func(*it, node_iter);
             }
         }
@@ -73,7 +73,7 @@ public:
 
     template <typename Sample>
     void evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &sample, const NodeType &)> &func) const {
-        evaluate(samples, [&func] (const Sample &sample, const typename TreeType::ConstNodeIterator &node_iter) {
+        evaluate(samples, [&func] (const Sample &sample, const typename TreeType::ConstTreeIterator &node_iter) {
 //            func(sample, *node_iter);
         });
     }
@@ -110,15 +110,15 @@ public:
     }
 
     template <typename Sample>
-    const std::vector<std::vector<typename TreeType::ConstNodeIterator> > evaluate_to_iterator(const std::vector<Sample> &samples) const
+    const std::vector<std::vector<typename TreeType::ConstTreeIterator> > evaluate_to_iterator(const std::vector<Sample> &samples) const
     {
-        std::vector<std::vector<typename TreeType::ConstNodeIterator> > forest_leaf_nodes;
+        std::vector<std::vector<typename TreeType::ConstTreeIterator> > forest_leaf_nodes;
         forest_leaf_nodes.reserve(size());
         for (size_type i=0; i < size(); i++) {
-            std::vector<typename TreeType::ConstNodeIterator> leaf_nodes;
+            std::vector<typename TreeType::ConstTreeIterator> leaf_nodes;
             leaf_nodes.reserve(samples.size());
             for (auto it = samples.cbegin(); it != samples.cend(); it++) {
-                typename TreeType::ConstNodeIterator node_iter = Evaluate(*it);
+                typename TreeType::ConstTreeIterator node_iter = Evaluate(*it);
                 leaf_nodes.push_back(node_iter);
             }
             forest_leaf_nodes.push_back(std::move(leaf_nodes));
@@ -137,7 +137,7 @@ public:
 template <typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
 class ForestUtilities
 {
-    typedef Forest<TSplitPoint, TStatistics> ForestType;
+    using ForestType = Forest<TSplitPoint, TStatistics>;
     
     const ForestType &forest_;
 public:
