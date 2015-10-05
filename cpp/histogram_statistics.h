@@ -55,6 +55,33 @@ public:
         num_of_samples_++;
     }
 
+    template <typename T>
+    static HistogramStatistics accumulate(T it_start, T it_end)
+    {
+        HistogramStatistics statistics;
+        for (T it = it_start; it != it_end; ++it)
+        {
+            statistics.lazy_accumulate(*it);
+        }
+        statistics.num_of_samples_ += it_end - it_start;
+        return statistics;
+    }
+    
+    template <typename T>
+    static HistogramStatistics accumulate_histograms(T it_start, T it_end)
+    {
+        HistogramStatistics statistics;
+        for (T it = it_start; it != it_end; ++it)
+        {
+            for (size_type i=0; i < it->histogram_.size(); i++)
+            {
+                statistics.histogram_[i] += it->histogram_[i];
+            }
+        }
+        statistics.finish_lazy_accumulation();
+        return statistics;
+    }
+
     /// @brief Return the numbers of samples contributing to the histogram.
     size_type num_of_samples() const
     {
@@ -87,7 +114,7 @@ public:
         archive(cereal::make_nvp("histogram", histogram_));
         archive(cereal::make_nvp("num_of_samples", num_of_samples_));
     }
-    
+
 
 //    template <typename Archive>
 //    void save(Archive &archive, const unsigned int version) const

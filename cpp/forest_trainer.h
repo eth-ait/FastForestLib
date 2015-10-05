@@ -25,7 +25,7 @@ public:
     using StatisticsT = typename TWeakLearner::StatisticsT;
     using SampleIteratorT = typename TWeakLearner::SampleIteratorT;
     using SplitPointT = typename TWeakLearner::SplitPointT;
-    using TreeIterator = typename Tree<SplitPointT, StatisticsT>::TreeIterator;
+    using NodeIterator = typename Tree<SplitPointT, StatisticsT>::NodeIterator;
 
 private:
     const TWeakLearner weak_learner_;
@@ -42,7 +42,7 @@ public:
         : weak_learner_(weak_learner), training_parameters_(training_parameters)
     {}
 
-    void train_tree_recursive(TreeIterator tree_iter, SampleIteratorT i_start, SampleIteratorT i_end, TRandomEngine &rnd_engine, int current_depth = 1) const
+    void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT i_start, SampleIteratorT i_end, TRandomEngine &rnd_engine, int current_depth = 1) const
     {
         output_spaces(std::cout, current_depth - 1);
         std::cout << "depth: " << current_depth << ", samples: " << (i_end - i_start) << std::endl;
@@ -74,7 +74,7 @@ public:
         SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics(i_start, i_end, split_points);
 
         // Find the best split point
-        std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point(statistics, split_statistics);
+        std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point_tuple(statistics, split_statistics);
 
         scalar_type best_information_gain = std::get<1>(best_split_point_tuple);
         // Stop splitting the node if the best information gain is below the minimum information gain

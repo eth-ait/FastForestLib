@@ -29,10 +29,15 @@ int main(int argc, const char *argv[]) {
         
         std::cout << "Creating samples... " << std::flush;
         std::vector<ait::ImageSample> samples;
-        for (auto i = 0; i < images.size(); i++) {
-            for (int x=0; x < images[i].get_data_matrix().rows(); x++) {
-                for (int y=0; y < images[i].get_data_matrix().cols(); y++) {
-                //int y = 0;
+        for (auto i = 0; i < images.size(); i++)
+        {
+            for (int x=0; x < images[i].get_data_matrix().rows(); x++)
+            {
+                if (x % 4 != 0)
+                    continue;
+//                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
+                {
+                int y = 0;
 					ait::ImageSample sample(&images[i], x, y);
 					samples.push_back(std::move(sample));
                 }
@@ -42,27 +47,24 @@ int main(int argc, const char *argv[]) {
 
         using RandomEngine = std::mt19937_64;
         using SampleIteratorType = std::vector<ait::ImageSample>::iterator;
-        
-        using SampleIteratorType = std::vector<ait::ImageSample>::iterator;
+        using ConstSampleIteratorType = std::vector<ait::ImageSample>::const_iterator;
         using WeakLearnerType = ait::ImageWeakLearner<ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType, RandomEngine>;
         using ForestType = ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> >;
-        
+
         ait::ImageWeakLearnerParameters weak_learner_parameters;
         ait::TrainingParameters training_parameters;
         WeakLearnerType iwl(weak_learner_parameters);
 
         ait::ForestTrainer<ait::ImageSample, WeakLearnerType, RandomEngine> trainer(iwl, training_parameters);
 
-		std::time_t time1 = std::time(nullptr);
 		auto start_time = std::chrono::high_resolution_clock::now();
 		ForestType forest = trainer.train_forest(samples);
 		auto stop_time = std::chrono::high_resolution_clock::now();
-		std::time_t time2 = std::time(nullptr);
+
 		auto duration = stop_time - start_time;
 		auto period = std::chrono::high_resolution_clock::period();
 		double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
 		std::cout << "Running time: " << elapsed_seconds << std::endl;
-		std::cout << "Running time: " << (time2 - time1) << std::endl;
 
         // Serialize forest
         {
@@ -97,7 +99,7 @@ int main(int argc, const char *argv[]) {
             std::cout << "done." << std::endl;
         }
 
-        std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate<ait::ImageSample>(samples);
+        std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());
 
         int match = 0;
         int no_match = 0;
@@ -124,11 +126,10 @@ int main(int argc, const char *argv[]) {
 //        });
 
         ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
-        ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>,
-        ait::ImageSample> tree_utils(tree);
-        auto matrix = tree_utils.compute_confusion_matrix<3>(samples);
+        ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, ConstSampleIteratorType> tree_utils(tree);
+        auto matrix = tree_utils.compute_confusion_matrix<3>(samples.cbegin(), samples.cend());
         std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
-        auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples);
+        auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples.cbegin(), samples.cend());
         std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
     }
     catch (const std::runtime_error &error)

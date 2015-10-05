@@ -60,65 +60,116 @@ public:
     }
 
     // TODO: Think about evaluation methods
-    template <typename Sample>
-    void evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &sample, const typename TreeType::ConstTreeIterator &)> &func) const {
+    template <typename TSample>
+    void evaluate(const std::vector<TSample> &samples, const std::function<void (const TSample &sample, const typename TreeType::ConstNodeIterator &)> &func) const {
         for (size_type i=0; i < size(); i++) {
             const TreeType &tree = trees_[i];
-            for (auto it = samples.cbegin(); it != samples.cend(); it++) {
-                typename TreeType::ConstTreeIterator node_iter = tree.evaluate_to_iterator(*it);
+            for (auto it = samples.cbegin(); it != samples.cend(); it++)
+            {
+                typename TreeType::ConstNodeIterator node_iter = tree.evaluate_to_iterator(*it);
+                func(*it, node_iter);
+            }
+        }
+    }
+    
+    template <typename TSampleIterator>
+    void evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end, const std::function<void (const TSampleIterator &, const typename TreeType::ConstNodeIterator &)> &func) const {
+        for (size_type i=0; i < size(); i++) {
+            const TreeType &tree = trees_[i];
+            for (auto it = it_start; it != it_end; ++it)
+            {
+                typename TreeType::ConstNodeIterator node_iter = tree.evaluate_to_iterator(*it);
                 func(*it, node_iter);
             }
         }
     }
 
-    template <typename Sample>
-    void evaluate(const std::vector<Sample> &samples, const std::function<void (const Sample &sample, const NodeType &)> &func) const {
-        evaluate(samples, [&func] (const Sample &sample, const typename TreeType::ConstTreeIterator &node_iter) {
+    template <typename TSample>
+    void evaluate(const std::vector<TSample> &samples, const std::function<void (const TSample &sample, const NodeType &)> &func) const {
+        evaluate(samples, [&func] (const TSample &sample, const typename TreeType::ConstNodeIterator &node_iter)
+        {
 //            func(sample, *node_iter);
         });
     }
 
-    /// @brief Evaluate a collection of data-points on each tree in the forest.
-    /// @param data The collection of data-points
+    /// @brief Evaluate a collection of samples on each tree in the forest.
+    /// @param samples The collection of samples.
     /// @return A vector of the results. See #Evaluate().
-    template <typename Sample>
-    std::vector<std::vector<size_type> > evaluate(const std::vector<Sample> &samples) const
+    template <typename TSample>
+    std::vector<std::vector<size_type> > evaluate(const std::vector<TSample> &samples) const
     {
         std::vector<std::vector<size_type> > forest_leaf_node_indices;
         evaluate(samples, forest_leaf_node_indices);
         return forest_leaf_node_indices;
     }
-
+    
     /// @brief Evaluate a collection of data-points on each tree in the forest.
-    /// @param data The collection of data-points
+    /// @param it_start The first sample iterator.
+    /// @param it_end The last sample iterator.
+    /// @return A vector of the results. See #Evaluate().
+    template <typename TSampleIterator>
+    std::vector<std::vector<size_type> > evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end) const
+    {
+        std::vector<std::vector<size_type> > forest_leaf_node_indices;
+        evaluate(it_start, it_end, forest_leaf_node_indices);
+        return forest_leaf_node_indices;
+    }
+
+    /// @brief Evaluate a collection of samples on each tree in the forest.
+    /// @param samples The collection of samples
     /// @param forest_leaf_node_indices A vector for storing the results. For each tree
     ///                          it will contain another vector storing the
     ///                          index of the corresponding leaf node for each
     ///                          data-point.
     ///                          So leaf_node_indices.size() will be equal to
     ///                          NumOfTrees().
-    template <typename Sample>
-    void evaluate(const std::vector<Sample> &samples, std::vector<std::vector<size_type> > &forest_leaf_node_indices) const
+    template <typename TSample>
+    void evaluate(const std::vector<TSample> &samples, std::vector<std::vector<size_type> > &forest_leaf_node_indices) const
     {
         forest_leaf_node_indices.reserve(size());
-        for (size_type i=0; i < size(); i++) {
+        for (size_type i=0; i < size(); i++)
+        {
             std::vector<size_type> leaf_node_indices;
             leaf_node_indices.reserve(samples.size());
             trees_[i].evaluate(samples, leaf_node_indices);
             forest_leaf_node_indices.push_back(std::move(leaf_node_indices));
         }
     }
-
-    template <typename Sample>
-    const std::vector<std::vector<typename TreeType::ConstTreeIterator> > evaluate_to_iterator(const std::vector<Sample> &samples) const
+    
+    /// @brief Evaluate a collection of samples on each tree in the forest.
+    /// @param it_start The first sample iterator.
+    /// @param it_end The last sample iterator.
+    /// @param forest_leaf_node_indices A vector for storing the results. For each tree
+    ///                          it will contain another vector storing the
+    ///                          index of the corresponding leaf node for each
+    ///                          data-point.
+    ///                          So leaf_node_indices.size() will be equal to
+    ///                          NumOfTrees().
+    template <typename TSampleIterator>
+    void evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end, std::vector<std::vector<size_type> > &forest_leaf_node_indices) const
     {
-        std::vector<std::vector<typename TreeType::ConstTreeIterator> > forest_leaf_nodes;
+        forest_leaf_node_indices.reserve(size());
+        for (size_type i=0; i < size(); i++)
+        {
+            std::vector<size_type> leaf_node_indices;
+            leaf_node_indices.reserve(it_end - it_start);
+            trees_[i].evaluate(it_start, it_end, leaf_node_indices);
+            forest_leaf_node_indices.push_back(std::move(leaf_node_indices));
+        }
+    }
+
+    template <typename TSample>
+    const std::vector<std::vector<typename TreeType::ConstNodeIterator> > evaluate_to_iterator(const std::vector<TSample> &samples) const
+    {
+        std::vector<std::vector<typename TreeType::ConstNodeIterator> > forest_leaf_nodes;
         forest_leaf_nodes.reserve(size());
-        for (size_type i=0; i < size(); i++) {
-            std::vector<typename TreeType::ConstTreeIterator> leaf_nodes;
+        for (size_type i=0; i < size(); i++)
+        {
+            std::vector<typename TreeType::ConstNodeIterator> leaf_nodes;
             leaf_nodes.reserve(samples.size());
-            for (auto it = samples.cbegin(); it != samples.cend(); it++) {
-                typename TreeType::ConstTreeIterator node_iter = Evaluate(*it);
+            for (auto it = samples.cbegin(); it != samples.cend(); it++)
+            {
+                typename TreeType::ConstNodeIterator node_iter = Evaluate(*it);
                 leaf_nodes.push_back(node_iter);
             }
             forest_leaf_nodes.push_back(std::move(leaf_nodes));

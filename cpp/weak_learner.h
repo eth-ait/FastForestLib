@@ -92,7 +92,7 @@ public:
         return statistics;
     }
 
-    virtual std::tuple<size_type, scalar_type> find_best_split_point(const TStatistics &current_statistics, const SplitStatistics<TStatistics> &split_statistics) const {
+    virtual std::tuple<size_type, scalar_type> find_best_split_point_tuple(const TStatistics &current_statistics, const SplitStatistics<TStatistics> &split_statistics) const {
         size_type best_split_point_index = 0;
         scalar_type best_information_gain = -std::numeric_limits<scalar_type>::infinity();
         for (size_type i = 0; i < split_statistics.size(); i++)
