@@ -4,6 +4,8 @@
 #include <memory>
 #include <iostream>
 
+#include <boost/iterator/iterator_adaptor.hpp>
+#include <boost/utility/enable_if.hpp>
 #ifdef SERIALIZE_WITH_BOOST
 #include <boost/serialization/vector.hpp>
 #else
@@ -29,10 +31,10 @@ protected:
     {
         NodeType node;
         bool is_leaf;
-        
+
         NodeEntry() : is_leaf(false)
         {}
-        
+
 #ifdef SERIALIZE_WITH_BOOST
         friend class boost::serialization::access;
 #endif
@@ -41,8 +43,8 @@ protected:
         void serialize(Archive &archive, const unsigned int version)
         {
 #ifdef SERIALIZE_WITH_BOOST
-            archive & BOOST_SERIALIZATION_NVP(node);
-            archive & BOOST_SERIALIZATION_NVP(is_leaf);
+            archive & node;
+            archive & is_leaf;
 #else
             archive(cereal::make_nvp("node", node));
             archive(cereal::make_nvp("is_leaf", is_leaf));
@@ -50,166 +52,103 @@ protected:
         }
     };
 
-    template <typename TreeType, typename ValueType>
-    class NodeIterator_
+    template <typename BaseIterator, typename ValueType>
+    class NodeIterator_ : public boost::iterator_adaptor<NodeIterator_<BaseIterator, ValueType>, BaseIterator, ValueType>
     {
-    protected:
-        TreeType &tree_;
-        size_type node_index_;
-
     public:
-        NodeIterator_(TreeType &tree, size_type node_index)
-        : tree_(tree), node_index_(node_index)
+        explicit NodeIterator_(BaseIterator it, BaseIterator begin)
+        : NodeIterator_<BaseIterator, ValueType>::iterator_adaptor_(it), begin_(begin)
         {}
 
-        ValueType & operator*()
-        {
-            return tree_.node_entries_[node_index_].node;
-        }
-        
-        ValueType * operator->()
-        {
-            return &tree_.node_entries_[node_index_].node;
-        }
+        template <typename OtherBaseIterator>
+        NodeIterator_(
+                               const NodeIterator_<OtherBaseIterator, ValueType> &other,
+                               typename boost::enable_if<
+                               boost::is_convertible<OtherBaseIterator, BaseIterator>, int>::type = 0
+                               )
+        : NodeIterator_::iterator_adaptor_(other.base()), begin_(other.begin_)
+        {}
 
-        bool operator<(const NodeIterator_ &other) const
-        {
-            return this->node_index_ < other.node_index_;
-        }
-        
-        //            bool operator==(const NodeType &other) const
-        //            {
-        //                return node_index_ == other.node_index_;
-        //            }
-        //
-        //            bool operator!=(const NodeType &other) const
-        //            {
-        //                return !this->operator==(other);
-        //            }
-        
-        size_type get_index() const
-        {
-            return node_index_;
-        }
-        
         bool is_root() const
         {
-            return node_index_ == 0;
+            return this->base() == begin_;
         }
-
+        
         bool is_leaf() const
         {
-            return tree_.node_entries_[node_index_].is_leaf;
+            return this->base()->is_leaf;
         }
         
         void set_leaf(bool is_leaf = true)
         {
-            tree_.node_entries_[node_index_].is_leaf = is_leaf;
+            this->base()->is_leaf = is_leaf;
         }
-        
+
+        size_type get_node_index() const
+        {
+            return this->base() - begin_;
+        }
+
         void goto_left_child()
         {
             assert(!this->is_leaf());
-            size_type left_child_index = 2 * node_index_ + 1;
-            node_index_ = left_child_index;
+            size_type left_child_offset = get_node_index() + 1;
+            this->base_reference() += left_child_offset;
         }
         
         void goto_right_child()
         {
             assert(!this->is_leaf());
-            size_type right_child_index = 2 * node_index_ + 2;
-            node_index_ = right_child_index;
+            size_type right_child_offset = get_node_index() + 2;
+            this->base_reference() += right_child_offset;
         }
         
         void goto_parent()
         {
-            assert(!this->is_root_node());
-            size_type parent_index = (node_index_ - 1) / 2;
-            node_index_ = parent_index;
+            assert(!this->is_root());
+            size_type parent_offset = - (get_node_index() - 1) / 2;
+            this->base_reference() += parent_offset;
         }
         
-        NodeIterator_ left_child()
+        NodeIterator_ left_child() const
         {
             assert(!this->is_leaf());
-            size_type left_child_index = 2 * node_index_ + 1;
-            return NodeIterator_(tree_, left_child_index);
+            size_type left_child_offset = get_node_index() + 1;
+            return NodeIterator_(this->base() + left_child_offset, begin_);
         }
         
-        NodeIterator_ right_child()
+        NodeIterator_ right_child() const
         {
             assert(!this->is_leaf());
-            size_type right_child_index = 2 * node_index_ + 2;
-            return NodeIterator_(tree_, right_child_index);
+            size_type right_child_offset = get_node_index() + 2;
+            return NodeIterator_(this->base() + right_child_offset, begin_);
         }
         
-        NodeIterator_ parent()
+        NodeIterator_ parent() const
         {
-            assert(!this->is_root_node());
-            size_type parent_index = (node_index_ - 1) / 2;
-            return NodeIterator_(tree_, parent_index);
+            assert(!this->is_root());
+            size_type parent_offset = - (get_node_index() - 1) / 2;
+            return NodeIterator_(this->base() + parent_offset, begin_);
         }
+
+    private:
+        BaseIterator begin_;
+
+        friend class boost::iterator_core_access;
+        typename NodeIterator_::iterator_adaptor_::reference dereference() const
+        {
+            return this->base()->node;
+        }
+
     };
 
     size_type depth_;
     std::vector<NodeEntry> node_entries_;
 
-    // TODO: Use boost::iterator to implement a proper iterator
-    class NodeEntryIteratorWrapper
-    {
-    public:
-        using BaseIterator = typename std::vector<NodeEntry>::iterator;
-
-    protected:
-        BaseIterator it_;
-        
-    public:
-        NodeEntryIteratorWrapper(const BaseIterator &it)
-        : it_(it)
-        {}
-        
-        NodeType & operator*()
-        {
-            return it_->node;
-        }
-        
-        NodeType * operator->()
-        {
-            return &it_->node;
-        }
-
-        bool operator<(const NodeEntryIteratorWrapper &other) const
-        {
-            return this->it_ < other.it_;
-        }
-
-        bool operator==(const NodeEntryIteratorWrapper &other) const
-        {
-            return it_ == other.it_;
-        }
-
-        bool operator!=(const NodeEntryIteratorWrapper &other) const
-        {
-            return it_ != other.it_;
-        }
-        
-        NodeEntryIteratorWrapper & operator++()
-        {
-            ++it_;
-            return *this;
-        }
-        
-        NodeEntryIteratorWrapper operator++(int)
-        {
-            NodeEntryIteratorWrapper tmp(*this);
-            ++(*this);
-            return tmp;
-        }
-    };
-
 public:
-    using NodeIterator = NodeIterator_<Tree<TSplitPoint, TStatistics>, NodeType>;
-    using ConstNodeIterator = NodeIterator_<Tree<TSplitPoint, TStatistics> const, NodeType const>;
-    
+    using NodeIterator = NodeIterator_<typename std::vector<NodeEntry>::iterator, NodeType>;
+    using ConstNodeIterator = NodeIterator_<typename std::vector<NodeEntry>::const_iterator, const NodeType>;
+
     class TreeLevel
     {
     protected:
@@ -217,23 +156,35 @@ public:
         size_type level_;
 
     public:
-        using iterator = NodeEntryIteratorWrapper;
-        using const_iterator = const NodeEntryIteratorWrapper;
+        using iterator = NodeIterator;;
+        using const_iterator = ConstNodeIterator;
 
         TreeLevel(Tree &tree, size_type level)
         : tree_(tree), level_(level)
         {}
 
-        iterator begin() const
+        iterator begin()
         {
             size_type offset = compute_node_offset(level_);
-            return NodeEntryIteratorWrapper(tree_.node_entries_.begin() + offset);
+            return tree_.begin() + offset;
         }
 
-        iterator end() const
+        iterator end()
         {
             size_type offset = compute_node_offset(level_ + 1);
-            return NodeEntryIteratorWrapper(tree_.node_entries_.begin() + offset);
+            return tree_.begin() + offset;
+        }
+        
+        const_iterator cbegin() const
+        {
+            size_type offset = compute_node_offset(level_);
+            return tree_.cbegin() + offset;
+        }
+        
+        const_iterator cend() const
+        {
+            size_type offset = compute_node_offset(level_ + 1);
+            return tree_.cbegin() + offset;
         }
 
         size_type size() const
@@ -268,29 +219,53 @@ public:
             node_entries_[i].is_leaf = true;
         }
     }
-
-    /// @brief Return a node in the tree.
-    NodeIterator get_root()
+    
+    /// @brief Return the node iterator pointing to the root.
+    NodeIterator begin()
     {
-        return NodeIterator(*this, 0);
+        return NodeIterator(node_entries_.begin(), node_entries_.begin());
+    }
+    
+    /// @brief Return the node iterator pointing to the last node.
+    NodeIterator end()
+    {
+        return NodeIterator(node_entries_.end(), node_entries_.begin());
+    }
+
+    /// @brief Return the constant node iterator pointing to the root.
+    ConstNodeIterator cbegin() const
+    {
+        return ConstNodeIterator(node_entries_.cbegin(), node_entries_.cbegin());
+    }
+    
+    /// @brief Return the constant node iterator pointing to the last node.
+    ConstNodeIterator cend() const
+    {
+        return ConstNodeIterator(node_entries_.cend(), node_entries_.cbegin());
+    }
+
+    /// @brief Return the node iterator pointing to the root.
+    NodeIterator get_root_iterator()
+    {
+        return begin();
     }
     
     /// @brief Return a node in the tree.
-    ConstNodeIterator get_root() const
+    ConstNodeIterator get_root_iterator() const
     {
-        return ConstNodeIterator(*this, 0);
+        return cbegin();
     }
 
-    /// @brief Return a node in the tree.
-    NodeIterator get_node(size_type index)
+    /// @brief Return an iterator pointing to a node in the tree.
+    NodeIterator get_node_iterator(size_type index)
     {
-        return NodeIterator(*this, index);
+        return begin() + index;
     }
     
-    /// @brief Return a node in the tree.
-    ConstNodeIterator get_node(size_type index) const
+    /// @brief Return an iterator pointing to a node in the tree.
+    ConstNodeIterator get_node_iterator(size_type index) const
     {
-        return ConstNodeIterator(*this, index);
+        return cbegin() + index;
     }
     
     /// @brief Return depth of the tree. A depth of 1 corresponds to a tree
@@ -335,7 +310,7 @@ public:
         for (auto it = it_start; it != it_end; it++)
         {
             ConstNodeIterator node_iter = evaluate_to_iterator(*it);
-            leaf_node_indices.push_back(node_iter.get_index());
+            leaf_node_indices.push_back(node_iter.get_node_index());
         }
     }
 
@@ -392,7 +367,7 @@ public:
     ConstNodeIterator evaluate(const TSample &sample, size_type max_depth = std::numeric_limits<size_type>::max()) const
     {
         size_type current_depth = 1;
-        ConstNodeIterator node_iter = get_root();
+        ConstNodeIterator node_iter = get_root_iterator()();
         while (!node_iter.is_leaf() && current_depth < max_depth)
         {
             Direction direction = node_iter->get_split_point().evaluate(sample);
@@ -416,7 +391,7 @@ public:
     NodeIterator evaluate(const TSample &sample, size_type max_depth = std::numeric_limits<size_type>::max())
     {
         size_type current_depth = 1;
-        NodeIterator node_iter = get_root();
+        NodeIterator node_iter = get_root_iterator();
         while (!node_iter.is_leaf() && current_depth < max_depth)
         {
             Direction direction = node_iter->get_split_point().evaluate(sample);
@@ -500,7 +475,7 @@ public:
     template <typename TSample>
     ConstNodeIterator evaluate_to_iterator(const TSample &sample) const
     {
-        ConstNodeIterator node_iter = get_root();
+        ConstNodeIterator node_iter = get_root_iterator();
         while (!node_iter.is_leaf())
         {
             Direction direction = node_iter->get_split_point().evaluate(sample);
@@ -524,8 +499,8 @@ public:
     void serialize(Archive &archive, const unsigned int version)
     {
 #ifdef SERIALIZE_WITH_BOOST
-        archive & BOOST_SERIALIZATION_NVP(depth_);
-        archive & BOOST_SERIALIZATION_NVP(node_entries_);
+        archive & depth_;
+        archive & node_entries_;
 #else
         archive(cereal::make_nvp("depth", depth_));
         archive(cereal::make_nvp("node_entries", node_entries_));

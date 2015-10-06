@@ -116,7 +116,7 @@ public:
     Tree<SplitPointT, StatisticsT> train_tree(std::vector<TSample> &samples, TRandomEngine &rnd_engine) const
     {
         Tree<SplitPointT, StatisticsT> tree(training_parameters_.tree_depth);
-        train_tree_recursive(tree.get_root(), samples.begin(), samples.end(), rnd_engine);
+        train_tree_recursive(tree.get_root_iterator(), samples.begin(), samples.end(), rnd_engine);
         return tree;
     }
     

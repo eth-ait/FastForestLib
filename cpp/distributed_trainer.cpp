@@ -40,11 +40,19 @@ int main(int argc, const char *argv[]) {
         std::string forest_file = forest_file_arg.getValue();
         bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
 
-        std::cout << "Reading images... " << std::flush;
+        std::cout << "Reading images ... " << std::flush;
         std::vector<ait::Image> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
-        std::cout << "Done." << std::endl;
-        
-        std::cout << "Creating samples... " << std::flush;
+        std::cout << " Done." << std::endl;
+
+        std::cout << "Computing number of classes ..." << std::flush;
+        ait::size_type num_of_classes = 0;
+        for (auto i = 0; i < images.size(); i++) {
+            ait::label_type max_label = images[i].get_label_matrix().maxCoeff();
+            num_of_classes = std::max(static_cast<ait::size_type>(max_label) + 1, num_of_classes);
+        }
+        std::cout << " Found " << num_of_classes << " classes." << std::endl;
+
+        std::cout << "Creating samples ... " << std::flush;
         using ImageSamplePointer = std::shared_ptr<ait::ImageSample>;
         std::vector<ImageSamplePointer> samples;
         for (auto i = 0; i < images.size(); i++) {
@@ -60,16 +68,18 @@ int main(int argc, const char *argv[]) {
                 }
             }
         }
-        std::cout << "Done." << std::endl;
+        std::cout << " Done." << std::endl;
 
         using SamplePointerIteratorType = std::vector<ImageSamplePointer>::const_iterator;
         using SampleIteratorType = ait::PointerIteratorWrapper<SamplePointerIteratorType>;
-        using WeakLearnerType = ait::ImageWeakLearner<ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType>;
+        using StatisticsFactoryType = typename ait::HistogramStatistics<ait::ImageSample>::HistogramStatisticsFactory;
+        using WeakLearnerType = ait::ImageWeakLearner<StatisticsFactoryType, SampleIteratorType>;
         using RandomEngine = std::mt19937_64;
-
+        
+        StatisticsFactoryType statistics_factory(num_of_classes);
         ait::ImageWeakLearnerParameters weak_learner_parameters;
         ait::DistributedTrainingParameters training_parameters;
-        WeakLearnerType iwl(weak_learner_parameters);
+        WeakLearnerType iwl(weak_learner_parameters, statistics_factory);
         
         ait::DistributedForestTrainer<SamplePointerIteratorType, WeakLearnerType, RandomEngine> trainer(iwl, training_parameters);
         
@@ -85,29 +95,21 @@ int main(int argc, const char *argv[]) {
         if (save_forest)
         {
             // Serialize forest to file
-#if SERIALIZE_WITH_BOOST
             std::cout << "Writing binary forest file ... " << std::flush;
-            std::ofstream ofile("forest.bin", std::ios_base::binary);
+            std::ofstream ofile(forest_file, std::ios_base::binary);
             boost::archive::binary_oarchive oarchive(ofile);
             oarchive << forest;
-#else
-            std::cout << "Writing json forest file ... " << std::flush;
-            std::ofstream ofile("forest.json", std::ios_base::binary);
-            cereal::JSONOutputArchive oarchive(ofile);
-            oarchive(cereal::make_nvp("forest", forest));
-#endif
-            std::cout << "done." << std::endl;
-            
-#if SERIALIZE_WITH_BOOST
+            ofile.close();
+            std::cout << " Done." << std::endl;
+
             {
                 // Read forest from file for testing
                 std::cout << "Reading binary forest file ... " << std::flush;
-                std::ifstream ifile("forest.bin", std::ios_base::binary);
+                std::ifstream ifile(forest_file, std::ios_base::binary);
                 boost::archive::binary_iarchive iarchive(ifile);
                 iarchive >> forest;
-                std::cout << "done." << std::endl;
+                std::cout << " Done." << std::endl;
             }
-#endif
         }
 
         if (print_confusion_matrix)
@@ -123,8 +125,8 @@ int main(int argc, const char *argv[]) {
                 const ForestType::TreeType &tree = forest.get_tree(i);
                 for (auto it=samples.cbegin(); it != samples.cend(); it++)
                 {
-                    const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
-                    const auto &statistics = node.get_statistics();
+                    const auto &node_it = tree.cbegin() + (forest_leaf_indices[i][it - samples.cbegin()]);
+                    const auto &statistics = node_it->get_statistics();
                     auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
                     auto label = max_it - statistics.get_histogram().cbegin();
                     if (label == (*it)->get_label())
@@ -133,7 +135,7 @@ int main(int argc, const char *argv[]) {
                         no_match++;
                 }
             }
-            std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
+            std::cout << "Match: " << match << ", no match: " << no_match << std::endl;
 
             ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
             ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType> tree_utils(tree);

@@ -13,22 +13,37 @@ namespace ait
 template <typename TSample>
 class HistogramStatistics
 {
-private:
     std::vector<size_type> histogram_;
     size_type num_of_samples_;
 
 public:
-    // TODO: unused
+
+    class HistogramStatisticsFactory
+    {
+        size_type num_of_classes_;
+
+    public:
+        using value_type = HistogramStatistics;
+
+        HistogramStatisticsFactory(size_type num_of_classes)
+        : num_of_classes_(num_of_classes)
+        {}
+
+        HistogramStatistics create() const
+        {
+            return HistogramStatistics(num_of_classes_);
+        }
+    };
+    
     /// @brief Create an empty histogram.
     HistogramStatistics()
-        : histogram_(3, 0), num_of_samples_(0)
+    : histogram_(0, 0), num_of_samples_(0)
     {}
 
     /// @brief Create an empty histogram.
     /// @param num_of_classes The number of classes.
     HistogramStatistics(size_type num_of_classes)
-    : histogram_(num_of_classes, 0),
-        num_of_samples_(0)
+    : histogram_(num_of_classes, 0), num_of_samples_(0)
     {}
 
     /// @brief Create a histogram from a vector of counts per class.
@@ -56,30 +71,26 @@ public:
     }
 
     template <typename T>
-    static HistogramStatistics accumulate(T it_start, T it_end)
+    void accumulate(T it_start, T it_end)
     {
-        HistogramStatistics statistics;
         for (T it = it_start; it != it_end; ++it)
         {
-            statistics.lazy_accumulate(*it);
+            lazy_accumulate(*it);
         }
-        statistics.num_of_samples_ += it_end - it_start;
-        return statistics;
+        num_of_samples_ += it_end - it_start;
     }
-    
+
     template <typename T>
-    static HistogramStatistics accumulate_histograms(T it_start, T it_end)
+    void accumulate_histograms(T it_start, T it_end)
     {
-        HistogramStatistics statistics;
         for (T it = it_start; it != it_end; ++it)
         {
             for (size_type i=0; i < it->histogram_.size(); i++)
             {
-                statistics.histogram_[i] += it->histogram_[i];
+                histogram_[i] += it->histogram_[i];
             }
         }
-        statistics.finish_lazy_accumulation();
-        return statistics;
+        finish_lazy_accumulation();
     }
 
     /// @brief Return the numbers of samples contributing to the histogram.
@@ -116,8 +127,8 @@ public:
     void serialize(Archive &archive, const unsigned int version)
     {
 #ifdef SERIALIZE_WITH_BOOST
-        archive & BOOST_SERIALIZATION_NVP(histogram_);
-        archive & BOOST_SERIALIZATION_NVP(num_of_samples_);
+        archive & histogram_;
+        archive & num_of_samples_;
 #else
         archive(cereal::make_nvp("histogram", histogram_));
         archive(cereal::make_nvp("num_of_samples", num_of_samples_));

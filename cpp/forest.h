@@ -189,7 +189,7 @@ public:
     void serialize(Archive &archive, const unsigned int version)
     {
 #ifdef SERIALIZE_WITH_BOOST
-        archive & BOOST_SERIALIZATION_NVP(trees_);
+        archive & trees_;
 #else
         archive(cereal::make_nvp("trees", trees_));
 #endif

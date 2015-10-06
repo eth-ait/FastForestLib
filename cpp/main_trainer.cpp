@@ -35,11 +35,20 @@ int main(int argc, const char *argv[]) {
         //		array_names.push_back("data");
         //		array_names.push_back("labels");
         //		std::map<std::string, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> array_map = LoadMatlabFile("trainingData.mat", array_names);
-        std::cout << "Reading images... " << std::flush;
+        std::cout << "Reading images ... " << std::flush;
         std::vector<ait::Image> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
-        std::cout << "Done." << std::endl;
+        std::cout << " Done." << std::endl;
         
-        std::cout << "Creating samples... " << std::flush;
+        std::cout << "Computing number of classes ..." << std::flush;
+        ait::size_type num_of_classes = 0;
+        for (auto i = 0; i < images.size(); i++) {
+            ait::label_type max_label = images[i].get_label_matrix().maxCoeff();
+            num_of_classes = std::max(static_cast<ait::size_type>(max_label) + 1, num_of_classes);
+        }
+        std::cout << " Found " << num_of_classes << " classes." << std::endl;
+        
+
+        std::cout << "Creating samples ... " << std::flush;
         std::vector<ait::ImageSample> samples;
         for (auto i = 0; i < images.size(); i++)
         {
@@ -55,17 +64,19 @@ int main(int argc, const char *argv[]) {
                 }
             }
         }
-        std::cout << "Done." << std::endl;
+        std::cout << " Done." << std::endl;
 
         using RandomEngine = std::mt19937_64;
         using SampleIteratorType = std::vector<ait::ImageSample>::iterator;
         using ConstSampleIteratorType = std::vector<ait::ImageSample>::const_iterator;
-        using WeakLearnerType = ait::ImageWeakLearner<ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType, RandomEngine>;
+        using StatisticsFactoryType = typename ait::HistogramStatistics<ait::ImageSample>::HistogramStatisticsFactory;
+        using WeakLearnerType = ait::ImageWeakLearner<StatisticsFactoryType, SampleIteratorType, RandomEngine>;
         using ForestType = ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> >;
-
+        
+        StatisticsFactoryType statistics_factory(num_of_classes);
         ait::ImageWeakLearnerParameters weak_learner_parameters;
         ait::TrainingParameters training_parameters;
-        WeakLearnerType iwl(weak_learner_parameters);
+        WeakLearnerType iwl(weak_learner_parameters, statistics_factory);
 
         ait::ForestTrainer<ait::ImageSample, WeakLearnerType, RandomEngine> trainer(iwl, training_parameters);
 
@@ -84,7 +95,7 @@ int main(int argc, const char *argv[]) {
             std::ofstream ofile("forest.json");
             cereal::JSONOutputArchive oarchive(ofile);
             oarchive(cereal::make_nvp("forest", forest));
-            std::cout << "done." << std::endl;
+            std::cout << " Done." << std::endl;
         }
 
         {
@@ -92,7 +103,7 @@ int main(int argc, const char *argv[]) {
             std::ifstream ifile("forest.json");
             cereal::JSONInputArchive iarchive(ifile);
             iarchive(forest);
-            std::cout << "done." << std::endl;
+            std::cout << " Done." << std::endl;
         }
         
         if (save_forest)
@@ -102,7 +113,7 @@ int main(int argc, const char *argv[]) {
                 std::ofstream bin_ofile(forest_file, std::ios::binary);
                 cereal::BinaryOutputArchive bin_oarchive(bin_ofile);
                 bin_oarchive(cereal::make_nvp("forest", forest));
-                std::cout << "done." << std::endl;
+                std::cout << " Done." << std::endl;
             }
             
             {
@@ -110,7 +121,7 @@ int main(int argc, const char *argv[]) {
                 std::ifstream bin_ifile(forest_file, std::ios::binary);
                 cereal::BinaryInputArchive bin_iarchive(bin_ifile);
                 bin_iarchive(forest);
-                std::cout << "done." << std::endl;
+                std::cout << " Done." << std::endl;
             }
         }
 
@@ -125,8 +136,8 @@ int main(int argc, const char *argv[]) {
                 const ForestType::TreeType &tree = forest.get_tree(i);
                 for (auto it=samples.cbegin(); it != samples.cend(); it++)
                 {
-                    const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
-                    const auto &statistics = node.get_statistics();
+                    const auto &node_it = tree.cbegin() + (forest_leaf_indices[i][it - samples.cbegin()]);
+                    const auto &statistics = node_it->get_statistics();
                     auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
                     auto label = max_it - statistics.get_histogram().cbegin();
                     if (label == it->get_label())
@@ -135,7 +146,7 @@ int main(int argc, const char *argv[]) {
                         no_match++;
                 }
             }
-            std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
+            std::cout << "Match: " << match << ", no match: " << no_match << std::endl;
 
     //        forest.Evaluate(samples, [] (const typename ForestType::NodeType &node)
     //        {

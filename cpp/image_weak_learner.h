@@ -225,11 +225,11 @@ public:
     void serialize(Archive &archive, const unsigned int version)
     {
 #ifdef SERIALIZE_WITH_BOOST
-        archive & BOOST_SERIALIZATION_NVP(offset_x1_);
-        archive & BOOST_SERIALIZATION_NVP(offset_y1_);
-        archive & BOOST_SERIALIZATION_NVP(offset_x2_);
-        archive & BOOST_SERIALIZATION_NVP(offset_y2_);
-        archive & BOOST_SERIALIZATION_NVP(threshold_);
+        archive & offset_x1_;
+        archive & offset_y1_;
+        archive & offset_x2_;
+        archive & offset_y2_;
+        archive & threshold_;
 #else
         archive(cereal::make_nvp("offset_x1", offset_x1_));
         archive(cereal::make_nvp("offset_y1", offset_y1_));
@@ -240,16 +240,18 @@ public:
     }
 };
 
-template <typename TStatistics, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
-class ImageWeakLearner : public WeakLearner<ImageSplitPoint, TStatistics, TSampleIterator, TRandomEngine>
+template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
+class ImageWeakLearner : public WeakLearner<ImageSplitPoint, TStatisticsFactory, TSampleIterator, TRandomEngine>
 {
-    using BaseType = WeakLearner<ImageSplitPoint, TStatistics, TSampleIterator, TRandomEngine>;
+    using BaseType = WeakLearner<ImageSplitPoint, TStatisticsFactory, TSampleIterator, TRandomEngine>;
 
     const ImageWeakLearnerParameters parameters_;
 
 public:
-    ImageWeakLearner(const ImageWeakLearnerParameters &parameters)
-    : parameters_(parameters)
+    using StatisticsT = typename BaseType::StatisticsT;
+
+    ImageWeakLearner(const ImageWeakLearnerParameters &parameters, const TStatisticsFactory &statistics_factory)
+    : BaseType(statistics_factory), parameters_(parameters)
     {}
 
     ~ImageWeakLearner() {}
@@ -297,10 +299,11 @@ public:
         return split_points;
     }
 
-    virtual SplitStatistics<TStatistics> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<ImageSplitPoint> &split_points) const
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<ImageSplitPoint> &split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
-        SplitStatistics<TStatistics> split_statistics(split_points.size());
+        SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);
+        // TODO: Parallelize
         //#pragma omp parallel for
         // we have to use signed int here because of OpenMP < 3.0
         for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)

@@ -18,10 +18,11 @@ class SplitStatistics
 public:
     SplitStatistics() {}
 
-    SplitStatistics(size_t num_of_split_points)
+    template <typename TStatisticsFactory>
+    SplitStatistics(size_t num_of_split_points, const TStatisticsFactory &statistics_factory)
     {
-        left_statistics_collection_.resize(num_of_split_points);
-        right_statistics_collection_.resize(num_of_split_points);
+        left_statistics_collection_.resize(num_of_split_points, statistics_factory.create());
+        right_statistics_collection_.resize(num_of_split_points, statistics_factory.create());
     }
     size_type size() const
     {
@@ -50,16 +51,20 @@ public:
 
 };
 
-template <typename TSplitPoint, typename TStatistics, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
+template <typename TSplitPoint, typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
 class WeakLearner
 {
 public:
     using SplitPointT = TSplitPoint;
-    using StatisticsT = TStatistics;
+    using StatisticsFactoryT = TStatisticsFactory;
+    using StatisticsT = typename TStatisticsFactory::value_type;
     using SampleIteratorT = TSampleIterator;
 
 protected:
-    virtual scalar_type compute_information_gain(const TStatistics &current_statistics, const TStatistics &left_statistics, const TStatistics &right_statistics) const {
+    StatisticsFactoryT statistics_factory_;
+
+    virtual scalar_type compute_information_gain(const StatisticsT &current_statistics, const StatisticsT &left_statistics, const StatisticsT &right_statistics) const
+    {
         scalar_type current_entropy = current_statistics.entropy();
         scalar_type left_entropy = left_statistics.entropy();
         scalar_type right_entropy = right_statistics.entropy();
@@ -70,29 +75,35 @@ protected:
     }
 
 public:
-    WeakLearner()
+    WeakLearner(const StatisticsFactoryT &statistics_factory)
+    : statistics_factory_(statistics_factory)
     {}
 
     virtual ~WeakLearner()
     {}
 
+    StatisticsT create_statistics() const
+    {
+        return statistics_factory_.create();
+    }
+
     // Has to be implemented by a base class
-    virtual std::vector<TSplitPoint> sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine &rnd_engine) const = 0;
+    virtual std::vector<SplitPointT> sample_split_points(SampleIteratorT first_sample, SampleIteratorT last_sample, TRandomEngine &rnd_engine) const = 0;
     
     // Has to be implemented by a base class
-    virtual SplitStatistics<TStatistics> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<TSplitPoint> &split_points) const = 0;
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(SampleIteratorT first_sample, SampleIteratorT last_sample, const std::vector<SplitPointT> &split_points) const = 0;
 
-    TStatistics compute_statistics(TSampleIterator first_sample, TSampleIterator last_sample) const
+    StatisticsT compute_statistics(SampleIteratorT first_sample, SampleIteratorT last_sample) const
     {
-        TStatistics statistics;
-        for (TSampleIterator sample_it=first_sample; sample_it != last_sample; sample_it++) {
+        StatisticsT statistics = statistics_factory_.create();
+        for (SampleIteratorT sample_it=first_sample; sample_it != last_sample; sample_it++) {
             statistics.lazy_accumulate(*sample_it);
         }
         statistics.finish_lazy_accumulation();
         return statistics;
     }
 
-    virtual std::tuple<size_type, scalar_type> find_best_split_point_tuple(const TStatistics &current_statistics, const SplitStatistics<TStatistics> &split_statistics) const {
+    virtual std::tuple<size_type, scalar_type> find_best_split_point_tuple(const StatisticsT &current_statistics, const SplitStatistics<StatisticsT> &split_statistics) const {
         size_type best_split_point_index = 0;
         scalar_type best_information_gain = -std::numeric_limits<scalar_type>::infinity();
         for (size_type i = 0; i < split_statistics.size(); i++)
@@ -108,9 +119,9 @@ public:
         return std::make_tuple(best_split_point_index, best_information_gain);
     }
 
-    TSampleIterator partition(TSampleIterator first_sample, TSampleIterator last_sample, const TSplitPoint &split_point) const {
-        TSampleIterator it_left = first_sample;
-        TSampleIterator it_right = last_sample - 1;
+    SampleIteratorT partition(SampleIteratorT first_sample, SampleIteratorT last_sample, const SplitPointT &split_point) const {
+        SampleIteratorT it_left = first_sample;
+        SampleIteratorT it_right = last_sample - 1;
         while (it_left < it_right) {
             Direction direction = split_point.evaluate(*it_left);
             if (direction == Direction::LEFT)
@@ -122,20 +133,20 @@ public:
         }
 
         Direction direction = split_point.evaluate(*it_left);
-        TSampleIterator it_split;
+        SampleIteratorT it_split;
         if (direction == Direction::LEFT)
             it_split = it_left + 1;
         else
             it_split = it_left;
 
         // Verify partitioning
-        for (TSampleIterator it = first_sample; it != it_split; it++)
+        for (SampleIteratorT it = first_sample; it != it_split; it++)
         {
             Direction dir = split_point.evaluate(*it);
             if (dir != Direction::LEFT)
                 throw std::runtime_error("Samples are not partitioned properly.");
         }
-        for (TSampleIterator it = it_split; it != last_sample; it++)
+        for (SampleIteratorT it = it_split; it != last_sample; it++)
         {
             Direction dir = split_point.evaluate(*it);
             if (dir != Direction::RIGHT)
@@ -146,10 +157,5 @@ public:
     }
 
 };
-
-// TODO
-//    friend std::ostream & operator<<(std::ostream &os, const SplitPoint &splitPoint);
-//    virtual void writeToStream(std::ostream &os);
-//    std::ostream & operator<<(std::ostream &os, const SplitPoint &split_point);
 
 }

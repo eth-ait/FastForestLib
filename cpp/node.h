@@ -17,7 +17,11 @@ class Node
     TStatistics statistics_;
 
 public:
-    ~Node() {}
+    Node()
+    {}
+
+    ~Node()
+    {}
 
     const TSplitPoint & get_split_point() const
     {
@@ -43,8 +47,8 @@ public:
     void serialize(Archive &archive, const unsigned int version)
     {
 #ifdef SERIALIZE_WITH_BOOST
-        archive & BOOST_SERIALIZATION_NVP(split_point_);
-        archive & BOOST_SERIALIZATION_NVP(statistics_);
+        archive & split_point_;
+        archive & statistics_;
 #else
         archive(cereal::make_nvp("split_point", split_point_));
         archive(cereal::make_nvp("statistics", statistics_));

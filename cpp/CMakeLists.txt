@@ -43,10 +43,9 @@ endif(${WIN32})
 add_executable(forest_trainer main_trainer.cpp ${headers})
 add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h)
 
-target_compile_definitions(forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
 target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
 
-target_link_libraries(forest_trainer ${MATLAB_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
 target_link_libraries(dist_forest_trainer ${MATLAB_LIBRARIES} ${Boost_LIBRARIES})
 
 target_compile_features(forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)

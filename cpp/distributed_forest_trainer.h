@@ -11,8 +11,6 @@
 #include <iostream>
 #include <sstream>
 #include <map>
-#include <boost/iterator/iterator_adaptor.hpp>
-#include <boost/utility/enable_if.hpp>
 
 #include "ait.h"
 #include "forest_trainer.h"
@@ -24,45 +22,6 @@ struct DistributedTrainingParameters : public TrainingParameters
 {
     // TODO
 };
-
-// TODO
-template <typename BaseIterator>
-    class PointerIteratorWrapper : public boost::iterator_adaptor<PointerIteratorWrapper<BaseIterator>, BaseIterator, typename BaseIterator::value_type::element_type>
-{
-protected:
-    BaseIterator it_;
-
-public:
-    PointerIteratorWrapper()
-    : PointerIteratorWrapper::iterator_adapter_(0)
-    {}
-
-    explicit PointerIteratorWrapper(BaseIterator it)
-    : PointerIteratorWrapper::iterator_adaptor_(it)
-    {}
-
-    template <typename OtherBaseIterator>
-    PointerIteratorWrapper(
-        const PointerIteratorWrapper<OtherBaseIterator> &other,
-        typename boost::enable_if<
-            boost::is_convertible<OtherBaseIterator, BaseIterator>, int>::type = 0
-    )
-    : PointerIteratorWrapper::iterator_adaptor_(other.base())
-    {}
-
-private:
-    friend class boost::iterator_core_access;
-    typename PointerIteratorWrapper::iterator_adaptor_::reference dereference() const
-    {
-        return *(*this->base());
-    }
-};
-
-template <typename BaseIterator>
-inline PointerIteratorWrapper<BaseIterator> make_pointer_iterator_wrapper(BaseIterator it)
-{
-    return PointerIteratorWrapper<BaseIterator>(it);
-}
 
 template <typename TSamplePointerIterator, typename TWeakLearner, typename TRandomEngine = std::mt19937_64>
 class DistributedForestTrainer
@@ -148,7 +107,9 @@ protected:
             typename TWeakLearner::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->second.begin());
             typename TWeakLearner::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->second.end());
             typename TreeType::NodeIterator node_it = map_it->first;
-            statistics_batch[node_it] = StatisticsT::accumulate(sample_it_begin, sample_it_end);;
+            StatisticsT statistics = weak_learner_.create_statistics();
+            statistics.accumulate(sample_it_begin, sample_it_end);
+            statistics_batch.insert(std::make_pair(node_it, std::move(statistics)));
         }
         // Receive statistics from rank > 0
         //dist_statistics_batch = receive();
@@ -161,26 +122,27 @@ protected:
         {
             auto it_start = map_it->second.begin();
             auto it_end = map_it->second.end();
-            StatisticsT statistics = StatisticsT::accumulate_histograms(it_start, it_end);
+            StatisticsT statistics = weak_learner_.create_statistics();
+            statistics.accumulate_histograms(it_start, it_end);
             typename TreeType::NodeIterator node_it = map_it->first;
             node_it->set_statistics(statistics);
-            statistics_batch.at(map_it->first) = statistics;
+            statistics_batch.at(map_it->first) = std::move(statistics);
         }
         return statistics_batch;
     }
 
-    std::map<typename TreeType::NodeIterator, std::vector<SamplePointerT> > get_sample_node_map(TreeType &tree, TSamplePointerIterator samples_start, TSamplePointerIterator samples_end, size_type current_depth) const
+    std::map<typename TreeType::NodeIterator, std::vector<SamplePointerT> > get_sample_node_map(TreeType &tree, TSamplePointerIterator samples_start, TSamplePointerIterator samples_end) const
     {
         std::map<typename TreeType::NodeIterator, std::vector<SamplePointerT> > node_to_sample_map;
         for (auto it = samples_start; it != samples_end; ++it)
         {
             // TODO: Use template meta-programming to allow tree.evaluate to be called for both samples and sample-iterators.
-            typename TreeType::NodeIterator node_it = tree.evaluate(*(*it), current_depth);
+            typename TreeType::NodeIterator node_it = tree.evaluate(*(*it));
             node_to_sample_map[node_it].push_back(*it);
         }
         return node_to_sample_map;
     }
-    
+
 public:
     DistributedForestTrainer(const TWeakLearner &weak_learner, const TrainingParameters &training_parameters)
     : weak_learner_(weak_learner), training_parameters_(training_parameters)
@@ -191,40 +153,42 @@ public:
         TRandomEngine rnd_engine;
         return train_tree(samples_start, samples_end, rnd_engine);
     }
+    
+    void train_tree_level(Tree<SplitPointT, StatisticsT> &tree, size_type current_level, TSamplePointerIterator samples_start, TSamplePointerIterator samples_end, TRandomEngine &rnd_engine) const
+    {
+        std::map<typename TreeType::NodeIterator, std::vector<SamplePointerT> > node_to_sample_map = get_sample_node_map(tree, samples_start, samples_end);
+        std::cout << "current_level: " << current_level << ", # nodes: " << node_to_sample_map.size() << std::endl;
+        const std::map<typename TreeType::NodeIterator, StatisticsT> &current_statistics = compute_statistics_batch(node_to_sample_map);
+        if (current_level < training_parameters_.tree_depth)
+        {
+            std::map<typename TreeType::NodeIterator, std::vector<SplitPointT> > split_points_batch = sample_split_points_batch(node_to_sample_map, rnd_engine);
+            // Distribute split points
+            std::map<typename TreeType::NodeIterator, SplitStatistics<StatisticsT> > split_statistics_batch = compute_split_statistics_batch(node_to_sample_map, split_points_batch);
+            // Receive split statistics from rank > 0
+            std::map<typename TreeType::NodeIterator, SplitPointT> best_split_point_batch = find_best_split_point_batch(split_points_batch, current_statistics, split_statistics_batch);
+            for (auto map_it = best_split_point_batch.begin(); map_it != best_split_point_batch.end(); ++map_it)
+            {
+                typename TreeType::NodeIterator node_it = map_it->first;
+                node_it->set_split_point(map_it->second);
+                node_it.set_leaf(false);
+                node_it.left_child().set_leaf(true);
+                node_it.right_child().set_leaf(true);
+            }
+        }
+    }
 
     Tree<SplitPointT, StatisticsT> train_tree(TSamplePointerIterator samples_start, TSamplePointerIterator samples_end, TRandomEngine &rnd_engine) const
     {
         TreeType tree(training_parameters_.tree_depth);
+        tree.get_root_iterator().set_leaf();
         std::cout << "Training tree, # samples " << (samples_end - samples_start) << std::endl;
-        for (size_type current_depth = 1; current_depth <= training_parameters_.tree_depth; current_depth++)
+        for (size_type current_level = 1; current_level <= training_parameters_.tree_depth; current_level++)
         {
-            typename TreeType::TreeLevel tl(tree, current_depth);
-            std::cout << "current_depth: " << current_depth << ", # nodes: " << tl.size() << std::endl;
-            std::map<typename TreeType::NodeIterator, std::vector<SamplePointerT> > node_to_sample_map = get_sample_node_map(tree, samples_start, samples_end, current_depth);
-            const std::map<typename TreeType::NodeIterator, StatisticsT> &current_statistics = compute_statistics_batch(node_to_sample_map);
-            if (current_depth < training_parameters_.tree_depth)
-            {
-                std::map<typename TreeType::NodeIterator, std::vector<SplitPointT> > split_points_batch = sample_split_points_batch(node_to_sample_map, rnd_engine);
-                // Distribute split points
-                std::map<typename TreeType::NodeIterator, SplitStatistics<StatisticsT> > split_statistics_batch = compute_split_statistics_batch(node_to_sample_map, split_points_batch);
-                // Receive split statistics from rank > 0
-                std::map<typename TreeType::NodeIterator, SplitPointT> best_split_point_batch = find_best_split_point_batch(split_points_batch, current_statistics, split_statistics_batch);
-                for (auto map_it = best_split_point_batch.begin(); map_it != best_split_point_batch.end(); ++map_it)
-                {
-                    typename TreeType::NodeIterator node_it = map_it->first;
-                    node_it->set_split_point(map_it->second);
-                }
-            }
+            train_tree_level(tree, current_level, samples_start, samples_end, rnd_engine);
             // save new tree
             // distribute new tree
         }
         return tree;
-    }
-    
-    Forest<SplitPointT, StatisticsT> train_forest(TSamplePointerIterator samples_start, TSamplePointerIterator samples_end) const
-    {
-        TRandomEngine rnd_engine;
-        return train_forest(samples_start, samples_end, rnd_engine);
     }
     
     Forest<SplitPointT, StatisticsT> train_forest(TSamplePointerIterator samples_start, TSamplePointerIterator samples_end, TRandomEngine &rnd_engine) const
@@ -237,6 +201,13 @@ public:
         }
         return forest;
     }
+
+    Forest<SplitPointT, StatisticsT> train_forest(TSamplePointerIterator samples_start, TSamplePointerIterator samples_end) const
+    {
+        TRandomEngine rnd_engine;
+        return train_forest(samples_start, samples_end, rnd_engine);
+    }
+
 };
     
 }
