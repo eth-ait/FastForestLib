@@ -8,6 +8,7 @@
 
 #include <cereal/archives/json.hpp>
 #include <cereal/archives/binary.hpp>
+#include <tclap/CmdLine.h>
 
 #include "ait.h"
 #include "forest_trainer.h"
@@ -19,12 +20,23 @@
 
 int main(int argc, const char *argv[]) {
     try {
+        TCLAP::CmdLine cmd("RF trainer", ' ', "0.3");
+        TCLAP::ValueArg<std::string> data_file_arg("d", "data-file", "File containing image data", true, "", "string", cmd);
+        TCLAP::ValueArg<std::string> forest_file_arg("f", "forest-file", "File where the trained forest should be saved", false, "forest.bin", "string", cmd);
+        TCLAP::SwitchArg print_confusion_matrix_switch("c", "conf-matrix", "Print confusion matrix", cmd, true);
+        cmd.parse(argc, argv);
+        
+        std::string data_file = data_file_arg.getValue();
+        bool save_forest = forest_file_arg.isSet();
+        std::string forest_file = forest_file_arg.getValue();
+        bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
+
         //		std::vector<std::string> array_names;
         //		array_names.push_back("data");
         //		array_names.push_back("labels");
         //		std::map<std::string, Eigen::Matrix<double, Eigen::Dynamic, Eigen::Dynamic>> array_map = LoadMatlabFile("trainingData.mat", array_names);
         std::cout << "Reading images... " << std::flush;
-        std::vector<ait::Image> images = ait::load_images_from_matlab_file("../../data/trainingData.mat", "data", "labels");
+        std::vector<ait::Image> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
         std::cout << "Done." << std::endl;
         
         std::cout << "Creating samples... " << std::flush;
@@ -76,61 +88,67 @@ int main(int argc, const char *argv[]) {
         }
 
         {
-            std::cout << "Writing binary forest file ... " << std::flush;
-            std::ofstream bin_ofile("forest.bin", std::ios::binary);
-            cereal::BinaryOutputArchive bin_oarchive(bin_ofile);
-            bin_oarchive(cereal::make_nvp("forest", forest));
-            std::cout << "done." << std::endl;
-        }
-
-        {
             std::cout << "Reading json forest file ... " << std::flush;
             std::ifstream ifile("forest.json");
             cereal::JSONInputArchive iarchive(ifile);
             iarchive(forest);
             std::cout << "done." << std::endl;
         }
-
+        
+        if (save_forest)
         {
-            std::cout << "Reading binary forest file ... " << std::flush;
-            std::ifstream bin_ifile("forest.bin", std::ios::binary);
-            cereal::BinaryInputArchive bin_iarchive(bin_ifile);
-            bin_iarchive(forest);
-            std::cout << "done." << std::endl;
-        }
-
-        std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());
-
-        int match = 0;
-        int no_match = 0;
-        for (std::size_t i=0; i < forest.size(); i++)
-        {
-            const ForestType::TreeType &tree = forest.get_tree(i);
-            for (auto it=samples.cbegin(); it != samples.cend(); it++)
             {
-                const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
-                const auto &statistics = node.get_statistics();
-                auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
-                auto label = max_it - statistics.get_histogram().cbegin();
-                if (label == it->get_label())
-                    match++;
-                else
-                    no_match++;
+                std::cout << "Writing binary forest file ... " << std::flush;
+                std::ofstream bin_ofile(forest_file, std::ios::binary);
+                cereal::BinaryOutputArchive bin_oarchive(bin_ofile);
+                bin_oarchive(cereal::make_nvp("forest", forest));
+                std::cout << "done." << std::endl;
+            }
+            
+            {
+                std::cout << "Reading binary forest file ... " << std::flush;
+                std::ifstream bin_ifile(forest_file, std::ios::binary);
+                cereal::BinaryInputArchive bin_iarchive(bin_ifile);
+                bin_iarchive(forest);
+                std::cout << "done." << std::endl;
             }
         }
-        std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
 
-//        forest.Evaluate(samples, [] (const typename ForestType::NodeType &node)
-//        {
-//            std::cout << "a" << std::endl;
-//        });
+        if (print_confusion_matrix)
+        {
+            std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());
 
-        ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
-        ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, ConstSampleIteratorType> tree_utils(tree);
-        auto matrix = tree_utils.compute_confusion_matrix<3>(samples.cbegin(), samples.cend());
-        std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
-        auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples.cbegin(), samples.cend());
-        std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
+            int match = 0;
+            int no_match = 0;
+            for (std::size_t i=0; i < forest.size(); i++)
+            {
+                const ForestType::TreeType &tree = forest.get_tree(i);
+                for (auto it=samples.cbegin(); it != samples.cend(); it++)
+                {
+                    const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
+                    const auto &statistics = node.get_statistics();
+                    auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
+                    auto label = max_it - statistics.get_histogram().cbegin();
+                    if (label == it->get_label())
+                        match++;
+                    else
+                        no_match++;
+                }
+            }
+            std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
+
+    //        forest.Evaluate(samples, [] (const typename ForestType::NodeType &node)
+    //        {
+    //            std::cout << "a" << std::endl;
+    //        });
+
+            ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
+            ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, ConstSampleIteratorType> tree_utils(tree);
+            auto matrix = tree_utils.compute_confusion_matrix<3>(samples.cbegin(), samples.cend());
+            std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
+            auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples.cbegin(), samples.cend());
+            std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
+        }
     }
     catch (const std::runtime_error &error)
     {

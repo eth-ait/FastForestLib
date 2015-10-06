@@ -11,9 +11,16 @@
 #include <memory>
 #include <chrono>
 
-
+#ifdef SERIALIZE_WITH_BOOST
+#include <boost/archive/text_oarchive.hpp>
+#include <boost/archive/text_iarchive.hpp>
+#include <boost/archive/binary_oarchive.hpp>
+#include <boost/archive/binary_iarchive.hpp>
+#else
 #include <cereal/archives/json.hpp>
 #include <cereal/archives/binary.hpp>
+#endif
+#include <tclap/CmdLine.h>
 
 #include "ait.h"
 #include "distributed_forest_trainer.h"
@@ -22,8 +29,19 @@
 
 int main(int argc, const char *argv[]) {
     try {
+        TCLAP::CmdLine cmd("Distributed RF trainer", ' ', "0.3");
+        TCLAP::ValueArg<std::string> data_file_arg("d", "data-file", "File containing image data", true, "", "string", cmd);
+        TCLAP::ValueArg<std::string> forest_file_arg("f", "forest-file", "File where the trained forest should be saved", false, "forest.bin", "string", cmd);
+        TCLAP::SwitchArg print_confusion_matrix_switch("c", "conf-matrix", "Print confusion matrix", cmd, true);
+        cmd.parse(argc, argv);
+
+        std::string data_file = data_file_arg.getValue();
+        bool save_forest = forest_file_arg.isSet();
+        std::string forest_file = forest_file_arg.getValue();
+        bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
+
         std::cout << "Reading images... " << std::flush;
-        std::vector<ait::Image> images = ait::load_images_from_matlab_file("../../data/trainingData.mat", "data", "labels");
+        std::vector<ait::Image> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
         std::cout << "Done." << std::endl;
         
         std::cout << "Creating samples... " << std::flush;
@@ -32,11 +50,11 @@ int main(int argc, const char *argv[]) {
         for (auto i = 0; i < images.size(); i++) {
             for (int x=0; x < images[i].get_data_matrix().rows(); x++)
             {
-//                if (x % 4 != 0)
-//                    continue;
-                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
+                if (x % 8 != 0)
+                    continue;
+//                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
                 {
-//                    int y = 0;
+                    int y = 0;
                     ImageSamplePointer sample_ptr = std::make_shared<ait::ImageSample>(&images[i], x, y);
                     samples.push_back(sample_ptr);
                 }
@@ -64,52 +82,70 @@ int main(int argc, const char *argv[]) {
         double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
         std::cout << "Running time: " << elapsed_seconds << std::endl;
 
-        // Serialize forest to file
+        if (save_forest)
         {
+            // Serialize forest to file
+#if SERIALIZE_WITH_BOOST
+            std::cout << "Writing binary forest file ... " << std::flush;
+            std::ofstream ofile("forest.bin", std::ios_base::binary);
+            boost::archive::binary_oarchive oarchive(ofile);
+            oarchive << forest;
+#else
             std::cout << "Writing json forest file ... " << std::flush;
-            std::ofstream ofile("forest.json");
+            std::ofstream ofile("forest.json", std::ios_base::binary);
             cereal::JSONOutputArchive oarchive(ofile);
             oarchive(cereal::make_nvp("forest", forest));
+#endif
             std::cout << "done." << std::endl;
-        }
-        // Read forest from file for testing
-        {
-            std::cout << "Reading json forest file ... " << std::flush;
-            std::ifstream ifile("forest.json");
-            cereal::JSONInputArchive iarchive(ifile);
-            iarchive(forest);
-            std::cout << "done." << std::endl;
-        }
-
-        auto samples_start = ait::make_pointer_iterator_wrapper(samples.cbegin());
-        auto samples_end = ait::make_pointer_iterator_wrapper(samples.cend());
-        std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate<SampleIteratorType>(samples_start, samples_end);
-
-        int match = 0;
-        int no_match = 0;
-        for (std::size_t i=0; i < forest.size(); i++)
-        {
-            const ForestType::TreeType &tree = forest.get_tree(i);
-            for (auto it=samples.cbegin(); it != samples.cend(); it++)
+            
+#if SERIALIZE_WITH_BOOST
             {
-                const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
-                const auto &statistics = node.get_statistics();
-                auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
-                auto label = max_it - statistics.get_histogram().cbegin();
-                if (label == (*it)->get_label())
-                    match++;
-                else
-                    no_match++;
+                // Read forest from file for testing
+                std::cout << "Reading binary forest file ... " << std::flush;
+                std::ifstream ifile("forest.bin", std::ios_base::binary);
+                boost::archive::binary_iarchive iarchive(ifile);
+                iarchive >> forest;
+                std::cout << "done." << std::endl;
             }
+#endif
         }
-        std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
 
-        ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
-        ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType> tree_utils(tree);
-        auto matrix = tree_utils.compute_confusion_matrix<3>(samples_start, samples_end);
-        std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
-        auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples_start, samples_end);
-        std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
+        if (print_confusion_matrix)
+        {
+            auto samples_start = ait::make_pointer_iterator_wrapper(samples.cbegin());
+            auto samples_end = ait::make_pointer_iterator_wrapper(samples.cend());
+            std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate<SampleIteratorType>(samples_start, samples_end);
+
+            int match = 0;
+            int no_match = 0;
+            for (std::size_t i=0; i < forest.size(); i++)
+            {
+                const ForestType::TreeType &tree = forest.get_tree(i);
+                for (auto it=samples.cbegin(); it != samples.cend(); it++)
+                {
+                    const auto &node = *tree.get_node(forest_leaf_indices[i][it - samples.cbegin()]);
+                    const auto &statistics = node.get_statistics();
+                    auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
+                    auto label = max_it - statistics.get_histogram().cbegin();
+                    if (label == (*it)->get_label())
+                        match++;
+                    else
+                        no_match++;
+                }
+            }
+            std::cout << "match: " << match << ", no_match: " << no_match << std::endl;
+
+            ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
+            ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType> tree_utils(tree);
+            auto matrix = tree_utils.compute_confusion_matrix<3>(samples_start, samples_end);
+            std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
+            auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples_start, samples_end);
+            std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
+        }
+    }
+    catch (const TCLAP::ArgException &e)
+    {
+        std::cerr << "Error parsing command line: " << e.error() << " for arg " << e.argId() << std::endl;
     }
     catch (const std::runtime_error &error)
     {

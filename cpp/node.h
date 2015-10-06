@@ -42,8 +42,13 @@ public:
     template <typename Archive>
     void serialize(Archive &archive, const unsigned int version)
     {
+#ifdef SERIALIZE_WITH_BOOST
+        archive & BOOST_SERIALIZATION_NVP(split_point_);
+        archive & BOOST_SERIALIZATION_NVP(statistics_);
+#else
         archive(cereal::make_nvp("split_point", split_point_));
         archive(cereal::make_nvp("statistics", statistics_));
+#endif
     }
 
 };

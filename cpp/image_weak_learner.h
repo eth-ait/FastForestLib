@@ -224,11 +224,19 @@ public:
     template <typename Archive>
     void serialize(Archive &archive, const unsigned int version)
     {
+#ifdef SERIALIZE_WITH_BOOST
+        archive & BOOST_SERIALIZATION_NVP(offset_x1_);
+        archive & BOOST_SERIALIZATION_NVP(offset_y1_);
+        archive & BOOST_SERIALIZATION_NVP(offset_x2_);
+        archive & BOOST_SERIALIZATION_NVP(offset_y2_);
+        archive & BOOST_SERIALIZATION_NVP(threshold_);
+#else
         archive(cereal::make_nvp("offset_x1", offset_x1_));
         archive(cereal::make_nvp("offset_y1", offset_y1_));
         archive(cereal::make_nvp("offset_x2", offset_x2_));
         archive(cereal::make_nvp("offset_y2", offset_y2_));
         archive(cereal::make_nvp("threshold", threshold_));
+#endif
     }
 };
 

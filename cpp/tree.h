@@ -4,7 +4,12 @@
 #include <memory>
 #include <iostream>
 
+#ifdef SERIALIZE_WITH_BOOST
+#include <boost/serialization/vector.hpp>
+#else
 #include <cereal/types/vector.hpp>
+#endif
+
 
 #include "ait.h"
 #include "node.h"
@@ -28,11 +33,20 @@ protected:
         NodeEntry() : is_leaf(false)
         {}
         
+#ifdef SERIALIZE_WITH_BOOST
+        friend class boost::serialization::access;
+#endif
+
         template <typename Archive>
         void serialize(Archive &archive, const unsigned int version)
         {
+#ifdef SERIALIZE_WITH_BOOST
+            archive & BOOST_SERIALIZATION_NVP(node);
+            archive & BOOST_SERIALIZATION_NVP(is_leaf);
+#else
             archive(cereal::make_nvp("node", node));
             archive(cereal::make_nvp("is_leaf", is_leaf));
+#endif
         }
     };
 
@@ -501,12 +515,21 @@ public:
         }
         return node_iter;
     }
+    
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+#endif
 
     template <typename Archive>
     void serialize(Archive &archive, const unsigned int version)
     {
+#ifdef SERIALIZE_WITH_BOOST
+        archive & BOOST_SERIALIZATION_NVP(depth_);
+        archive & BOOST_SERIALIZATION_NVP(node_entries_);
+#else
         archive(cereal::make_nvp("depth", depth_));
         archive(cereal::make_nvp("node_entries", node_entries_));
+#endif
     }
 
 protected:

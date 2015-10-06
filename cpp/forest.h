@@ -4,7 +4,11 @@
 #include <vector>
 #include <functional>
 
+#ifdef SERIALIZE_WITH_BOOST
+#include <boost/serialization/vector.hpp>
+#else
 #include <cereal/types/vector.hpp>
+#endif
 #include <Eigen/Dense>
 
 #include "ait.h"
@@ -177,10 +181,18 @@ public:
         return forest_leaf_nodes;
     }
 
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+#endif
+
     template <typename Archive>
     void serialize(Archive &archive, const unsigned int version)
     {
+#ifdef SERIALIZE_WITH_BOOST
+        archive & BOOST_SERIALIZATION_NVP(trees_);
+#else
         archive(cereal::make_nvp("trees", trees_));
+#endif
     }
 
 };

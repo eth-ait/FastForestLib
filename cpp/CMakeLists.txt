@@ -12,22 +12,22 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	endif()
 endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
-find_package(Boost 1.4.0 REQUIRED)
-
+find_package(Boost 1.4.0 REQUIRED COMPONENTS serialization mpi)
 find_package(Eigen3 3.1.2 REQUIRED)
-
 find_package(Cereal REQUIRED)
+find_package(TCLAP REQUIRED)
 
 if(!${WIN32} AND !${APPLE})
 	find_package(MATLAB REQUIRED)
 	set(MATLAB_LIB_DIR ${MATLAB_MX_LIBRARY})
 endif(!${WIN32} AND !${APPLE})
 
-include_directories( ${EIGEN3_INCLUDE_DIR} )
-include_directories( ${MATLAB_INCLUDE_DIR} )
-include_directories( ${CEREAL_INCLUDE_DIR} )
+include_directories(${Boost_INCLUDE_DIR})
+include_directories(${EIGEN3_INCLUDE_DIR})
+include_directories(${MATLAB_INCLUDE_DIR})
+include_directories(${CEREAL_INCLUDE_DIR})
 
-link_directories( ${MATLAB_LIB_DIR} )
+link_directories(${MATLAB_LIB_DIR})
 
 set(headers ait.h image_weak_learner.h weak_learner.h forest_trainer.h histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h)
 #file(GLOB headers
@@ -43,8 +43,11 @@ endif(${WIN32})
 add_executable(forest_trainer main_trainer.cpp ${headers})
 add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h)
 
-target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
-target_link_libraries(dist_forest_trainer ${MATLAB_LIBRARIES})
+target_compile_definitions(forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
+target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
+
+target_link_libraries(forest_trainer ${MATLAB_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(dist_forest_trainer ${MATLAB_LIBRARIES} ${Boost_LIBRARIES})
 
 target_compile_features(forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 target_compile_features(dist_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)

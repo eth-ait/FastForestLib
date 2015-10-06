@@ -107,12 +107,21 @@ public:
         }
         return entropy;
     }
+    
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+#endif
 
     template <typename Archive>
     void serialize(Archive &archive, const unsigned int version)
     {
+#ifdef SERIALIZE_WITH_BOOST
+        archive & BOOST_SERIALIZATION_NVP(histogram_);
+        archive & BOOST_SERIALIZATION_NVP(num_of_samples_);
+#else
         archive(cereal::make_nvp("histogram", histogram_));
         archive(cereal::make_nvp("num_of_samples", num_of_samples_));
+#endif
     }
 
 
