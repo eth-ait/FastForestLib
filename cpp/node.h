@@ -1,3 +1,11 @@
+//
+//  node.h
+//  DistRandomForest
+//
+//  Created by Benjamin Hepp.
+//
+//
+
 #pragma once
 
 #include <memory>

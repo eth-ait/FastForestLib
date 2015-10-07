@@ -1,3 +1,11 @@
+//
+//  histogram_statistics.h
+//  DistRandomForest
+//
+//  Created by Benjamin Hepp.
+//
+//
+
 #pragma once
 
 #include <vector>
@@ -15,14 +23,14 @@ class HistogramStatistics
 {
 public:
 
-    class HistogramStatisticsFactory
+    class Factory
     {
         size_type num_of_classes_;
 
     public:
         using value_type = HistogramStatistics;
 
-        HistogramStatisticsFactory(size_type num_of_classes)
+        Factory(size_type num_of_classes)
         : num_of_classes_(num_of_classes)
         {}
 
@@ -66,6 +74,15 @@ public:
         histogram_[label]++;
         num_of_samples_++;
     }
+    
+    void accumulate(const HistogramStatistics &statistics)
+    {
+        for (size_type i=0; i < statistics.histogram_.size(); i++)
+        {
+            histogram_[i] += statistics.histogram_[i];
+        }
+        finish_lazy_accumulation();
+    }
 
     template <typename T>
     void accumulate(T it_start, T it_end)
@@ -74,7 +91,7 @@ public:
         {
             lazy_accumulate(*it);
         }
-        num_of_samples_ += it_end - it_start;
+        finish_lazy_accumulation();
     }
 
     template <typename T>

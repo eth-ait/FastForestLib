@@ -1,3 +1,11 @@
+//
+//  tree.h
+//  DistRandomForest
+//
+//  Created by Benjamin Hepp.
+//
+//
+
 #pragma once
 
 #include <vector>
@@ -16,7 +24,6 @@
 #include "ait.h"
 #include "node.h"
 
-// TODO: Modify iterator interface to reflect STL usage.
 namespace ait {
 
 /// @brief A decision tree.
@@ -24,12 +31,12 @@ template <typename TSplitPoint, typename TStatistics>
 class Tree
 {
 public:
-    using NodeType = Node<TSplitPoint, TStatistics>;
+    using NodeT = Node<TSplitPoint, TStatistics>;
 
 private:
     struct NodeEntry
     {
-        NodeType node;
+        NodeT node;
         bool is_leaf;
 
         NodeEntry() : is_leaf(false)
@@ -62,9 +69,9 @@ private:
         : NodeIterator_<BaseIterator, ValueType>::iterator_adaptor_(it), begin_(begin)
         {}
 
-        template <typename OtherBaseIterator>
+        template <typename OtherBaseIterator, typename OtherValueType>
         NodeIterator_(
-                               const NodeIterator_<OtherBaseIterator, ValueType> &other,
+                               const NodeIterator_<OtherBaseIterator, OtherValueType> &other,
                                typename boost::enable_if<
                                boost::is_convertible<OtherBaseIterator, BaseIterator>, int>::type = 0
                                )
@@ -145,8 +152,8 @@ private:
     };
 
 public:
-    using NodeIterator = NodeIterator_<typename std::vector<NodeEntry>::iterator, NodeType>;
-    using ConstNodeIterator = NodeIterator_<typename std::vector<NodeEntry>::const_iterator, const NodeType>;
+    using NodeIterator = NodeIterator_<typename std::vector<NodeEntry>::iterator, NodeT>;
+    using ConstNodeIterator = NodeIterator_<typename std::vector<NodeEntry>::const_iterator, const NodeT>;
 
     class TreeLevel
     {
@@ -419,7 +426,7 @@ public:
     }
 
     template <typename TSample>
-    void evaluate_parallel(const std::vector<TSample> &samples, const std::function<void(const TSample &, const NodeType &)> &func) const
+    void evaluate_parallel(const std::vector<TSample> &samples, const std::function<void(const TSample &, const NodeT &)> &func) const
     {
         std::function<void(const TSample &, ConstNodeIterator &)> func_wrapper = [&func](const TSample &sample, ConstNodeIterator &node_iter)
         {
@@ -439,7 +446,7 @@ public:
     }
 
     template <typename TSample>
-    void evaluate(const std::vector<TSample> &samples, const std::function<void (const TSample &, const NodeType &)> &func) const
+    void evaluate(const std::vector<TSample> &samples, const std::function<void (const TSample &, const NodeT &)> &func) const
     {
         std::function<void (const TSample &, ConstNodeIterator &)> func_wrapper = [&func] (const TSample &sample, ConstNodeIterator &node_iter)
         {
@@ -459,7 +466,7 @@ public:
     }
     
     template <typename TSampleIterator>
-    void evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end, const std::function<void (const TSampleIterator &, const NodeType &)> &func) const
+    void evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end, const std::function<void (const TSampleIterator &, const NodeT &)> &func) const
     {
         std::function<void (const TSampleIterator &, ConstNodeIterator &)> func_wrapper = [&func] (const TSampleIterator &sample_it, ConstNodeIterator &node_iter)
         {
@@ -513,7 +520,7 @@ private:
     std::vector<NodeEntry> node_entries_;
 };
 
-template <typename TSplitPoint, typename TStatistics, typename TSampleIterator, typename TMatrix = Eigen::MatrixXd>
+template <typename TSampleIterator, typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
 class TreeUtilities
 {
     using TreeType = Tree<TSplitPoint, TStatistics>;
@@ -525,11 +532,9 @@ public:
     : tree_(tree)
     {}
     
-//    // TODO: Samples should contain information on number of labels
-//    template <int num_of_labels>
-//    TMatrix compute_confusion_matrix(const std::vector<TSample> &samples) const
+//    TMatrix compute_confusion_matrix(size_type num_of_classes, const std::vector<TSample> &samples) const
 //    {
-//        TMatrix confusion_matrix(num_of_labels, num_of_labels);
+//        TMatrix confusion_matrix(num_of_classes, num_of_classes);
 //        confusion_matrix.setZero();
 //        /*tree_.template evaluate<TSample>(samples, [&confusion_matrix] (const TSample &sample, const typename TreeType::NodeType &node) {
 //                            typename TSample::label_type true_label = sample.GetLabel();
@@ -549,11 +554,9 @@ public:
 //        return confusion_matrix;
 //    }
 
-    // TODO: Samples should contain information on number of labels
-    template <int num_of_labels>
-    TMatrix compute_confusion_matrix(const TSampleIterator &it_start, const TSampleIterator &it_end) const
+    TMatrix compute_confusion_matrix(size_type num_of_classes, const TSampleIterator &it_start, const TSampleIterator &it_end) const
     {
-        TMatrix confusion_matrix(num_of_labels, num_of_labels);
+        TMatrix confusion_matrix(num_of_classes, num_of_classes);
         confusion_matrix.setZero();
         /*tree_.template evaluate<TSample>(samples, [&confusion_matrix] (const TSample &sample, const typename TreeType::NodeType &node) {
          typename TSample::label_type true_label = sample.GetLabel();
@@ -562,7 +565,7 @@ public:
          typename TSample::label_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
          confusion_matrix(true_label, predicted_label)++;
          });*/
-        tree_.template evaluate<TSampleIterator>(it_start, it_end, [&confusion_matrix](const TSampleIterator &it, const typename TreeType::NodeType &node)
+        tree_.template evaluate<TSampleIterator>(it_start, it_end, [&confusion_matrix](const TSampleIterator &it, const typename TreeType::NodeT &node)
                                                   {
                                                       size_type true_label = it->get_label();
                                                       const TStatistics &statistics = node.get_statistics();
@@ -572,11 +575,10 @@ public:
                                                   });
         return confusion_matrix;
     }
-    
-    template <int num_of_labels>
-    TMatrix compute_normalized_confusion_matrix(const TSampleIterator &it_start, const TSampleIterator &it_end) const
+
+    TMatrix compute_normalized_confusion_matrix(size_type num_of_classes, const TSampleIterator &it_start, const TSampleIterator &it_end) const
     {
-        TMatrix confusion_matrix = compute_confusion_matrix<num_of_labels>(it_start, it_end);
+        TMatrix confusion_matrix = compute_confusion_matrix(num_of_classes, it_start, it_end);
         auto row_sum = confusion_matrix.rowwise().sum();
         TMatrix normalized_confusion_matrix = confusion_matrix;
         for (int col=0; col < confusion_matrix.cols(); col++)
@@ -589,5 +591,11 @@ public:
         return normalized_confusion_matrix;
     }
 };
+
+template <typename TSampleIterator, typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
+TreeUtilities<TSampleIterator, TSplitPoint, TStatistics, TMatrix> make_tree_utils(const Tree<TSplitPoint, TStatistics> &tree)
+{
+    return TreeUtilities<TSampleIterator, TSplitPoint, TStatistics, TMatrix>(tree);
+}
 
 }

@@ -70,7 +70,7 @@ int main(int argc, const char *argv[]) {
         using ConstSampleIteratorType = std::vector<ait::ImageSample>::const_iterator;
         using StatisticsFactoryType = typename ait::HistogramStatistics<ait::ImageSample>::HistogramStatisticsFactory;
         using WeakLearnerType = ait::ImageWeakLearner<StatisticsFactoryType, SampleIteratorType, RandomEngine>;
-        using ForestType = ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> >;
+        using ForestType = ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>>;
         
         StatisticsFactoryType statistics_factory(num_of_classes);
         ait::ImageWeakLearnerParameters weak_learner_parameters;
@@ -132,7 +132,7 @@ int main(int argc, const char *argv[]) {
         
         if (print_confusion_matrix)
         {
-            std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());
+            std::vector<std::vector<ait::size_type>> forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());
 
             int match = 0;
             int no_match = 0;
@@ -158,7 +158,7 @@ int main(int argc, const char *argv[]) {
     //            std::cout << "a" << std::endl;
     //        });
 
-            ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
+            ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>> tree = forest.get_tree(0);
             ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, ConstSampleIteratorType> tree_utils(tree);
             auto matrix = tree_utils.compute_confusion_matrix<3>(samples.cbegin(), samples.cend());
             std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;

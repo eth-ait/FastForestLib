@@ -1,3 +1,11 @@
+//
+//  weak_learner.h
+//  DistRandomForest
+//
+//  Created by Benjamin Hepp.
+//
+//
+
 #pragma once
 
 #include <tuple>
@@ -47,6 +55,35 @@ public:
     const TStatistics & get_right_statistics(size_type index) const
     {
         return right_statistics_collection_[index];
+    }
+
+    // TODO: This is not very nice.
+    void accumulate(const SplitStatistics &split_statistics)
+    {
+        for (size_type i = 0; i < size(); i++)
+        {
+            get_left_statistics(i).accumulate(split_statistics.get_left_statistics(i));
+            get_right_statistics(i).accumulate(split_statistics.get_right_statistics(i));
+        }
+    }
+
+private:
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+#else
+    friend class cereal::access;
+#endif
+
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version)
+    {
+#ifdef SERIALIZE_WITH_BOOST
+        archive & left_statistics_collection_;
+        archive & right_statistics_collection_;
+#else
+        archive(cereal::make_nvp("left_statistics_collection", left_statistics_collection_));
+        archive(cereal::make_nvp("right_statistics_collection", right_statistics_collection_));
+#endif
     }
 
 };

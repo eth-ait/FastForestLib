@@ -1,3 +1,11 @@
+//
+//  image_weak_learner.h
+//  DistRandomForest
+//
+//  Created by Benjamin Hepp.
+//
+//
+
 #pragma once
 
 #include <tuple>
@@ -239,7 +247,7 @@ private:
         archive(cereal::make_nvp("threshold", threshold_));
 #endif
     }
-    
+
     offset_type offset_x1_;
     offset_type offset_y1_;
     offset_type offset_x2_;
@@ -250,15 +258,17 @@ private:
 template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
 class ImageWeakLearner : public WeakLearner<ImageSplitPoint, TStatisticsFactory, TSampleIterator, TRandomEngine>
 {
-    using BaseType = WeakLearner<ImageSplitPoint, TStatisticsFactory, TSampleIterator, TRandomEngine>;
+    using BaseT = WeakLearner<ImageSplitPoint, TStatisticsFactory, TSampleIterator, TRandomEngine>;
 
     const ImageWeakLearnerParameters parameters_;
 
 public:
-    using StatisticsT = typename BaseType::StatisticsT;
+    using ParametersT = ImageWeakLearnerParameters;
+    using StatisticsT = typename BaseT::StatisticsT;
+    using SplitPointT = ImageSplitPoint;
 
-    ImageWeakLearner(const ImageWeakLearnerParameters &parameters, const TStatisticsFactory &statistics_factory)
-    : BaseType(statistics_factory), parameters_(parameters)
+    ImageWeakLearner(const ParametersT &parameters, const TStatisticsFactory &statistics_factory)
+    : BaseT(statistics_factory), parameters_(parameters)
     {}
 
     ~ImageWeakLearner() {}
