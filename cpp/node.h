@@ -13,9 +13,6 @@ enum class Direction { LEFT = -1, RIGHT = +1 };
 template <typename TSplitPoint, typename TStatistics>
 class Node
 {
-    TSplitPoint split_point_;
-    TStatistics statistics_;
-
 public:
     Node()
     {}
@@ -43,6 +40,13 @@ public:
         statistics_ = statistics;
     }
     
+private:
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+#else
+    friend class cereal::access;
+#endif
+
     template <typename Archive>
     void serialize(Archive &archive, const unsigned int version)
     {
@@ -54,7 +58,9 @@ public:
         archive(cereal::make_nvp("statistics", statistics_));
 #endif
     }
-
+    
+    TSplitPoint split_point_;
+    TStatistics statistics_;
 };
 
 }

@@ -26,7 +26,7 @@ class Tree
 public:
     using NodeType = Node<TSplitPoint, TStatistics>;
 
-protected:
+private:
     struct NodeEntry
     {
         NodeType node;
@@ -34,9 +34,11 @@ protected:
 
         NodeEntry() : is_leaf(false)
         {}
-
+        
 #ifdef SERIALIZE_WITH_BOOST
         friend class boost::serialization::access;
+#else
+        friend class cereal::access;
 #endif
 
         template <typename Archive>
@@ -141,9 +143,6 @@ protected:
         }
 
     };
-
-    size_type depth_;
-    std::vector<NodeEntry> node_entries_;
 
 public:
     using NodeIterator = NodeIterator_<typename std::vector<NodeEntry>::iterator, NodeType>;
@@ -493,6 +492,8 @@ public:
     
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
+#else
+    friend class cereal::access;
 #endif
 
     template <typename Archive>
@@ -507,18 +508,9 @@ public:
 #endif
     }
 
-protected:
-    // @brief Return the left child index of the specified node.
-    size_type get_left_child_index(size_type index) const
-    {
-        return 2 * index + 1;
-    }
-
-    // @brief Return the right child index of the specified node.
-    size_type get_right_child_index(size_type index) const
-    {
-        return 2 * index + 2;
-    }
+private:
+    size_type depth_;
+    std::vector<NodeEntry> node_entries_;
 };
 
 template <typename TSplitPoint, typename TStatistics, typename TSampleIterator, typename TMatrix = Eigen::MatrixXd>
@@ -596,7 +588,6 @@ public:
         }
         return normalized_confusion_matrix;
     }
-
 };
 
 }

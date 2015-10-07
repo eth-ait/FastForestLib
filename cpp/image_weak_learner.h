@@ -147,30 +147,6 @@ public:
 };
 
 class ImageSplitPoint {
-    offset_type offset_x1_;
-    offset_type offset_y1_;
-    offset_type offset_x2_;
-    offset_type offset_y2_;
-    scalar_type threshold_;
-    
-    scalar_type compute_pixel_difference(const ImageSample &sample) const {
-        pixel_type pixel1_value = compute_pixel_value(sample, offset_x1_, offset_y1_);
-        pixel_type pixel2_value = compute_pixel_value(sample, offset_x2_, offset_y2_);
-        return pixel1_value - pixel2_value;
-    }
-    
-    scalar_type compute_pixel_value(const ImageSample &sample, offset_type offset_x, offset_type offset_y) const {
-        const Image &image = sample.get_image();
-        offset_type x = sample.get_x();
-        offset_type y = sample.get_y();
-        pixel_type pixel_value;
-        if (x + offset_x < 0 || x + offset_x >= image.width() || y + offset_y < 0 || y + offset_y >= image.height())
-            pixel_value = 0;
-        else
-            pixel_value = image.get_data_matrix()(x + offset_x, y + offset_y);
-        return pixel_value;
-    }
-
 public:
     ImageSplitPoint() {}
 
@@ -221,6 +197,31 @@ public:
         return threshold_;
     }
 
+private:
+    scalar_type compute_pixel_difference(const ImageSample &sample) const {
+        pixel_type pixel1_value = compute_pixel_value(sample, offset_x1_, offset_y1_);
+        pixel_type pixel2_value = compute_pixel_value(sample, offset_x2_, offset_y2_);
+        return pixel1_value - pixel2_value;
+    }
+    
+    scalar_type compute_pixel_value(const ImageSample &sample, offset_type offset_x, offset_type offset_y) const {
+        const Image &image = sample.get_image();
+        offset_type x = sample.get_x();
+        offset_type y = sample.get_y();
+        pixel_type pixel_value;
+        if (x + offset_x < 0 || x + offset_x >= image.width() || y + offset_y < 0 || y + offset_y >= image.height())
+            pixel_value = 0;
+        else
+            pixel_value = image.get_data_matrix()(x + offset_x, y + offset_y);
+        return pixel_value;
+    }
+
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+#else
+    friend class cereal::access;
+#endif
+
     template <typename Archive>
     void serialize(Archive &archive, const unsigned int version)
     {
@@ -238,6 +239,12 @@ public:
         archive(cereal::make_nvp("threshold", threshold_));
 #endif
     }
+    
+    offset_type offset_x1_;
+    offset_type offset_y1_;
+    offset_type offset_x2_;
+    offset_type offset_y2_;
+    scalar_type threshold_;
 };
 
 template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>

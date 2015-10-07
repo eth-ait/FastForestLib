@@ -1,5 +1,5 @@
 //
-//  distributed_trainer.cpp
+//  level_trainer.cpp
 //  DistRandomForest
 //
 //  Created by Benjamin Hepp on 30/09/15.
@@ -11,37 +11,20 @@
 #include <memory>
 #include <chrono>
 
-#include <boost/archive/text_oarchive.hpp>
-#include <boost/archive/text_iarchive.hpp>
-#include <boost/archive/binary_oarchive.hpp>
-#include <boost/archive/binary_iarchive.hpp>
-#include <boost/mpi/environment.hpp>
-#include <boost/mpi/communicator.hpp>
+#include <cereal/archives/json.hpp>
+#include <cereal/archives/binary.hpp>
 #include <tclap/CmdLine.h>
 
 #include "ait.h"
-#include "distributed_forest_trainer.h"
+#include "level_forest_trainer.h"
 #include "image_weak_learner.h"
 #include "matlab_file_io.h"
 
-namespace mpi = boost::mpi;
-
-std::string mpi_output_prefix(const mpi::communicator &comm)
-{
-    std::ostringstream out;
-    out << "[" << comm.rank() << "] ";
-    return out.str();
-}
-
 int main(int argc, const char *argv[]) {
     try {
-        mpi::environment env;
-        mpi::communicator world;
-        std::cout << "Rank " << world.rank() << " of " << world.size() << "." << std::endl;
-
-        TCLAP::CmdLine cmd("Distributed RF trainer", ' ', "0.3");
+        TCLAP::CmdLine cmd("Level RF trainer", ' ', "0.3");
         TCLAP::ValueArg<std::string> data_file_arg("d", "data-file", "File containing image data", true, "", "string", cmd);
-        TCLAP::ValueArg<std::string> text_forest_file_arg("t", "text-forest-file", "Text file where the trained forest should be saved", false, "forest.txt", "string", cmd);
+        TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string", cmd);
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string", cmd);
         TCLAP::SwitchArg print_confusion_matrix_switch("c", "conf-matrix", "Print confusion matrix", cmd, true);
         cmd.parse(argc, argv);
@@ -65,18 +48,15 @@ int main(int argc, const char *argv[]) {
         using ImageSamplePointer = std::shared_ptr<ait::ImageSample>;
         std::vector<ImageSamplePointer> samples;
         for (auto i = 0; i < images.size(); i++) {
-            if ((i - world.rank()) % world.size() == 0)
+            for (int x=0; x < images[i].get_data_matrix().rows(); x++)
             {
-                for (int x=0; x < images[i].get_data_matrix().rows(); x++)
+                if (x % 8 != 0)
+                    continue;
+//                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
                 {
-                    if (x % 8 != 0)
-                        continue;
-    //                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
-                    {
-                        int y = 0;
-                        ImageSamplePointer sample_ptr = std::make_shared<ait::ImageSample>(&images[i], x, y);
-                        samples.push_back(sample_ptr);
-                    }
+                    int y = 0;
+                    ImageSamplePointer sample_ptr = std::make_shared<ait::ImageSample>(&images[i], x, y);
+                    samples.push_back(sample_ptr);
                 }
             }
         }
@@ -90,10 +70,10 @@ int main(int argc, const char *argv[]) {
         
         StatisticsFactoryType statistics_factory(num_of_classes);
         ait::ImageWeakLearnerParameters weak_learner_parameters;
-        ait::DistributedTrainingParameters training_parameters;
+        ait::LevelTrainingParameters training_parameters;
         WeakLearnerType iwl(weak_learner_parameters, statistics_factory);
         
-        ait::DistributedForestTrainer<SamplePointerIteratorType, WeakLearnerType, RandomEngine> trainer(world, iwl, training_parameters);
+        ait::LevelForestTrainer<SamplePointerIteratorType, WeakLearnerType, RandomEngine> trainer(iwl, training_parameters);
         
         auto start_time = std::chrono::high_resolution_clock::now();
         using ForestType = ait::Forest<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> >;
@@ -103,24 +83,24 @@ int main(int argc, const char *argv[]) {
         auto period = std::chrono::high_resolution_clock::period();
         double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
         std::cout << "Running time: " << elapsed_seconds << std::endl;
-        
-        if (text_forest_file_arg.isSet())
+
+        if (json_forest_file_arg.isSet())
         {
             {
                 // Serialize forest to file
-                std::cout << "Writing json forest file " << text_forest_file_arg.getValue() << "... " << std::flush;
-                std::ofstream ofile(text_forest_file_arg.getValue());
-                boost::archive::text_oarchive oarchive(ofile);
-                oarchive << forest;
+                std::cout << "Writing json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
+                std::ofstream ofile(json_forest_file_arg.getValue());
+                cereal::JSONOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", forest));
                 std::cout << " Done." << std::endl;
             }
-            
+
             {
                 // Read forest from file for testing
-                std::cout << "Reading json forest file " << text_forest_file_arg.getValue() << " ... " << std::flush;
-                std::ifstream ifile(text_forest_file_arg.getValue());
-                boost::archive::text_iarchive iarchive(ifile);
-                iarchive >> forest;
+                std::cout << "Reading json forest file " << json_forest_file_arg.getValue() << " ... " << std::flush;
+                std::ifstream ifile(json_forest_file_arg.getValue());
+                cereal::JSONInputArchive iarchive(ifile);
+                iarchive(forest);
                 std::cout << " Done." << std::endl;
             }
         }
@@ -131,8 +111,8 @@ int main(int argc, const char *argv[]) {
                 // Serialize forest to file
                 std::cout << "Writing binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
                 std::ofstream ofile(binary_forest_file_arg.getValue(), std::ios_base::binary);
-                boost::archive::binary_oarchive oarchive(ofile);
-                oarchive << forest;
+                cereal::BinaryOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", forest));
                 std::cout << " Done." << std::endl;
             }
             
@@ -140,8 +120,8 @@ int main(int argc, const char *argv[]) {
                 // Read forest from file for testing
                 std::cout << "Reading binary forest file " << binary_forest_file_arg.getValue() << " ... " << std::flush;
                 std::ifstream ifile(binary_forest_file_arg.getValue(), std::ios_base::binary);
-                boost::archive::binary_iarchive iarchive(ifile);
-                iarchive >> forest;
+                cereal::BinaryInputArchive iarchive(ifile);
+                iarchive(forest);
                 std::cout << " Done." << std::endl;
             }
         }
@@ -169,14 +149,14 @@ int main(int argc, const char *argv[]) {
                         no_match++;
                 }
             }
-            std::cout << mpi_output_prefix(world) << "Match: " << match << ", no match: " << no_match << std::endl;
+            std::cout << "Match: " << match << ", no match: " << no_match << std::endl;
 
             ait::Tree<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample> > tree = forest.get_tree(0);
             ait::TreeUtilities<ait::ImageSplitPoint, ait::HistogramStatistics<ait::ImageSample>, SampleIteratorType> tree_utils(tree);
             auto matrix = tree_utils.compute_confusion_matrix<3>(samples_start, samples_end);
-            std::cout << mpi_output_prefix(world) << "Confusion matrix:" << std::endl << matrix << std::endl;
+            std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
             auto norm_matrix = tree_utils.compute_normalized_confusion_matrix<3>(samples_start, samples_end);
-            std::cout << mpi_output_prefix(world) << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
+            std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
         }
     }
     catch (const TCLAP::ArgException &e)
@@ -191,3 +171,4 @@ int main(int argc, const char *argv[]) {
     
     return 0;
 }
+

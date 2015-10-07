@@ -13,9 +13,6 @@ namespace ait
 template <typename TSample>
 class HistogramStatistics
 {
-    std::vector<size_type> histogram_;
-    size_type num_of_samples_;
-
 public:
 
     class HistogramStatisticsFactory
@@ -119,8 +116,16 @@ public:
         return entropy;
     }
     
+private:
+    void compute_num_of_samples()
+    {
+        num_of_samples_ = std::accumulate(histogram_.cbegin(), histogram_.cend(), 0);
+    }
+
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
+#else
+    friend class cereal::access;
 #endif
 
     template <typename Archive>
@@ -135,26 +140,8 @@ public:
 #endif
     }
 
-
-//    template <typename Archive>
-//    void save(Archive &archive, const unsigned int version) const
-//    {
-//        archive(cereal::make_nvp("histogram", histogram_));
-//    }
-//
-//    template <typename Archive>
-//    void load(Archive &archive, const unsigned int version)
-//    {
-//        archive(cereal::make_nvp("histogram", histogram_));
-//        ComputeNumOfSamples();
-//    }
-
-private:
-    void compute_num_of_samples()
-    {
-        num_of_samples_ = std::accumulate(histogram_.cbegin(), histogram_.cend(), 0);
-    }
-
+    std::vector<size_type> histogram_;
+    size_type num_of_samples_;
 };
 
 }

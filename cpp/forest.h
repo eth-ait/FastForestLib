@@ -25,10 +25,11 @@ public:
     using TreeType = Tree<TSplitPoint, TStatistics>;
     using NodeType = typename TreeType::NodeType;
 
-private:
-    std::vector<TreeType> trees_;
-
 public:
+    using TreeIterator = typename std::vector<TreeType>::iterator;
+    using ConstTreeIterator = typename std::vector<TreeType>::iterator;
+    using iterator = TreeIterator;
+    using const_iterator = ConstTreeIterator;
 
     /// @brief Create an empty forest.
     Forest() {}
@@ -45,6 +46,26 @@ public:
         trees_.push_back(std::move(tree));
     }
     
+    TreeIterator begin()
+    {
+        return trees_.begin();
+    }
+    
+    TreeIterator end()
+    {
+        return trees_.end();
+    }
+
+    ConstTreeIterator cbegin() const
+    {
+        return trees_.cbegin();
+    }
+    
+    ConstTreeIterator cend() const
+    {
+        return trees_.cend();
+    }
+
     /// @brief Return a tree in the forest.
     const TreeType & get_tree(size_type index) const
     {
@@ -180,9 +201,12 @@ public:
         }
         return forest_leaf_nodes;
     }
-
+    
+private:
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
+#else
+    friend class cereal::access;
 #endif
 
     template <typename Archive>
@@ -194,6 +218,8 @@ public:
         archive(cereal::make_nvp("trees", trees_));
 #endif
     }
+
+    std::vector<TreeType> trees_;
 
 };
 

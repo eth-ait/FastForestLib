@@ -5,18 +5,11 @@
 
 #include "ait.h"
 #include "forest.h"
+#include "training.h"
 #include "weak_learner.h"
 
 namespace ait
 {
-
-struct TrainingParameters
-{
-    int num_of_trees = 1;
-    int tree_depth = 10;
-    int minimum_num_of_samples = 100;
-    double minimum_information_gain = 0.0;
-};
 
 template <typename TSample, typename TWeakLearner, typename TRandomEngine = std::mt19937_64>
 class ForestTrainer

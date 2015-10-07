@@ -11,7 +11,7 @@
 #include <tclap/CmdLine.h>
 
 #include "ait.h"
-#include "forest_trainer.h"
+#include "depth_forest_trainer.h"
 #include "histogram_statistics.h"
 #include "image_weak_learner.h"
 #include "eigen_matrix_io.h"
@@ -20,15 +20,14 @@
 
 int main(int argc, const char *argv[]) {
     try {
-        TCLAP::CmdLine cmd("RF trainer", ' ', "0.3");
+        TCLAP::CmdLine cmd("Depth RF trainer", ' ', "0.3");
         TCLAP::ValueArg<std::string> data_file_arg("d", "data-file", "File containing image data", true, "", "string", cmd);
-        TCLAP::ValueArg<std::string> forest_file_arg("f", "forest-file", "File where the trained forest should be saved", false, "forest.bin", "string", cmd);
+        TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string", cmd);
+        TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string", cmd);
         TCLAP::SwitchArg print_confusion_matrix_switch("c", "conf-matrix", "Print confusion matrix", cmd, true);
         cmd.parse(argc, argv);
         
         std::string data_file = data_file_arg.getValue();
-        bool save_forest = forest_file_arg.isSet();
-        std::string forest_file = forest_file_arg.getValue();
         bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
 
         //		std::vector<std::string> array_names;
@@ -88,43 +87,49 @@ int main(int argc, const char *argv[]) {
 		auto period = std::chrono::high_resolution_clock::period();
 		double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
 		std::cout << "Running time: " << elapsed_seconds << std::endl;
-
-        // Serialize forest
-        {
-            std::cout << "Writing json forest file ... " << std::flush;
-            std::ofstream ofile("forest.json");
-            cereal::JSONOutputArchive oarchive(ofile);
-            oarchive(cereal::make_nvp("forest", forest));
-            std::cout << " Done." << std::endl;
-        }
-
-        {
-            std::cout << "Reading json forest file ... " << std::flush;
-            std::ifstream ifile("forest.json");
-            cereal::JSONInputArchive iarchive(ifile);
-            iarchive(forest);
-            std::cout << " Done." << std::endl;
-        }
         
-        if (save_forest)
+        if (json_forest_file_arg.isSet())
         {
             {
-                std::cout << "Writing binary forest file ... " << std::flush;
-                std::ofstream bin_ofile(forest_file, std::ios::binary);
-                cereal::BinaryOutputArchive bin_oarchive(bin_ofile);
-                bin_oarchive(cereal::make_nvp("forest", forest));
+                // Serialize forest to file
+                std::cout << "Writing json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
+                std::ofstream ofile(json_forest_file_arg.getValue());
+                cereal::JSONOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", forest));
                 std::cout << " Done." << std::endl;
             }
             
             {
-                std::cout << "Reading binary forest file ... " << std::flush;
-                std::ifstream bin_ifile(forest_file, std::ios::binary);
-                cereal::BinaryInputArchive bin_iarchive(bin_ifile);
-                bin_iarchive(forest);
+                // Read forest from file for testing
+                std::cout << "Reading json forest file " << json_forest_file_arg.getValue() << " ... " << std::flush;
+                std::ifstream ifile(json_forest_file_arg.getValue());
+                cereal::JSONInputArchive iarchive(ifile);
+                iarchive(forest);
                 std::cout << " Done." << std::endl;
             }
         }
-
+        
+        if (binary_forest_file_arg.isSet())
+        {
+            {
+                // Serialize forest to file
+                std::cout << "Writing binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
+                std::ofstream ofile(binary_forest_file_arg.getValue(), std::ios_base::binary);
+                cereal::BinaryOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", forest));
+                std::cout << " Done." << std::endl;
+            }
+            
+            {
+                // Read forest from file for testing
+                std::cout << "Reading binary forest file " << binary_forest_file_arg.getValue() << " ... " << std::flush;
+                std::ifstream ifile(binary_forest_file_arg.getValue(), std::ios_base::binary);
+                cereal::BinaryInputArchive iarchive(ifile);
+                iarchive(forest);
+                std::cout << " Done." << std::endl;
+            }
+        }
+        
         if (print_confusion_matrix)
         {
             std::vector<std::vector<ait::size_type> > forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());

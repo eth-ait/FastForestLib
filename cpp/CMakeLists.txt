@@ -12,10 +12,11 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	endif()
 endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
-find_package(Boost 1.4.0 REQUIRED COMPONENTS serialization mpi)
+find_package(Boost 1.4.0 COMPONENTS serialization mpi REQUIRED)
 find_package(Eigen3 3.1.2 REQUIRED)
 find_package(Cereal REQUIRED)
 find_package(TCLAP REQUIRED)
+find_package(MPI REQUIRED)
 
 if(!${WIN32} AND !${APPLE})
 	find_package(MATLAB REQUIRED)
@@ -26,10 +27,11 @@ include_directories(${Boost_INCLUDE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${MATLAB_INCLUDE_DIR})
 include_directories(${CEREAL_INCLUDE_DIR})
+include_directories(${MPI_INCLUDE_PATH})
 
 link_directories(${MATLAB_LIB_DIR})
 
-set(headers ait.h image_weak_learner.h weak_learner.h forest_trainer.h histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h)
+set(headers ait.h image_weak_learner.h training.h weak_learner.h histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h)
 #file(GLOB headers
 #	"*.h"
 #)
@@ -40,14 +42,21 @@ else(${WIN32})
     set(MATLAB_LIBRARIES mat mx)
 endif(${WIN32})
 
-add_executable(forest_trainer main_trainer.cpp ${headers})
+add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
+add_executable(level_forest_trainer level_trainer.cpp ${headers} level_forest_trainer.h)
 add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h)
 
 target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
+target_compile_options(dist_forest_trainer PRIVATE ${MPI_COMPILE_FLAGS})
 
-target_link_libraries(forest_trainer ${MATLAB_LIBRARIES})
-target_link_libraries(dist_forest_trainer ${MATLAB_LIBRARIES} ${Boost_LIBRARIES})
+target_link_libraries(depth_forest_trainer ${MATLAB_LIBRARIES})
+target_link_libraries(level_forest_trainer ${MATLAB_LIBRARIES})
+target_link_libraries(dist_forest_trainer ${MATLAB_LIBRARIES} ${Boost_LIBRARIES} ${MPI_LIBRARIES} ${MPI_LINK_FLAGS})
 
-target_compile_features(forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+target_compile_features(depth_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+target_compile_features(level_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 target_compile_features(dist_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 #set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
+
+#enable_testing()
+#add_test(dist_forest_trainer_test ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 ${CMAKE_CURRENT_BINARY_DIR}/Debug/dist_forest_trainer -d ../../data/trainingData.mat)
