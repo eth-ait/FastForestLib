@@ -47,37 +47,37 @@ int main(int argc, const char *argv[]) {
         bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
 
         // Read data from file.
-        std::cout << "Reading images ... " << std::flush;
+        ait::log_info(false) << "Reading images ... " << std::flush;
         std::vector<ait::Image> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
-        std::cout << " Done." << std::endl;
+        ait::log_info(false) << " Done." << std::endl;
 
         // Compute number of classes from data.
-        std::cout << "Computing number of classes ..." << std::flush;
+        ait::log_info(false) << "Computing number of classes ..." << std::flush;
         ait::label_type max_label = 0;
         for (auto i = 0; i < images.size(); i++) {
             ait::label_type local_max_label = images[i].get_label_matrix().maxCoeff();
             max_label = std::max(local_max_label, max_label);
         }
         ait::size_type num_of_classes = static_cast<ait::size_type>(max_label) + 1;
-        std::cout << " Found " << num_of_classes << " classes." << std::endl;
+        ait::log_info(false) << " Found " << num_of_classes << " classes." << std::endl;
 
         // Extract samples from data.
-        std::cout << "Creating samples ... " << std::flush;
+        ait::log_info(false) << "Creating samples ... " << std::flush;
         SampleContainerT samples;
         for (auto i = 0; i < images.size(); i++) {
             for (int x=0; x < images[i].get_data_matrix().rows(); x++)
             {
-                if (x % 8 != 0)
-                    continue;
-//                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
+//                if (x % 8 != 0)
+//                    continue;
+                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
                 {
-                    int y = 0;
+//                    int y = 0;
                     SampleT sample = ait::ImageSample(&images[i], x, y);
                     samples.push_back(sample);
                 }
             }
         }
-        std::cout << " Done." << std::endl;
+        ait::log_info(false) << " Done." << std::endl;
         
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
@@ -85,55 +85,44 @@ int main(int argc, const char *argv[]) {
         ForestTrainerT::ParametersT training_parameters;
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);
+#ifdef AIT_TESTING
+        RandomEngineT rnd_engine(11);
+#else
+        std::random_device rnd_device;
+        ait::log_info() << "rnd(): " << rnd_device();
+        RandomEngineT rnd_engine(rnd_device());
+#endif
         
         // Train a forest and time it.
         auto start_time = std::chrono::high_resolution_clock::now();
-        ForestTrainerT::ForestT forest = trainer.train_forest(samples.cbegin(), samples.cend());
+        ForestTrainerT::ForestT forest = trainer.train_forest(samples.cbegin(), samples.cend(), rnd_engine);
         auto stop_time = std::chrono::high_resolution_clock::now();
         auto duration = stop_time - start_time;
         auto period = std::chrono::high_resolution_clock::period();
         double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
-        std::cout << "Running time: " << elapsed_seconds << std::endl;
+        ait::log_info() << "Running time: " << elapsed_seconds;
 
         // Optionally: Serialize forest to JSON file.
         if (json_forest_file_arg.isSet())
         {
             {
-                std::cout << "Writing json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
+                ait::log_info(false) << "Writing json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
                 std::ofstream ofile(json_forest_file_arg.getValue());
                 cereal::JSONOutputArchive oarchive(ofile);
                 oarchive(cereal::make_nvp("forest", forest));
-                std::cout << " Done." << std::endl;
-            }
-
-            {
-                // Read forest from file for testing
-                std::cout << "Reading json forest file " << json_forest_file_arg.getValue() << " ... " << std::flush;
-                std::ifstream ifile(json_forest_file_arg.getValue());
-                cereal::JSONInputArchive iarchive(ifile);
-                iarchive(forest);
-                std::cout << " Done." << std::endl;
+                ait::log_info(false) << " Done." << std::endl;
             }
         }
-        
+
         // Optionally: Serialize forest to binary file.
         if (binary_forest_file_arg.isSet())
         {
             {
-                std::cout << "Writing binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
+                ait::log_info(false) << "Writing binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
                 std::ofstream ofile(binary_forest_file_arg.getValue(), std::ios_base::binary);
                 cereal::BinaryOutputArchive oarchive(ofile);
                 oarchive(cereal::make_nvp("forest", forest));
-                std::cout << " Done." << std::endl;
-            }
-            
-            {
-                // Read forest from file for testing
-                std::cout << "Reading binary forest file " << binary_forest_file_arg.getValue() << " ... " << std::flush;
-                std::ifstream ifile(binary_forest_file_arg.getValue(), std::ios_base::binary);
-                cereal::BinaryInputArchive iarchive(ifile);
-                iarchive(forest);
-                std::cout << " Done." << std::endl;
+                ait::log_info(false) << " Done." << std::endl;
             }
         }
 
@@ -160,14 +149,14 @@ int main(int argc, const char *argv[]) {
                         no_match++;
                 }
             }
-            std::cout << "Match: " << match << ", no match: " << no_match << std::endl;
+            ait::log_info() << "Match: " << match << ", no match: " << no_match;
 
             // Compute confusion matrix.
             auto tree_utils = ait::make_tree_utils<SampleIteratorT>(*forest.begin());
             auto matrix = tree_utils.compute_confusion_matrix(num_of_classes, samples.cbegin(), samples.cend());
-            std::cout << "Confusion matrix:" << std::endl << matrix << std::endl;
+            ait::log_info() << "Confusion matrix:" << std::endl << matrix;
             auto norm_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples.cbegin(), samples.cend());
-            std::cout << "Normalized confusion matrix:" << std::endl << norm_matrix << std::endl;
+            ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
         }
     }
     catch (const TCLAP::ArgException &e)

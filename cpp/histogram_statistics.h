@@ -77,6 +77,7 @@ public:
     
     void accumulate(const HistogramStatistics &statistics)
     {
+        assert(histogram_.size() == statistics.histogram_.size());
         for (size_type i=0; i < statistics.histogram_.size(); i++)
         {
             histogram_[i] += statistics.histogram_[i];
@@ -138,23 +139,25 @@ private:
     {
         num_of_samples_ = std::accumulate(histogram_.cbegin(), histogram_.cend(), 0);
     }
-
+    
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
-#else
-    friend class cereal::access;
-#endif
-
+    
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version)
+    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
-#ifdef SERIALIZE_WITH_BOOST
         archive & histogram_;
         archive & num_of_samples_;
-#else
+    }
+#endif
+    
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
         archive(cereal::make_nvp("histogram", histogram_));
         archive(cereal::make_nvp("num_of_samples", num_of_samples_));
-#endif
     }
 
     std::vector<size_type> histogram_;

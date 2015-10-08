@@ -10,16 +10,15 @@
 
 #include <cstdint>
 #include <Eigen/Dense>
-#include <boost/iterator/iterator_adaptor.hpp>
-#include <boost/utility/enable_if.hpp>
-#include <boost/mpl/eval_if.hpp>
-#include <boost/type_traits/is_same.hpp>
+
+#include "logger.h"
 
 namespace ait
 {
 
 //typedef std::int64_t size_type;
-using size_type = EIGEN_DEFAULT_DENSE_INDEX_TYPE;
+//using size_type = EIGEN_DEFAULT_DENSE_INDEX_TYPE;
+using size_type = std::ptrdiff_t;
 using scalar_type = double;
 
 }

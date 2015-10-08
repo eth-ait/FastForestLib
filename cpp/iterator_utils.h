@@ -8,6 +8,10 @@
 
 #pragma once
 
+#include <boost/utility/enable_if.hpp>
+#include <boost/mpl/eval_if.hpp>
+#include <boost/type_traits/is_same.hpp>
+
 namespace ait
 {
 
@@ -57,6 +61,8 @@ public:
     
 private:
     friend class boost::iterator_core_access;
+    template <typename, typename> friend class PointerIteratorWrapper;
+
     typename PointerIteratorWrapper::iterator_adaptor_::reference dereference() const
     {
         return *(*this->base());

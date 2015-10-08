@@ -51,7 +51,7 @@ public:
     {
         return left_statistics_collection_[index];
     }
-    
+
     const TStatistics & get_right_statistics(size_type index) const
     {
         return right_statistics_collection_[index];
@@ -60,6 +60,7 @@ public:
     // TODO: This is not very nice.
     void accumulate(const SplitStatistics &split_statistics)
     {
+        assert(size() == split_statistics.size());
         for (size_type i = 0; i < size(); i++)
         {
             get_left_statistics(i).accumulate(split_statistics.get_left_statistics(i));
@@ -70,22 +71,23 @@ public:
 private:
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
-#else
-    friend class cereal::access;
-#endif
-
+    
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version)
+    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
-#ifdef SERIALIZE_WITH_BOOST
         archive & left_statistics_collection_;
         archive & right_statistics_collection_;
-#else
+    }
+#endif
+    
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
         archive(cereal::make_nvp("left_statistics_collection", left_statistics_collection_));
         archive(cereal::make_nvp("right_statistics_collection", right_statistics_collection_));
-#endif
     }
-
 };
 
 template <typename TSplitPoint, typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>

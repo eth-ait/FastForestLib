@@ -12,6 +12,8 @@
 #include <vector>
 #include <cereal/cereal.hpp>
 
+#include "mpl_utils.h"
+
 namespace ait
 {
     
@@ -51,20 +53,22 @@ public:
 private:
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
-#else
-    friend class cereal::access;
-#endif
-
+    
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version)
+    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
-#ifdef SERIALIZE_WITH_BOOST
         archive & split_point_;
         archive & statistics_;
-#else
+    }
+#endif
+    
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
         archive(cereal::make_nvp("split_point", split_point_));
         archive(cereal::make_nvp("statistics", statistics_));
-#endif
     }
     
     TSplitPoint split_point_;

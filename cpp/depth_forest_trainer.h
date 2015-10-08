@@ -10,19 +10,28 @@
 
 namespace ait
 {
-
-template <typename TSample, typename TWeakLearner, typename TRandomEngine = std::mt19937_64>
-class ForestTrainer
+    
+template <template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
+class DepthForestTrainer
 {
 public:
-    using StatisticsT = typename TWeakLearner::StatisticsT;
-    using SampleIteratorT = typename TWeakLearner::SampleIteratorT;
-    using SplitPointT = typename TWeakLearner::SplitPointT;
-    using NodeIterator = typename Tree<SplitPointT, StatisticsT>::NodeIterator;
+    using ParametersT = TrainingParameters;
+
+    using SampleIteratorT = TSampleIterator;
+    using SampleT = typename TSampleIterator::value_type;
+    
+    using WeakLearnerT = TWeakLearner<SampleIteratorT, TRandomEngine>;
+    
+    using StatisticsT = typename WeakLearnerT::StatisticsT;
+    using SplitPointT = typename WeakLearnerT::SplitPointT;
+    using ForestT = Forest<SplitPointT, StatisticsT>;
+    using TreeT = Tree<SplitPointT, StatisticsT>;
+    using NodeType = typename TreeT::NodeT;
+    using NodeIterator = typename TreeT::NodeIterator;
 
 private:
-    const TWeakLearner weak_learner_;
-    const TrainingParameters training_parameters_;
+    const WeakLearnerT weak_learner_;
+    const ParametersT training_parameters_;
 
     void output_spaces(std::ostream &stream, int num_of_spaces) const
     {
@@ -31,21 +40,21 @@ private:
     }
 
 public:
-    ForestTrainer(const TWeakLearner &weak_learner, const TrainingParameters &training_parameters)
+    DepthForestTrainer(const WeakLearnerT &weak_learner, const ParametersT &training_parameters)
         : weak_learner_(weak_learner), training_parameters_(training_parameters)
     {}
 
-    void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT i_start, SampleIteratorT i_end, TRandomEngine &rnd_engine, int current_depth = 1) const
+    void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine, int current_depth = 1) const
     {
         output_spaces(std::cout, current_depth - 1);
-        std::cout << "depth: " << current_depth << ", samples: " << (i_end - i_start) << std::endl;
+        std::cout << "depth: " << current_depth << ", samples: " << (samples_end - samples_start) << std::endl;
 
         // Assign statistics to node
-        StatisticsT statistics = weak_learner_.compute_statistics(i_start, i_end);
+        StatisticsT statistics = weak_learner_.compute_statistics(samples_start, samples_end);
         tree_iter->set_statistics(statistics);
 
         // Stop splitting the node if the minimum number of samples has been reached
-        if (i_end - i_start < training_parameters_.minimum_num_of_samples)
+        if (samples_end - samples_start < training_parameters_.minimum_num_of_samples)
         {
             tree_iter.set_leaf();
             output_spaces(std::cout, current_depth - 1);
@@ -61,10 +70,10 @@ public:
             return;
         }
 
-        std::vector<SplitPointT> split_points = weak_learner_.sample_split_points(i_start, i_end, rnd_engine);
+        std::vector<SplitPointT> split_points = weak_learner_.sample_split_points(samples_start, samples_end, rnd_engine);
 
         // Compute the statistics for all split points
-        SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics(i_start, i_end, split_points);
+        SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics(samples_start, samples_end, split_points);
 
         // Find the best split point
         std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point_tuple(statistics, split_statistics);
@@ -85,7 +94,7 @@ public:
         // and sample_indices[i_split:] will contain the right child indices
         size_type best_split_point_index = std::get<0>(best_split_point_tuple);
         SplitPointT best_split_point = split_points[best_split_point_index];
-        SampleIteratorT i_split = weak_learner_.partition(i_start, i_end, best_split_point);
+        SampleIteratorT i_split = weak_learner_.partition(samples_start, samples_end, best_split_point);
 
         tree_iter->set_split_point(best_split_point);
 
@@ -95,39 +104,39 @@ public:
 
         // Train left and right child
         //print("{}Going left".format(prefix))
-        train_tree_recursive(tree_iter.left_child(), i_start, i_split, rnd_engine, current_depth + 1);
+        train_tree_recursive(tree_iter.left_child(), samples_start, i_split, rnd_engine, current_depth + 1);
         //print("{}Going right".format(prefix))
-        train_tree_recursive(tree_iter.right_child(), i_split, i_end, rnd_engine, current_depth + 1);
+        train_tree_recursive(tree_iter.right_child(), i_split, samples_end, rnd_engine, current_depth + 1);
     }
 
-    Tree<SplitPointT, StatisticsT> train_tree(std::vector<TSample> &samples) const
-    {
-        TRandomEngine rnd_engine;
-        return train_tree(samples, rnd_engine);
-    }
-
-    Tree<SplitPointT, StatisticsT> train_tree(std::vector<TSample> &samples, TRandomEngine &rnd_engine) const
+    Tree<SplitPointT, StatisticsT> train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
     {
         Tree<SplitPointT, StatisticsT> tree(training_parameters_.tree_depth);
-        train_tree_recursive(tree.get_root_iterator(), samples.begin(), samples.end(), rnd_engine);
+        train_tree_recursive(tree.get_root_iterator(), samples_start, samples_end, rnd_engine);
         return tree;
     }
     
-    Forest<SplitPointT, StatisticsT> train_forest(std::vector<TSample> &samples) const
+    Tree<SplitPointT, StatisticsT> train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end) const
     {
         TRandomEngine rnd_engine;
-        return train_forest(samples, rnd_engine);
+        return train_tree(samples_start, samples_end, rnd_engine);
     }
-
-    Forest<SplitPointT, StatisticsT> train_forest(std::vector<TSample> &samples, TRandomEngine &rnd_engine) const
+    
+    Forest<SplitPointT, StatisticsT> train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
     {
         Forest<SplitPointT, StatisticsT> forest;
         for (int i=0; i < training_parameters_.num_of_trees; i++)
         {
-            Tree<SplitPointT, StatisticsT> tree = train_tree(samples, rnd_engine);
+            Tree<SplitPointT, StatisticsT> tree = train_tree(samples_start, samples_end, rnd_engine);
             forest.add_tree(std::move(tree));
         }
         return forest;
+    }
+    
+    Forest<SplitPointT, StatisticsT> train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end) const
+    {
+        TRandomEngine rnd_engine;
+        return train_forest(samples_start, samples_end, rnd_engine);
     }
 };
 

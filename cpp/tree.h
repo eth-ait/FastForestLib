@@ -16,13 +16,13 @@
 #include <boost/utility/enable_if.hpp>
 #ifdef SERIALIZE_WITH_BOOST
 #include <boost/serialization/vector.hpp>
-#else
-#include <cereal/types/vector.hpp>
 #endif
+#include <cereal/types/vector.hpp>
 
 
 #include "ait.h"
 #include "node.h"
+#include "mpl_utils.h"
 
 namespace ait {
 
@@ -33,7 +33,6 @@ class Tree
 public:
     using NodeT = Node<TSplitPoint, TStatistics>;
 
-private:
     struct NodeEntry
     {
         NodeT node;
@@ -41,23 +40,26 @@ private:
 
         NodeEntry() : is_leaf(false)
         {}
-        
+
+private:
 #ifdef SERIALIZE_WITH_BOOST
         friend class boost::serialization::access;
-#else
-        friend class cereal::access;
-#endif
-
+        
         template <typename Archive>
-        void serialize(Archive &archive, const unsigned int version)
+        void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
         {
-#ifdef SERIALIZE_WITH_BOOST
             archive & node;
             archive & is_leaf;
-#else
+        }
+#endif
+        
+        friend class cereal::access;
+        
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+        {
             archive(cereal::make_nvp("node", node));
             archive(cereal::make_nvp("is_leaf", is_leaf));
-#endif
         }
     };
 
@@ -66,7 +68,7 @@ private:
     {
     public:
         explicit NodeIterator_(BaseIterator it, BaseIterator begin)
-        : NodeIterator_<BaseIterator, ValueType>::iterator_adaptor_(it), begin_(begin)
+        : NodeIterator_::iterator_adaptor_(it), begin_(begin)
         {}
 
         template <typename OtherBaseIterator, typename OtherValueType>
@@ -144,6 +146,8 @@ private:
         BaseIterator begin_;
 
         friend class boost::iterator_core_access;
+        template <typename, typename> friend class NodeIterator_;
+
         typename NodeIterator_::iterator_adaptor_::reference dereference() const
         {
             return this->base()->node;
@@ -260,6 +264,18 @@ public:
     ConstNodeIterator get_root_iterator() const
     {
         return cbegin();
+    }
+    
+    /// @brief Return a node entry.
+    NodeEntry & get_node(size_type index)
+    {
+        return node_entries_[index];
+    }
+    
+    /// @brief Return a const node entry.
+    const NodeEntry & get_node(size_type index) const
+    {
+        return node_entries_[index];
     }
 
     /// @brief Return an iterator pointing to a node in the tree.
@@ -496,26 +512,28 @@ public:
         }
         return node_iter;
     }
-    
-#ifdef SERIALIZE_WITH_BOOST
-    friend class boost::serialization::access;
-#else
-    friend class cereal::access;
-#endif
-
-    template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version)
-    {
-#ifdef SERIALIZE_WITH_BOOST
-        archive & depth_;
-        archive & node_entries_;
-#else
-        archive(cereal::make_nvp("depth", depth_));
-        archive(cereal::make_nvp("node_entries", node_entries_));
-#endif
-    }
 
 private:
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+    
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive & depth_;
+        archive & node_entries_;
+    }
+#endif
+    
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive(cereal::make_nvp("depth", depth_));
+        archive(cereal::make_nvp("node_entries", node_entries_));
+    }
+
     size_type depth_;
     std::vector<NodeEntry> node_entries_;
 };

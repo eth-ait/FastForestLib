@@ -22,12 +22,11 @@
 
 namespace ait
 {
- 
+
 using pixel_type = std::int16_t;
 using offset_type = std::int16_t;
 using label_type = std::int16_t;
 
-// TODO: Lowercase
 class ImageWeakLearnerParameters
 {
 public:
@@ -70,9 +69,6 @@ class Image
 public:
     using DataMatrixType = Eigen::Matrix<pixel_type, Eigen::Dynamic, Eigen::Dynamic>;
     using LabelMatrixType = Eigen::Matrix<label_type, Eigen::Dynamic, Eigen::Dynamic>;
-    // TODO
-//    using DataMapType = Eigen::Map<DataMatrixType>;
-//    using LabelMapType = Eigen::Map<LabelMatrixType>;
 
 private:
     DataMatrixType data_matrix_;
@@ -125,6 +121,13 @@ private:
     offset_type y_;
 
 public:
+    friend void swap(ImageSample &a, ImageSample &b) {
+        using std::swap;
+        std::swap(a.image_ptr_, b.image_ptr_);
+        std::swap(a.x_, b.x_);
+        std::swap(a.y_, b.y_);
+    }
+
     ImageSample(const Image *image_ptr, offset_type x, offset_type y)
     : image_ptr_(image_ptr), x_(x), y_(y)
     {}
@@ -156,15 +159,12 @@ public:
 
 class ImageSplitPoint {
 public:
-    ImageSplitPoint() {}
+    ImageSplitPoint()
+    : offset_x1_(0), offset_y1_(0), offset_x2_(0), offset_y2_(0), threshold_(0)
+    {}
 
     ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, scalar_type threshold)
     : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold) {}
-
-    // TODO
-    /*pixel_type compute_split_point_value(const ImageSample &sample) const {
-        return compute_pixel_difference(sample);
-    }*/
 
     Direction evaluate(const ImageSample &sample) const
     {
@@ -223,29 +223,31 @@ private:
             pixel_value = image.get_data_matrix()(x + offset_x, y + offset_y);
         return pixel_value;
     }
-
+    
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
-#else
-    friend class cereal::access;
-#endif
-
+    
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version)
+    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
-#ifdef SERIALIZE_WITH_BOOST
         archive & offset_x1_;
         archive & offset_y1_;
         archive & offset_x2_;
         archive & offset_y2_;
         archive & threshold_;
-#else
+    }
+#endif
+    
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
         archive(cereal::make_nvp("offset_x1", offset_x1_));
         archive(cereal::make_nvp("offset_y1", offset_y1_));
         archive(cereal::make_nvp("offset_x2", offset_x2_));
         archive(cereal::make_nvp("offset_y2", offset_y2_));
         archive(cereal::make_nvp("threshold", threshold_));
-#endif
     }
 
     offset_type offset_x1_;
@@ -343,9 +345,5 @@ public:
     }
 
 };
-
-//friend std::ostream & operator<<(std::ostream &os, const SplitPoint &splitPoint);
-//virtual void writeToStream(std::ostream &os);
-//std::ostream & operator<<(std::ostream &os, const SplitPoint &split_point);
 
 }

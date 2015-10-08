@@ -12,6 +12,9 @@
 #include <sstream>
 #include <map>
 
+#include <boost/iterator/iterator_adaptor.hpp>
+#include <boost/utility/enable_if.hpp>
+
 #include "ait.h"
 #include "iterator_utils.h"
 #include "training.h"
@@ -25,19 +28,13 @@ template <template <typename, typename> class TWeakLearner, typename TSampleIter
 class LevelForestTrainer
 {
 public:
-    struct LevelTrainingParameters : public TrainingParameters
-    {
-        // TODO
-    };
-
-    using ParametersT = LevelTrainingParameters;
+    using ParametersT = TrainingParameters;
 
     using SampleIteratorT = TSampleIterator;
     using SampleT = typename TSampleIterator::value_type;
     using SamplePointerT = const SampleT *;
     using SamplePointerIteratorT = typename std::vector<SamplePointerT>::const_iterator;
     using SamplePointerIteratorWrapperT = ait::PointerIteratorWrapper<SamplePointerIteratorT, const SampleT>;
-//    using SamplePointerIteratorWrapperT = ait::PointerIteratorWrapper<SamplePointerIteratorT, boost::use_default>;
     
     using WeakLearnerT = TWeakLearner<SamplePointerIteratorWrapperT, TRandomEngine>;
 
@@ -50,7 +47,7 @@ public:
 
 protected:
     const WeakLearnerT weak_learner_;
-    const LevelTrainingParameters training_parameters_;
+    const ParametersT training_parameters_;
     
     void output_spaces(std::ostream &stream, int num_of_spaces) const
     {
@@ -58,121 +55,314 @@ protected:
             stream << " ";
     }
 
-    virtual std::map<typename TreeT::NodeIterator, std::vector<SplitPointT> > sample_split_points_batch(const TreeT &tree, const std::map<typename TreeT::NodeIterator, std::vector<SamplePointerT> > &node_to_sample_map, TRandomEngine &rnd_engine) const
+    template <typename T>
+    class TreeNodeMap
     {
-        std::map<typename TreeT::NodeIterator, std::vector<SplitPointT> > split_points_batch;
-        for (auto map_it = node_to_sample_map.begin(); map_it != node_to_sample_map.end(); ++map_it)
+        using MapT = std::map<size_type, T>;
+        TreeT *tree_;
+        MapT map_;
+
+        template <typename TBaseIterator, typename TValue>
+        class iterator_ : public boost::iterator_adaptor<iterator_<TBaseIterator, TValue>, TBaseIterator, TValue>
         {
-            typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->second.cbegin());
-            typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->second.cend());
-            split_points_batch[map_it->first] = weak_learner_.sample_split_points(sample_it_begin, sample_it_end, rnd_engine);
+            using BaseT = boost::iterator_adaptor<iterator_<TBaseIterator, TValue>, TBaseIterator, TValue>;
+            TreeT *tree_;
+
+        public:
+            explicit iterator_(TreeT *tree, TBaseIterator it)
+            : iterator_::iterator_adaptor_(it), tree_(tree)
+            {}
+
+            template <typename TOtherBaseIterator, typename TOtherValue>
+            iterator_(
+                      const iterator_<TBaseIterator, TOtherValue> &other,
+                      typename boost::enable_if<
+                      boost::is_convertible<TBaseIterator, TOtherBaseIterator>, int>::type = 0
+                      )
+            : iterator_::iterator_adaptor_(other.base()), tree_(other.tree_)
+            {}
+            
+            typename TreeT::NodeIterator node_iterator()
+            {
+                return tree_->get_node_iterator(this->base()->first);
+            }
+            
+            typename TreeT::ConstNodeIterator node_iterator() const
+            {
+                return tree_->get_node_iterator(this->base()->first);
+            }
+
+            typename TreeT::NodeEntry & node_entry()
+            {
+                return tree_->get_node(this->base()->first);
+            }
+            
+            const typename TreeT::NodeEntry & node_entry() const
+            {
+                return tree_->get_node(this->base()->first);
+            }
+            
+            typename TreeT::NodeT & node()
+            {
+                return node_entry().node;
+            }
+            
+            const typename TreeT::NodeT & node() const
+            {
+                return node_entry().node;
+            }
+
+        private:
+            friend class boost::iterator_core_access;
+            template <typename, typename> friend class iterator_;
+
+            
+            typename iterator_::iterator_adaptor_::reference dereference() const
+            {
+                return this->base()->second;
+            }
+        };
+
+    public:
+        using iterator = iterator_<typename MapT::iterator, T>;
+        using const_iterator = iterator_<typename MapT::const_iterator, const T>;
+
+        explicit TreeNodeMap(TreeT &tree)
+        : tree_(&tree)
+        {}
+        
+        explicit TreeNodeMap(TreeT *tree)
+        : tree_(tree)
+        {}
+
+        TreeNodeMap(const TreeNodeMap &map)
+        : tree_(map.tree_), map_(map.map_)
+        {}
+
+        TreeNodeMap(TreeNodeMap &&map) noexcept
+        : tree_(map.tree_), map_(std::move(map.map_))
+        {}
+
+        TreeNodeMap & operator=(const TreeNodeMap &other)
+        {
+            if (this != &other)
+            {
+                tree_ = other.tree_;
+                map_ = other.map_;
+            }
+            return *this;
+        }
+        
+        TreeNodeMap & operator=(TreeNodeMap &other)
+        {
+            if (this != &other)
+            {
+                tree_ = other.tree_;
+                map_ = other.map_;
+            }
+            return *this;
+        }
+
+        TreeNodeMap & operator=(TreeNodeMap &&other)
+        {
+            if (this != &other)
+            {
+                tree_ = other.tree_;
+                map_ = std::move(other.map_);
+            }
+            return *this;
+        }
+
+        MapT & base_map()
+        {
+            return map_;
+        }
+
+        size_type size() const
+        {
+            return map_.size();
+        }
+
+        void clear()
+        {
+            map_.clear();
+        }
+
+        iterator begin()
+        {
+            return iterator(tree_, map_.begin());
+        }
+        
+        iterator end()
+        {
+            return iterator(tree_, map_.end());
+        }
+
+        const_iterator cbegin() const
+        {
+            return const_iterator(tree_, map_.cbegin());
+        }
+        
+        const_iterator cend() const
+        {
+            return const_iterator(tree_, map_.cend());
+        }
+        
+        T& operator[](const size_type &index)
+        {
+            return map_[index];
+        }
+        
+        const T& operator[](const size_type &index) const
+        {
+            return map_[index];
+        }
+        
+        T& operator[](const typename TreeT::NodeIterator &it)
+        {
+            return map_[it.get_node_index()];
+        }
+        
+        const T& operator[](const typename TreeT::ConstNodeIterator &it) const
+        {
+            return map_.at(it.get_node_index());
+        }
+
+        iterator find(const typename TreeT::NodeIterator &it)
+        {
+            typename MapT::iterator map_it = map_.find(it.get_node_index());
+            return iterator(tree_, map_it);
+        }
+        
+        const_iterator find(const typename TreeT::ConstNodeIterator &it)
+        {
+            typename MapT::const_iterator map_it = map_.find(it.get_node_index());
+            return const_iterator(tree_, map_it);
+        }
+
+    private:
+#ifdef SERIALIZE_WITH_BOOST
+        friend class boost::serialization::access;
+        
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+        {
+            archive & map_;
+        }
+#endif
+
+        friend class cereal::access;
+        
+        template <typename Archive>
+        void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+        {
+            archive(cereal::make_nvp("map", map_));
+        }
+
+    };
+
+    virtual TreeNodeMap<std::vector<SplitPointT>> sample_split_points_batch(TreeT &tree, const TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map, TRandomEngine &rnd_engine) const
+    {
+        TreeNodeMap<std::vector<SplitPointT>> split_points_batch(tree);
+        for (auto map_it = node_to_sample_map.cbegin(); map_it != node_to_sample_map.cend(); ++map_it)
+        {
+            typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->cbegin());
+            typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->cend());
+            split_points_batch[map_it.node_iterator()] = weak_learner_.sample_split_points(sample_it_begin, sample_it_end, rnd_engine);
         }
         return split_points_batch;
     }
     
-    virtual std::map<typename TreeT::NodeIterator, SplitStatistics<StatisticsT> > compute_split_statistics_batch(const TreeT &tree, const std::map<typename TreeT::NodeIterator, std::vector<SamplePointerT> > &node_to_sample_map, const std::map<typename TreeT::NodeIterator, std::vector<SplitPointT> > &split_points_batch) const
+    virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT &tree, const TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map, const TreeNodeMap<std::vector<SplitPointT>> &split_points_batch) const
     {
-        std::map<typename TreeT::NodeIterator, SplitStatistics<StatisticsT> > split_statistics_batch;
-        for (auto map_it = node_to_sample_map.begin(); map_it != node_to_sample_map.end(); ++map_it)
+        TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch(tree);
+        for (auto map_it = node_to_sample_map.cbegin(); map_it != node_to_sample_map.cend(); ++map_it)
         {
-            const std::vector<SplitPointT> &split_points = split_points_batch.at(map_it->first);
-            typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->second.cbegin());
-            typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->second.cend());
-            split_statistics_batch[map_it->first] = weak_learner_.compute_split_statistics(sample_it_begin, sample_it_end, split_points);
+            const std::vector<SplitPointT> &split_points = split_points_batch[map_it.node_iterator()];
+            typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->cbegin());
+            typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->cend());
+            split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics(sample_it_begin, sample_it_end, split_points);
         }
         return split_statistics_batch;
     }
     
-    std::map<typename TreeT::NodeIterator, SplitPointT> find_best_split_point_batch(const TreeT &tree, const std::map<typename TreeT::NodeIterator, std::vector<SplitPointT> > &split_points_batch, const std::map<typename TreeT::NodeIterator, StatisticsT> &current_statistics, const std::map<typename TreeT::NodeIterator, SplitStatistics<StatisticsT> > &split_statistics_batch) const
+    virtual TreeNodeMap<SplitPointT> find_best_split_point_batch(TreeT &tree, const TreeNodeMap<std::vector<SplitPointT>> &split_points_batch, const TreeNodeMap<StatisticsT> &current_statistics, const TreeNodeMap<SplitStatistics<StatisticsT>> &split_statistics_batch) const
     {
-        std::map<typename TreeT::NodeIterator, SplitPointT> best_split_point_batch;
-        for (auto map_it = split_statistics_batch.begin(); map_it != split_statistics_batch.end(); ++map_it)
+        TreeNodeMap<SplitPointT> best_split_point_batch(tree);
+        for (auto map_it = split_statistics_batch.cbegin(); map_it != split_statistics_batch.cend(); ++map_it)
         {
-            const std::vector<SplitPointT> & split_points = split_points_batch.at(map_it->first);
-            std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point_tuple(current_statistics.at(map_it->first), map_it->second);
+            const std::vector<SplitPointT> & split_points = split_points_batch[map_it.node_iterator()];
+            std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point_tuple(current_statistics[map_it.node_iterator()], *map_it);
             size_type best_split_point_index = std::get<0>(best_split_point_tuple);
             SplitPointT best_split_point = split_points[best_split_point_index];
-            best_split_point_batch[map_it->first] = best_split_point;
-
+            best_split_point_batch[map_it.node_iterator()] = best_split_point;
         }
         return best_split_point_batch;
     }
 
-    std::map<typename TreeT::NodeIterator, StatisticsT> compute_statistics_batch(const TreeT &tree, std::map<typename TreeT::NodeIterator, std::vector<SamplePointerT> > &node_to_sample_map) const
+    virtual TreeNodeMap<StatisticsT> compute_statistics_batch(TreeT &tree, TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map) const
     {
-        std::map<typename TreeT::NodeIterator, StatisticsT> statistics_batch;
-        for (auto map_it = node_to_sample_map.begin(); map_it != node_to_sample_map.end(); ++map_it)
+        TreeNodeMap<StatisticsT> statistics_batch(tree);
+        for (auto map_it = node_to_sample_map.cbegin(); map_it != node_to_sample_map.cend(); ++map_it)
         {
             StatisticsT statistics = weak_learner_.create_statistics();
-            typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->second.cbegin());
-            typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->second.cend());
+            typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->cbegin());
+            typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->cend());
             statistics.accumulate(sample_it_begin, sample_it_end);
-            statistics_batch.insert(std::make_pair(map_it->first, std::move(statistics)));
-        }
-        // Receive statistics from rank > 0
-        //dist_statistics_batch = receive();
-        std::map<typename TreeT::NodeIterator, std::vector<StatisticsT> > dist_statistics_batch;
-        for (auto map_it = node_to_sample_map.begin(); map_it != node_to_sample_map.end(); ++map_it)
-        {
-            dist_statistics_batch[map_it->first].push_back(statistics_batch.at(map_it->first));
-        }
-        for (auto map_it = dist_statistics_batch.begin(); map_it != dist_statistics_batch.end(); ++map_it)
-        {
-            StatisticsT statistics = weak_learner_.create_statistics();
-            typename std::vector<StatisticsT>::const_iterator it_start = map_it->second.cbegin();
-            typename std::vector<StatisticsT>::const_iterator it_end = map_it->second.cend();
-            statistics.accumulate_histograms(it_start, it_end);
-            map_it->first->set_statistics(statistics);
-            statistics_batch.at(map_it->first) = std::move(statistics);
+            statistics_batch[map_it.node_iterator()] = std::move(statistics);
         }
         return statistics_batch;
     }
-
-    std::map<typename TreeT::NodeIterator, std::vector<SamplePointerT> > get_sample_node_map(TreeT &tree, typename TreeT::TreeLevel &tl, TSampleIterator samples_start, TSampleIterator samples_end) const
+    
+    virtual void update_node_statistics_batch(TreeT &tree, const TreeNodeMap<StatisticsT> &statistics_batch) const
     {
-        std::map<typename TreeT::NodeIterator, std::vector<SamplePointerT> > node_to_sample_map;
-        for (auto it = samples_start; it != samples_end; ++it)
+        for (auto map_it = statistics_batch.cbegin(); map_it != statistics_batch.cend(); ++map_it)
         {
-            // TODO: Use template meta-programming to allow tree.evaluate to be called for both samples and sample-iterators.
-            typename TreeT::NodeIterator node_it = tree.evaluate(*it);
-            SamplePointerT sample_ptr = &(*it);
-            node_to_sample_map[node_it].push_back(sample_ptr);
+            map_it.node().set_statistics(*map_it);
         }
+    }
+
+    TreeNodeMap<std::vector<SamplePointerT>> get_sample_node_map(TreeT &tree, typename TreeT::TreeLevel &tl, TSampleIterator samples_start, TSampleIterator samples_end) const
+    {
+        TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map(tree);
         for (auto node_it = tl.begin(); node_it != tl.end(); ++node_it)
         {
             // Make sure every node of the tree-level has an entry in the map
             node_to_sample_map[node_it];
         }
-        return node_to_sample_map;
+        for (auto it = samples_start; it != samples_end; ++it)
+        {
+            const typename TreeT::NodeIterator node_it = tree.evaluate(*it);
+            SamplePointerT sample_ptr = &(*it);
+            node_to_sample_map[node_it].push_back(sample_ptr);
+        }        return node_to_sample_map;
     }
 
 public:
-    LevelForestTrainer(const WeakLearnerT &weak_learner, const LevelTrainingParameters &training_parameters)
+    explicit LevelForestTrainer(const WeakLearnerT &weak_learner, const ParametersT &training_parameters)
     : weak_learner_(weak_learner), training_parameters_(training_parameters)
     {}
+    
+    virtual ~LevelForestTrainer()
+    {}
 
-    TreeT train_tree(TSampleIterator samples_start, TSampleIterator samples_end) const
-    {
-        TRandomEngine rnd_engine;
-        return train_tree(samples_start, samples_end, rnd_engine);
-    }
-
-    virtual void train_tree_level(TreeT &tree, size_type current_level, TSampleIterator samples_start, TSampleIterator samples_end, TRandomEngine &rnd_engine) const
+    virtual void train_tree_level(TreeT &tree, size_type current_level, SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
     {
         typename TreeT::TreeLevel tl(tree, current_level);
-        std::map<typename TreeT::NodeIterator, std::vector<SamplePointerT> > node_to_sample_map = get_sample_node_map(tree, tl, samples_start, samples_end);
-        std::cout << "current_level: " << current_level << ", # nodes: " << node_to_sample_map.size() << std::endl;
-        const std::map<typename TreeT::NodeIterator, StatisticsT> &current_statistics = compute_statistics_batch(tree, node_to_sample_map);
+        TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map = get_sample_node_map(tree, tl, samples_start, samples_end);
+        log_info() << "current_level: " << current_level << ", # nodes: " << node_to_sample_map.size();
+        const TreeNodeMap<StatisticsT> &current_statistics = compute_statistics_batch(tree, node_to_sample_map);
+        update_node_statistics_batch(tree, current_statistics);
         if (current_level < training_parameters_.tree_depth)
         {
-            std::map<typename TreeT::NodeIterator, std::vector<SplitPointT> > split_points_batch = sample_split_points_batch(tree, node_to_sample_map, rnd_engine);
-            std::map<typename TreeT::NodeIterator, SplitStatistics<StatisticsT> > split_statistics_batch = compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
+            TreeNodeMap<std::vector<SplitPointT>> split_points_batch = sample_split_points_batch(tree, node_to_sample_map, rnd_engine);
+            TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
             // Receive split statistics from rank > 0
-            std::map<typename TreeT::NodeIterator, SplitPointT> best_split_point_batch = find_best_split_point_batch(tree, split_points_batch, current_statistics, split_statistics_batch);
+            TreeNodeMap<SplitPointT> best_split_point_batch = find_best_split_point_batch(tree, split_points_batch, current_statistics, split_statistics_batch);
             for (auto map_it = best_split_point_batch.begin(); map_it != best_split_point_batch.end(); ++map_it)
             {
-                typename TreeT::NodeIterator node_it = map_it->first;
-                node_it->set_split_point(map_it->second);
+                typename TreeT::NodeIterator node_it = map_it.node_iterator();
+                node_it->set_split_point(*map_it);
                 node_it.set_leaf(false);
                 node_it.left_child().set_leaf(true);
                 node_it.right_child().set_leaf(true);
@@ -180,19 +370,25 @@ public:
         }
     }
 
-    TreeT train_tree(TSampleIterator samples_start, TSampleIterator samples_end, TRandomEngine &rnd_engine) const
+    TreeT train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
     {
         TreeT tree(training_parameters_.tree_depth);
         tree.get_root_iterator().set_leaf();
-        std::cout << "Training tree, # samples " << (samples_end - samples_start) << std::endl;
+        log_info() << "Training tree, # samples " << (samples_end - samples_start);
         for (size_type current_level = 1; current_level <= training_parameters_.tree_depth; current_level++)
         {
             train_tree_level(tree, current_level, samples_start, samples_end, rnd_engine);
         }
         return tree;
     }
-
-    ForestT train_forest(TSampleIterator samples_start, TSampleIterator samples_end, TRandomEngine &rnd_engine) const
+    
+    TreeT train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end) const
+    {
+        TRandomEngine rnd_engine;
+        return train_tree(samples_start, samples_end, rnd_engine);
+    }
+    
+    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
     {
         ForestT forest;
         for (int i=0; i < training_parameters_.num_of_trees; i++)
@@ -203,7 +399,7 @@ public:
         return forest;
     }
 
-    ForestT train_forest(TSampleIterator samples_start, TSampleIterator samples_end) const
+    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end) const
     {
         TRandomEngine rnd_engine;
         return train_forest(samples_start, samples_end, rnd_engine);
@@ -213,3 +409,24 @@ public:
     
 }
 
+namespace boost {
+namespace serialization {
+
+template<typename Archive, template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine, typename T>
+inline void save_construct_data(Archive & ar, const typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
+{
+    ait::log_info() << "Saving TreeNodeMapWithIndex";
+    ar << obj->tree_;
+}
+
+template<typename Archive, template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine, typename T>
+inline void load_construct_data(Archive & ar, typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
+{
+    ait::log_info() << "Reconstructing TreeNodeMapWithIndex";
+    typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::TreeT *tree;
+    ar >> tree;
+    ::new(obj) typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::template TreeNodeMapWithIndex<T>(tree);
+}
+
+}
+}

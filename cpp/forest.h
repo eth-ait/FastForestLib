@@ -12,15 +12,17 @@
 #include <vector>
 #include <functional>
 
+#include <boost/utility/enable_if.hpp>
+#include <boost/mpl/has_xxx.hpp>
 #ifdef SERIALIZE_WITH_BOOST
 #include <boost/serialization/vector.hpp>
-#else
-#include <cereal/types/vector.hpp>
 #endif
+#include <cereal/types/vector.hpp>
 #include <Eigen/Dense>
 
 #include "ait.h"
 #include "tree.h"
+#include "mpl_utils.h"
 
 namespace ait
 {
@@ -209,22 +211,24 @@ public:
         }
         return forest_leaf_nodes;
     }
-    
+
 private:
 #ifdef SERIALIZE_WITH_BOOST
     friend class boost::serialization::access;
-#else
-    friend class cereal::access;
-#endif
 
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version)
+    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
-#ifdef SERIALIZE_WITH_BOOST
         archive & trees_;
-#else
-        archive(cereal::make_nvp("trees", trees_));
+    }
 #endif
+    
+    friend class cereal::access;
+
+    template <typename Archive>
+    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive(cereal::make_nvp("trees", trees_));
     }
 
     std::vector<TreeT> trees_;
