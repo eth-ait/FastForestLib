@@ -2,6 +2,8 @@ cmake_minimum_required(VERSION 2.8.11)
 
 project("DistRandomForest")
 
+cmake_policy(SET CMP0004 OLD)
+
 set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
 
 if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")

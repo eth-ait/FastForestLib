@@ -24,7 +24,7 @@ using SampleT = ait::ImageSample;
 using StatisticsT = ait::HistogramStatistics<SampleT>;
 using RandomEngineT = std::mt19937_64;
 
-using SampleContainerT = std::vector<const SampleT>;
+using SampleContainerT = std::vector<SampleT>;
 using SampleIteratorT= typename SampleContainerT::const_iterator;
 
 template <class TSampleIterator, class TRandomEngine> using WeakLearnerAliasT
