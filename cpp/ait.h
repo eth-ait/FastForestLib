@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <iostream>
+#include <vector>
 #include <cstdint>
 #include <Eigen/Dense>
 
@@ -21,4 +23,22 @@ namespace ait
 using size_type = std::ptrdiff_t;
 using scalar_type = double;
 
+}
+
+namespace std
+{
+    template <typename T>
+    std::ostream& operator<<(std::ostream& sout, const std::vector<T>& container)
+    {
+        sout << "{";
+        for (typename std::vector<T>::const_iterator it = container.begin(); it != container.end(); ++it)
+        {
+            sout << *it;
+            if (it != container.cend())
+            {
+                sout << ", ";
+            }
+        }
+        sout << "}";
+    }
 }

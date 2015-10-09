@@ -20,6 +20,7 @@
 #include "ait.h"
 #include "distributed_forest_trainer.h"
 #include "image_weak_learner.h"
+#include "csv_utils.h"
 #include "matlab_file_io.h"
 
 using SampleT = ait::ImageSample;
@@ -49,6 +50,7 @@ int main(int argc, const char *argv[]) {
 
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Distributed RF trainer", ' ', "0.3");
+        TCLAP::ValueArg<std::string> image_list_file_arg("d", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
         TCLAP::ValueArg<std::string> data_file_arg("d", "data-file", "File containing image data", true, "", "string", cmd);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string", cmd);
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string", cmd);
@@ -58,6 +60,19 @@ int main(int argc, const char *argv[]) {
         std::string data_file = data_file_arg.getValue();
         bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
         
+        // Read image file list
+        if (image_list_file_arg.isSet())
+        {
+            std::ifstream ifile(image_list_file_arg.getValue());
+            //            ait::CSVReader<std::string> csv_reader(ifile);
+            ait::CSVReader<std::string> csv_reader(ifile);
+
+            for (auto it = csv_reader.begin(); it != csv_reader.end(); ++it)
+            {
+                ait::log_info() << "csv row: " << *it;
+            }
+        }
+
         // Read data from file.
         ait::log_info(false) << "Reading images ... " << std::flush;
         std::vector<ait::Image> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
