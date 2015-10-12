@@ -60,13 +60,18 @@ public:
             return *this;
         }
 
+        void flush()
+        {
+            sout_->flush();
+        }
+
         void close()
         {
             if (new_line_)
             {
                 (*sout_) << std::endl;
             }
-            sout_->flush();
+            flush();
             closed_ = true;
         }
     };
@@ -91,7 +96,14 @@ public:
         stream << prefix_;
         return stream;
     }
-    
+
+    LogStream error(bool new_line = true)
+    {
+        LogStream stream(std::cerr, new_line);
+        stream << prefix_;
+        return stream;
+    }
+
     void set_prefix(const std::string &prefix)
     {
         prefix_ = prefix;
@@ -115,6 +127,12 @@ static Logger::LogStream log_debug(bool new_line = true)
 {
     Logger &lg = logger();
     return lg.debug(new_line);
+}
+    
+static Logger::LogStream log_error(bool new_line = true)
+{
+    Logger &lg = logger();
+    return lg.error(new_line);
 }
 
 }

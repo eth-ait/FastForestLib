@@ -80,24 +80,24 @@ private:
             throw std::runtime_error("The data and label matrix must have the same dimension.");
     }
 public:
-    Image(const DataMatrixType &data_matrix, const LabelMatrixType &label_matrix)
+    explicit Image(const DataMatrixType &data_matrix, const LabelMatrixType &label_matrix)
     : data_matrix_(data_matrix), label_matrix_(label_matrix)
     {
         check_equal_dimensions(data_matrix, label_matrix);
     }
 
-    Image(DataMatrixType &&data_matrix, LabelMatrixType &&label_matrix)
+    explicit Image(DataMatrixType &&data_matrix, LabelMatrixType &&label_matrix)
     : data_matrix_(std::move(data_matrix)), label_matrix_(std::move(label_matrix))
     {
         check_equal_dimensions(data_matrix, label_matrix);
     }
 
-    const DataMatrixType & get_data_matrix() const
+    const DataMatrixType& get_data_matrix() const
     {
         return data_matrix_;
     }
 
-    const LabelMatrixType & get_label_matrix() const
+    const LabelMatrixType& get_label_matrix() const
     {
         return label_matrix_;
     }
@@ -110,6 +110,14 @@ public:
     size_type height() const
     {
         return data_matrix_.cols();
+    }
+
+    static Image load_from_files(const std::string& data_filename, const std::string& label_filename)
+    {
+        // TODO: Load from file
+        DataMatrixType data;
+        LabelMatrixType labels;
+        return Image(data, labels);
     }
 };
 

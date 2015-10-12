@@ -16,6 +16,7 @@ find_package(Boost 1.4.0 COMPONENTS serialization mpi log REQUIRED)
 find_package(Eigen3 3.1.2 REQUIRED)
 find_package(Cereal REQUIRED)
 find_package(TCLAP REQUIRED)
+find_package(CImg REQUIRED)
 find_package(MPI REQUIRED)
 
 if(!${WIN32} AND !${APPLE})
