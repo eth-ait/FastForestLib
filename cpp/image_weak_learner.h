@@ -33,8 +33,10 @@ using label_type = std::int16_t;
 class ImageWeakLearnerParameters
 {
 public:
-    double samples_per_image_fraction = 0.01;
-    double bagging_fraction = 0.2;
+//    double samples_per_image_fraction = 0.01;
+//    double bagging_fraction = 0.2;
+    double samples_per_image_fraction = 0.5;
+    double bagging_fraction = 1.0;
     int num_of_thresholds = 10;
     int num_of_features = 10;
     offset_type feature_offset_x_range_low = 3;
@@ -212,6 +214,83 @@ private:
     const ImageWeakLearnerParameters parameters_;
 };
 
+struct ImageFeature
+{
+    explicit ImageFeature(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2)
+    : offset_x1(offset_x1), offset_y1(offset_y1), offset_x2(offset_x2), offset_y2(offset_y2)
+    {}
+
+    template <typename TPixel>
+    scalar_type compute_pixel_difference(const ImageSample<TPixel>& sample) const {
+        TPixel pixel1_value = compute_pixel_value(sample, offset_x1, offset_y1);
+        TPixel pixel2_value = compute_pixel_value(sample, offset_x2, offset_y2);
+        return pixel1_value - pixel2_value;
+    }
+    
+    template <typename TPixel>
+    scalar_type compute_pixel_value(const ImageSample<TPixel>& sample, offset_type offset_x, offset_type offset_y) const {
+        const Image<TPixel>& image = sample.get_image();
+        offset_type x = sample.get_x();
+        offset_type y = sample.get_y();
+        TPixel pixel_value;
+        if (x + offset_x < 0 || x + offset_x >= image.width() || y + offset_y < 0 || y + offset_y >= image.height())
+            pixel_value = 0;
+        else
+            pixel_value = image.get_data_matrix()(x + offset_x, y + offset_y);
+        return pixel_value;
+    }
+
+    // TODO: remove
+//    bool operator<(const ImageFeature& other) const
+//    {
+//        if (offset_x1 < other.offset_x1)
+//        {
+//            return true;
+//        }
+//        else if (offset_x1 == other.offset_x1)
+//        {
+//            if (offset_y1 < other.offset_y1)
+//            {
+//                return true;
+//            }
+//            else if (offset_y1 == other.offset_y1)
+//            {
+//                if (offset_x2 < other.offset_x2)
+//                {
+//                    return true;
+//                }
+//                else if (offset_x2 == other.offset_x2)
+//                {
+//                    if (offset_y2 < other.offset_y2)
+//                    {
+//                        return true;
+//                    }
+//                }
+//            }
+//        }
+//        return false;
+//    }
+
+    offset_type offset_x1;
+    offset_type offset_y1;
+    offset_type offset_x2;
+    offset_type offset_y2;
+};
+
+struct ImageThreshold
+{
+    ImageThreshold(scalar_type threshold)
+    : threshold(threshold)
+    {}
+
+    bool left_direction(scalar_type value) const
+    {
+        return value < threshold;
+    }
+
+    scalar_type threshold;
+};
+
 template <typename TPixel = pixel_type>
 class ImageSplitPoint {
 public:
@@ -222,15 +301,20 @@ public:
     {}
 
     ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, scalar_type threshold)
-    : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold) {}
+    : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold)
+    {}
 
-    Direction evaluate(const ImageSample<TPixel>& sample) const
+    ImageSplitPoint(const ImageFeature& feature, const ImageThreshold& threshold)
+    : offset_x1_(feature.offset_x1), offset_y1_(feature.offset_y1), offset_x2_(feature.offset_x2), offset_y2_(feature.offset_y2), threshold_(threshold.threshold)
+    {}
+
+    Direction evaluate(const ImageSample<PixelT>& sample) const
     {
-        TPixel pixel_difference = compute_pixel_difference(sample);
+        PixelT pixel_difference = compute_pixel_difference(sample);
         return evaluate(pixel_difference);
     }
 
-    Direction evaluate(TPixel value) const
+    Direction evaluate(PixelT value) const
     {
         if (value < threshold_)
             return Direction::LEFT;
@@ -264,17 +348,17 @@ public:
     }
 
 private:
-    scalar_type compute_pixel_difference(const ImageSample<TPixel>& sample) const {
-        TPixel pixel1_value = compute_pixel_value(sample, offset_x1_, offset_y1_);
-        TPixel pixel2_value = compute_pixel_value(sample, offset_x2_, offset_y2_);
+    scalar_type compute_pixel_difference(const ImageSample<PixelT>& sample) const {
+        PixelT pixel1_value = compute_pixel_value(sample, offset_x1_, offset_y1_);
+        PixelT pixel2_value = compute_pixel_value(sample, offset_x2_, offset_y2_);
         return pixel1_value - pixel2_value;
     }
     
-    scalar_type compute_pixel_value(const ImageSample<TPixel>& sample, offset_type offset_x, offset_type offset_y) const {
-        const Image<TPixel>& image = sample.get_image();
+    scalar_type compute_pixel_value(const ImageSample<PixelT>& sample, offset_type offset_x, offset_type offset_y) const {
+        const Image<PixelT>& image = sample.get_image();
         offset_type x = sample.get_x();
         offset_type y = sample.get_y();
-        TPixel pixel_value;
+        PixelT pixel_value;
         if (x + offset_x < 0 || x + offset_x >= image.width() || y + offset_y < 0 || y + offset_y >= image.height())
             pixel_value = 0;
         else
@@ -315,10 +399,79 @@ private:
     scalar_type threshold_;
 };
 
-template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64, typename TPixel = pixel_type>
-class ImageWeakLearner : public WeakLearner<ImageSplitPoint<TPixel>, TStatisticsFactory, TSampleIterator, TRandomEngine>
+template <typename TPixel = pixel_type>
+class ImageSplitPointCandidates
 {
-    using BaseT = WeakLearner<ImageSplitPoint<TPixel>, TStatisticsFactory, TSampleIterator, TRandomEngine>;
+public:
+    using SplitPointT = ImageSplitPoint<pixel_type>;
+
+    using iterator = typename std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>>::iterator;
+    using const_iterator = typename std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>>::const_iterator;
+
+    ImageSplitPointCandidates()
+    : size_(0)
+    {}
+
+    void add_feature_and_thresholds(const ImageFeature& feature, const std::vector<ImageThreshold>& thresholds)
+    {
+        candidates_.push_back(std::make_tuple(feature, thresholds));
+        size_ += thresholds.size();
+    }
+
+    SplitPointT get_split_point(size_type index) const
+    {
+        assert(index < size());
+        size_type i = 0;
+        for (const_iterator it = cbegin(); it != cend(); ++it)
+        {
+            const ImageFeature& feature = std::get<0>(*it);
+            const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
+            for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+            {
+                if (i == index)
+                {
+                    return ImageSplitPoint<TPixel>(feature, *threshold_it);
+                }
+                ++i;
+            }
+        }
+        throw std::invalid_argument("Could not find split point with the corresponding index.");
+    }
+
+    size_type size() const
+    {
+        return size_;
+    }
+
+    iterator begin()
+    {
+        return candidates_.begin();
+    }
+    
+    iterator end()
+    {
+        return candidates_.end();
+    }
+    
+    const_iterator cbegin() const
+    {
+        return candidates_.cbegin();
+    }
+    
+    const_iterator cend() const
+    {
+        return candidates_.cend();
+    }
+
+private:
+    std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>> candidates_;
+    size_type size_;
+};
+
+template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64, typename TPixel = pixel_type>
+class ImageWeakLearner : public WeakLearner<ImageSplitPointCandidates<TPixel>, TStatisticsFactory, TSampleIterator, TRandomEngine>
+{
+    using BaseT = WeakLearner<ImageSplitPointCandidates<TPixel>, TStatisticsFactory, TSampleIterator, TRandomEngine>;
 
     const ImageWeakLearnerParameters parameters_;
 
@@ -327,6 +480,7 @@ public:
     using ParametersT = ImageWeakLearnerParameters;
     using StatisticsT = typename BaseT::StatisticsT;
     using SplitPointT = ImageSplitPoint<TPixel>;
+    using SplitPointCandidatesT = typename BaseT::SplitPointCandidatesT;
 
     ImageWeakLearner(const ParametersT& parameters, const TStatisticsFactory& statistics_factory)
     : BaseT(statistics_factory), parameters_(parameters)
@@ -334,9 +488,9 @@ public:
 
     ~ImageWeakLearner() {}
 
-    virtual std::vector<SplitPointT> sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const
+    virtual SplitPointCandidatesT sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const
     {
-        std::vector<SplitPointT> split_points;
+        SplitPointCandidatesT split_points;
         // TODO: Seed with parameter value
         // TOOD: Image width?
 
@@ -369,18 +523,20 @@ public:
             offset_type offset_y1 = offsets_y[offset_y_distribution(rnd_engine)];
             offset_type offset_x2 = offsets_x[offset_x_distribution(rnd_engine)];
             offset_type offset_y2 = offsets_y[offset_y_distribution(rnd_engine)];
+            ImageFeature feature(offset_x1, offset_y1, offset_x2, offset_y2);
+            std::vector<ImageThreshold> thresholds;
             for (size_type i_t=0; i_t < parameters_.num_of_thresholds; i_t++)
             {
                 scalar_type threshold = threshold_distribution(rnd_engine);
-                SplitPointT split_point(offset_x1, offset_y1, offset_x2, offset_y2, threshold);
-                split_points.push_back(split_point);
+                thresholds.push_back(ImageThreshold(threshold));
             }
+            split_points.add_feature_and_thresholds(feature, thresholds);
         }
         return split_points;
     }
 
     // TODO: Put SplitPoints into own datastructure to allow computing a feature value once and evaluating it on all thresholds
-    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<SplitPointT>& split_points) const
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
         SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);
@@ -389,14 +545,34 @@ public:
         // we have to use signed int here because of OpenMP < 3.0
         for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
         {
-            for (size_type i = 0; i < split_points.size(); i++)
+            for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin(); it != split_points.cend(); ++it)
             {
-                Direction direction = split_points[i].evaluate(*sample_it);
-                if (direction == Direction::LEFT)
-                    split_statistics.get_left_statistics(i).lazy_accumulate(*sample_it);
-                else
-                    split_statistics.get_right_statistics(i).lazy_accumulate(*sample_it);
+                const ImageFeature& feature = std::get<0>(*it);
+                scalar_type value = feature.compute_pixel_difference(*sample_it);
+                const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
+                size_type index = 0;
+                for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+                {
+                    if (threshold_it->left_direction(value))
+                    {
+                        split_statistics.get_left_statistics(index).lazy_accumulate(*sample_it);
+                    }
+                    else
+                    {
+                        split_statistics.get_right_statistics(index).lazy_accumulate(*sample_it);
+                    }
+                    ++index;
+                }
             }
+            // TODO: remove
+//            for (size_type i = 0; i < split_points.size(); i++)
+//            {
+//                Direction direction = split_points[i].evaluate(*sample_it);
+//                if (direction == Direction::LEFT)
+//                    split_statistics.get_left_statistics(i).lazy_accumulate(*sample_it);
+//                else
+//                    split_statistics.get_right_statistics(i).lazy_accumulate(*sample_it);
+//            }
         }
 
         for (size_type i = 0; i < split_points.size(); i++) {

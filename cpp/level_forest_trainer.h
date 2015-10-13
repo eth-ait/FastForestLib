@@ -41,6 +41,7 @@ public:
 
     using StatisticsT = typename WeakLearnerT::StatisticsT;
     using SplitPointT = typename WeakLearnerT::SplitPointT;
+    using SplitPointCandidatesT = typename WeakLearnerT::SplitPointCandidatesT;
     using ForestT = Forest<SplitPointT, StatisticsT>;
     using TreeT = Tree<SplitPointT, StatisticsT>;
     using NodeType = typename TreeT::NodeT;
@@ -263,40 +264,42 @@ protected:
 
     };
 
-    virtual TreeNodeMap<std::vector<SplitPointT>> sample_split_points_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, RandomEngineT& rnd_engine) const
+    virtual TreeNodeMap<SplitPointCandidatesT> sample_split_points_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, RandomEngineT& rnd_engine) const
     {
-        TreeNodeMap<std::vector<SplitPointT>> split_points_batch(tree);
+        TreeNodeMap<SplitPointCandidatesT> split_points_batch(tree);
         for (auto map_it = node_to_sample_map.cbegin(); map_it != node_to_sample_map.cend(); ++map_it)
         {
             typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->cbegin());
             typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->cend());
             split_points_batch[map_it.node_iterator()] = weak_learner_.sample_split_points(sample_it_begin, sample_it_end, rnd_engine);
         }
+        // TODO: Move semantics?
         return split_points_batch;
     }
     
-    virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, const TreeNodeMap<std::vector<SplitPointT>>& split_points_batch) const
+    virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, const TreeNodeMap<SplitPointCandidatesT>& split_points_batch) const
     {
         TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch(tree);
         for (auto map_it = node_to_sample_map.cbegin(); map_it != node_to_sample_map.cend(); ++map_it)
         {
-            const std::vector<SplitPointT>& split_points = split_points_batch[map_it.node_iterator()];
+            const SplitPointCandidatesT& split_points = split_points_batch[map_it.node_iterator()];
             typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->cbegin());
             typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->cend());
+            // TODO: Move semantics?
             split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics(sample_it_begin, sample_it_end, split_points);
         }
         return split_statistics_batch;
     }
     
-    virtual TreeNodeMap<SplitPointT> find_best_split_point_batch(TreeT& tree, const TreeNodeMap<std::vector<SplitPointT>>& split_points_batch, const TreeNodeMap<StatisticsT>& current_statistics, const TreeNodeMap<SplitStatistics<StatisticsT>>& split_statistics_batch) const
+    virtual TreeNodeMap<SplitPointT> find_best_split_point_batch(TreeT& tree, const TreeNodeMap<SplitPointCandidatesT>& split_points_batch, const TreeNodeMap<StatisticsT>& current_statistics, const TreeNodeMap<SplitStatistics<StatisticsT>>& split_statistics_batch) const
     {
         TreeNodeMap<SplitPointT> best_split_point_batch(tree);
         for (auto map_it = split_statistics_batch.cbegin(); map_it != split_statistics_batch.cend(); ++map_it)
         {
-            const std::vector<SplitPointT>& split_points = split_points_batch[map_it.node_iterator()];
+            const SplitPointCandidatesT& split_points = split_points_batch[map_it.node_iterator()];
             std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point_tuple(current_statistics[map_it.node_iterator()], *map_it);
             size_type best_split_point_index = std::get<0>(best_split_point_tuple);
-            SplitPointT best_split_point = split_points[best_split_point_index];
+            SplitPointT best_split_point = split_points.get_split_point(best_split_point_index);
             best_split_point_batch[map_it.node_iterator()] = best_split_point;
         }
         return best_split_point_batch;
@@ -362,7 +365,7 @@ public:
         update_node_statistics_batch(tree, current_statistics);
         if (current_level < training_parameters_.tree_depth)
         {
-            TreeNodeMap<std::vector<SplitPointT>> split_points_batch = sample_split_points_batch(tree, node_to_sample_map, rnd_engine);
+            TreeNodeMap<SplitPointCandidatesT> split_points_batch = sample_split_points_batch(tree, node_to_sample_map, rnd_engine);
             TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
             // Receive split statistics from rank > 0
             TreeNodeMap<SplitPointT> best_split_point_batch = find_best_split_point_batch(tree, split_points_batch, current_statistics, split_statistics_batch);

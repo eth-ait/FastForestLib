@@ -25,6 +25,7 @@ public:
     
     using StatisticsT = typename WeakLearnerT::StatisticsT;
     using SplitPointT = typename WeakLearnerT::SplitPointT;
+    using SplitPointCandidatesT = typename WeakLearnerT::SplitPointCandidatesT;
     using ForestT = Forest<SplitPointT, StatisticsT>;
     using TreeT = Tree<SplitPointT, StatisticsT>;
     using NodeType = typename TreeT::NodeT;
@@ -35,7 +36,7 @@ private:
     const ParametersT training_parameters_;
 
     template <typename T>
-    void output_spaces(T& stream, int num_of_spaces) const
+    void output_spaces(T stream, int num_of_spaces) const
     {
         for (int i = 0; i < num_of_spaces; i++)
             stream << " ";
@@ -51,7 +52,7 @@ public:
         return training_parameters_;
     }
     
-    void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine& rnd_engine, int current_depth = 1) const
+    void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine, int current_depth = 1) const
     {
         output_spaces(log_info(false), current_depth - 1);
         log_info() << "depth: " << current_depth << ", samples: " << (samples_end - samples_start);
@@ -77,7 +78,7 @@ public:
             return;
         }
 
-        std::vector<SplitPointT> split_points = weak_learner_.sample_split_points(samples_start, samples_end, rnd_engine);
+        SplitPointCandidatesT split_points = weak_learner_.sample_split_points(samples_start, samples_end, rnd_engine);
 
         // Compute the statistics for all split points
         SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics(samples_start, samples_end, split_points);
@@ -99,7 +100,7 @@ public:
         // i.e.sample_indices[:i_split] will contain the left child indices
         // and sample_indices[i_split:] will contain the right child indices
         size_type best_split_point_index = std::get<0>(best_split_point_tuple);
-        SplitPointT best_split_point = split_points[best_split_point_index];
+        SplitPointT best_split_point = split_points.get_split_point(best_split_point_index);
         SampleIteratorT i_split = weak_learner_.partition(samples_start, samples_end, best_split_point);
 
         tree_iter->set_split_point(best_split_point);

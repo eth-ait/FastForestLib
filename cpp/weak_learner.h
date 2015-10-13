@@ -93,10 +93,8 @@ template <typename TSplitPointCandidates, typename TStatisticsFactory, typename 
 class WeakLearner
 {
 public:
-    using SplitPointT = TSplitPointCandidates;
-    using SplitPointCandidatesT = std::vector<SplitPointT>;
-//    using SplitPointCandidatesT = TSplitPointCandidates;
-//    using SplitPointT = typename SplitPointCandidatesT::SplitPointT;
+    using SplitPointCandidatesT = TSplitPointCandidates;
+    using SplitPointT = typename SplitPointCandidatesT::SplitPointT;
     using StatisticsFactoryT = TStatisticsFactory;
     using StatisticsT = typename TStatisticsFactory::value_type;
     using SampleIteratorT = TSampleIterator;
