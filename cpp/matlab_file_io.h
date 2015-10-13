@@ -32,7 +32,7 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filena
     /*
     * Open file to get directory
     */
-    MATFile *pmat = matOpen(filename.c_str(), "r");
+    MATFile* pmat = matOpen(filename.c_str(), "r");
     if (pmat == nullptr)
         throw std::runtime_error("Error opening file '" + filename + "'.");
 
@@ -43,11 +43,11 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filena
     if (pmat == nullptr)
         throw std::runtime_error("Error opening file '" + filename + "'.");
 
-    mxArray *data_pa = matGetVariable(pmat, data_array_name.c_str());
+    mxArray* data_pa = matGetVariable(pmat, data_array_name.c_str());
     if (data_pa == nullptr)
         throw std::runtime_error("Error reading data array in file '" + filename + "'.");
 
-    mxArray *label_pa = matGetVariable(pmat, label_array_name.c_str());
+    mxArray* label_pa = matGetVariable(pmat, label_array_name.c_str());
     if (label_pa == nullptr)
         throw std::runtime_error("Error reading label array in file '" + filename + "'.");
 
@@ -57,8 +57,8 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filena
     if (data_num_of_dimensions != 3 || label_num_of_dimensions != 3)
         throw std::runtime_error("Can only handle arrays with a dimension of 3.");
 
-    const mwSize *data_dimensions = mxGetDimensions(data_pa);
-    const mwSize *label_dimensions = mxGetDimensions(label_pa);
+    const mwSize* data_dimensions = mxGetDimensions(data_pa);
+    const mwSize* label_dimensions = mxGetDimensions(label_pa);
 
     int num_of_images = static_cast<int>(data_dimensions[2]);
     int width = static_cast<int>(data_dimensions[1]);
@@ -68,8 +68,8 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filena
 
     // Memory layout of MATLAB arrays: width x height x num_of_images.
     // The first dimension changes first, then second, then third.
-    const double *data_ptr = mxGetPr(data_pa);
-    const double *label_ptr = mxGetPr(label_pa);
+    const double* data_ptr = mxGetPr(data_pa);
+    const double* label_ptr = mxGetPr(label_pa);
 
     std::vector<ImageType> images;
 

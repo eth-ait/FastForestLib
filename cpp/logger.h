@@ -18,7 +18,7 @@ class Logger
 public:
     class LogStream
     {
-        std::ostream *sout_;
+        std::ostream* sout_;
         bool new_line_;
         bool closed_;
         

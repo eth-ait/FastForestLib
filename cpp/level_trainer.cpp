@@ -41,7 +41,7 @@ using BaggingWrapperT = ait::BaggingWrapper<ForestTrainerAliasT, SampleT>;
 using ForestTrainerT = typename BaggingWrapperT::ForestTrainerT;
 using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
     try {
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Level RF trainer", ' ', "0.3");

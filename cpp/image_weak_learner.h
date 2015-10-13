@@ -138,7 +138,7 @@ public:
         std::swap(a.y_, b.y_);
     }
 
-    ImageSample(const Image<TPixel> *image_ptr, offset_type x, offset_type y)
+    ImageSample(const Image<TPixel>* image_ptr, offset_type x, offset_type y)
     : image_ptr_(image_ptr), x_(x), y_(y)
     {}
 
@@ -167,7 +167,7 @@ public:
     }
 
 private:
-    const Image<TPixel> *image_ptr_;
+    const Image<TPixel>* image_ptr_;
     offset_type x_;
     offset_type y_;
 };

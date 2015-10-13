@@ -44,7 +44,7 @@ using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
 
 namespace mpi = boost::mpi;
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
     try {
         // Initialize MPI.
         mpi::environment env;

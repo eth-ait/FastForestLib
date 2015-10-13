@@ -32,7 +32,7 @@ template <class TSampleIterator> using WeakLearnerAliasT
 using ForestTrainerT = ait::DepthForestTrainer<WeakLearnerAliasT, SampleIteratorT>;
 using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
 
-int main(int argc, const char *argv[]) {
+int main(int argc, const char* argv[]) {
     try {
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Depth RF trainer", ' ', "0.3");

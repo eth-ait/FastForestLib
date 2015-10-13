@@ -32,7 +32,7 @@ public:
 
     using SampleIteratorT = TSampleIterator;
     using SampleT = typename TSampleIterator::value_type;
-    using SamplePointerT = const SampleT *;
+    using SamplePointerT = const SampleT*;
     using SamplePointerIteratorT = typename std::vector<SamplePointerT>::const_iterator;
     using SamplePointerIteratorWrapperT = ait::PointerIteratorWrapper<SamplePointerIteratorT, const SampleT>;
     
@@ -61,17 +61,17 @@ protected:
     class TreeNodeMap
     {
         using MapT = std::map<size_type, T>;
-        TreeT *tree_;
+        TreeT* tree_;
         MapT map_;
 
         template <typename TBaseIterator, typename TValue>
         class iterator_ : public boost::iterator_adaptor<iterator_<TBaseIterator, TValue>, TBaseIterator, TValue>
         {
             using BaseT = boost::iterator_adaptor<iterator_<TBaseIterator, TValue>, TBaseIterator, TValue>;
-            TreeT *tree_;
+            TreeT* tree_;
 
         public:
-            explicit iterator_(TreeT *tree, TBaseIterator it)
+            explicit iterator_(TreeT* tree, TBaseIterator it)
             : iterator_::iterator_adaptor_(it), tree_(tree)
             {}
 
@@ -133,7 +133,7 @@ protected:
         : tree_(&tree)
         {}
         
-        explicit TreeNodeMap(TreeT *tree)
+        explicit TreeNodeMap(TreeT* tree)
         : tree_(tree)
         {}
 
@@ -419,18 +419,19 @@ public:
 namespace boost {
 namespace serialization {
 
+// TODO: Why is this not working???
 template<typename Archive, template <typename> class TWeakLearner, typename TSampleIterator, typename T>
-inline void save_construct_data(Archive& ar, const typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
+inline void save_construct_data(Archive& ar, const typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T>* obj, const unsigned int file_version)
 {
     ait::log_info() << "Saving TreeNodeMapWithIndex";
     ar << obj->tree_;
 }
 
 template<typename Archive, template <typename> class TWeakLearner, typename TSampleIterator, typename T>
-inline void load_construct_data(Archive& ar, typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
+inline void load_construct_data(Archive& ar, typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T>* obj, const unsigned int file_version)
 {
     ait::log_info() << "Reconstructing TreeNodeMapWithIndex";
-    typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::TreeT *tree;
+    typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::TreeT* tree;
     ar >> tree;
     ::new(obj) typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T>(tree);
 }
