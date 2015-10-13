@@ -17,9 +17,11 @@
 #include <CImg.h>
 
 #include "ait.h"
+#include "logger.h"
 #include "node.h"
 #include "weak_learner.h"
 #include "histogram_statistics.h"
+#include "bagging_wrapper.h"
 
 namespace ait
 {
@@ -31,38 +33,16 @@ using label_type = std::int16_t;
 class ImageWeakLearnerParameters
 {
 public:
-    int num_of_thresholds() const
-    {
-        return 10;
-    }
-    int num_of_features() const
-    {
-        return 10;
-    }
-    offset_type feature_offset_x_range_low() const
-    {
-        return 3;
-    }
-    offset_type feature_offset_x_range_high() const
-    {
-        return 15;
-    }
-    offset_type feature_offset_y_range_low() const
-    {
-        return 3;
-    }
-    offset_type feature_offset_y_range_high() const
-    {
-        return 15;
-    }
-    scalar_type threshold_range_low() const
-    {
-        return -300.0;
-    }
-    scalar_type threshold_range_high() const
-    {
-        return +300.0;
-    }
+    double samples_per_image_fraction = 0.01;
+    double bagging_fraction = 0.2;
+    int num_of_thresholds = 10;
+    int num_of_features = 10;
+    offset_type feature_offset_x_range_low = 3;
+    offset_type feature_offset_x_range_high = 15;
+    offset_type feature_offset_y_range_low = 3;
+    offset_type feature_offset_y_range_high = 15;
+    scalar_type threshold_range_low = -300.0;
+    scalar_type threshold_range_high = +300;
 };
 
 template <typename TPixel = pixel_type>
@@ -82,6 +62,7 @@ private:
         if (data_matrix.rows() != label_matrix.rows() || data_matrix.cols() != label_matrix.cols())
             throw std::runtime_error("The data and label matrix must have the same dimension.");
     }
+
 public:
     explicit Image(const DataMatrixType &data_matrix, const LabelMatrixType &label_matrix)
     : data_matrix_(data_matrix), label_matrix_(label_matrix)
@@ -189,6 +170,46 @@ private:
     const Image<TPixel> *image_ptr_;
     offset_type x_;
     offset_type y_;
+};
+
+template <typename TRandomEngine, typename TPixel = pixel_type>
+class ImageSampleProvider : public BaggingSampleProvider<TRandomEngine, ImageSample<TPixel>>
+{
+    using SampleT = ImageSample<TPixel>;
+
+public:
+    ImageSampleProvider(const std::vector<Image<TPixel>>& images, const ImageWeakLearnerParameters& parameters)
+    : images_(images), parameters_(parameters)
+    {}
+
+    virtual std::vector<SampleT> get_sample_bag(TRandomEngine& rnd_engine) const
+    {
+        log_info(false) << "Creating sample bag ...";
+        std::vector<SampleT> samples;
+        int images_per_bag = std::round(parameters_.bagging_fraction * images_.size());
+        std::uniform_int_distribution<> image_dist(0, images_.size() - 1);
+        for (int i = 0; i < images_per_bag; i++)
+        {
+            int image_index = image_dist(rnd_engine);
+            const Image<TPixel>& image = images_[image_index];
+            int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image.width() * image.height());
+            std::uniform_int_distribution<> x_dist(0, image.width() - 1);
+            std::uniform_int_distribution<> y_dist(0, image.height() - 1);
+            for (int j = 0; j < num_of_samples_per_image; j++)
+            {
+                int x = x_dist(rnd_engine);
+                int y = y_dist(rnd_engine);
+                ImageSample<TPixel> sample(&image, x, y);
+                samples.push_back(std::move(sample));
+            }
+        }
+        log_info(true) << "Done";
+        return samples;
+    }
+
+private:
+    const std::vector<Image<TPixel>>& images_;
+    const ImageWeakLearnerParameters parameters_;
 };
 
 template <typename TPixel = pixel_type>
@@ -320,8 +341,8 @@ public:
         // TOOD: Image width?
 
         // TODO: Fix discrete offset distributions
-        offset_type offset_x_range_low = parameters_.feature_offset_x_range_low();
-        offset_type offset_x_range_high = parameters_.feature_offset_x_range_high();
+        offset_type offset_x_range_low = parameters_.feature_offset_x_range_low;
+        offset_type offset_x_range_high = parameters_.feature_offset_x_range_high;
         std::vector<offset_type> offsets_x;
         for (offset_type offset_x=offset_x_range_low; offset_x <= offset_x_range_high; offset_x++) {
             offsets_x.push_back(-offset_x);
@@ -329,8 +350,8 @@ public:
         }
         std::uniform_int_distribution<offset_type> offset_x_distribution(0, offsets_x.size() - 1);
 
-        offset_type offset_y_range_low = parameters_.feature_offset_y_range_low();
-        offset_type offset_y_range_high = parameters_.feature_offset_y_range_high();
+        offset_type offset_y_range_low = parameters_.feature_offset_y_range_low;
+        offset_type offset_y_range_high = parameters_.feature_offset_y_range_high;
         std::vector<offset_type> offsets_y;
         for (offset_type offset_y=offset_y_range_low; offset_y <= offset_y_range_high; offset_y++) {
             offsets_y.push_back(-offset_y);
@@ -338,16 +359,18 @@ public:
         }
         std::uniform_int_distribution<offset_type> offset_y_distribution(0, offsets_y.size() - 1);
 
-        scalar_type threshold_range_low = parameters_.threshold_range_low();
-        scalar_type threshold_range_high = parameters_.threshold_range_high();
+        scalar_type threshold_range_low = parameters_.threshold_range_low;
+        scalar_type threshold_range_high = parameters_.threshold_range_high;
         std::uniform_real_distribution<scalar_type> threshold_distribution(threshold_range_low, threshold_range_high);
 
-        for (size_type i_f=0; i_f < parameters_.num_of_features(); i_f++) {
+        for (size_type i_f=0; i_f < parameters_.num_of_features; i_f++)
+        {
             offset_type offset_x1 = offsets_x[offset_x_distribution(rnd_engine)];
             offset_type offset_y1 = offsets_y[offset_y_distribution(rnd_engine)];
             offset_type offset_x2 = offsets_x[offset_x_distribution(rnd_engine)];
             offset_type offset_y2 = offsets_y[offset_y_distribution(rnd_engine)];
-            for (size_type i_t=0; i_t < parameters_.num_of_thresholds(); i_t++) {
+            for (size_type i_t=0; i_t < parameters_.num_of_thresholds; i_t++)
+            {
                 scalar_type threshold = threshold_distribution(rnd_engine);
                 SplitPointT split_point(offset_x1, offset_y1, offset_x2, offset_y2, threshold);
                 split_points.push_back(split_point);
@@ -356,6 +379,7 @@ public:
         return split_points;
     }
 
+    // TODO: Put SplitPoints into own datastructure to allow computing a feature value once and evaluating it on all thresholds
     virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<SplitPointT> &split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below

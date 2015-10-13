@@ -16,6 +16,7 @@
 #include <tclap/CmdLine.h>
 
 #include "ait.h"
+#include "logger.h"
 #include "level_forest_trainer.h"
 #include "image_weak_learner.h"
 #include "matlab_file_io.h"
@@ -28,11 +29,16 @@ using RandomEngineT = std::mt19937_64;
 
 using SampleContainerT = std::vector<SampleT>;
 using SampleIteratorT= typename SampleContainerT::const_iterator;
+using SampleProviderT = ait::ImageSampleProvider<RandomEngineT>;
 
-template <class TSampleIterator, class TRandomEngine> using WeakLearnerAliasT
-    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, TRandomEngine, PixelT>;
+template <class TSampleIterator> using WeakLearnerAliasT
+    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, RandomEngineT, PixelT>;
 
-using ForestTrainerT = ait::LevelForestTrainer<WeakLearnerAliasT, SampleIteratorT, RandomEngineT>;
+template <class TSampleIterator> using ForestTrainerAliasT
+    = typename ait::LevelForestTrainer<WeakLearnerAliasT, TSampleIterator>;
+
+using BaggingWrapperT = ait::BaggingWrapper<ForestTrainerAliasT, SampleT>;
+using ForestTrainerT = typename BaggingWrapperT::ForestTrainerT;
 using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
 
 int main(int argc, const char *argv[]) {
@@ -87,6 +93,8 @@ int main(int argc, const char *argv[]) {
         ForestTrainerT::ParametersT training_parameters;
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);
+        SampleProviderT sample_provider(images, weak_learner_parameters);
+        BaggingWrapperT bagging_wrapper(trainer, sample_provider);
 #ifdef AIT_TESTING
         RandomEngineT rnd_engine(11);
 #else
@@ -94,10 +102,10 @@ int main(int argc, const char *argv[]) {
         ait::log_info() << "rnd(): " << rnd_device();
         RandomEngineT rnd_engine(rnd_device());
 #endif
-        
+
         // Train a forest and time it.
         auto start_time = std::chrono::high_resolution_clock::now();
-        ForestTrainerT::ForestT forest = trainer.train_forest(samples.cbegin(), samples.cend(), rnd_engine);
+        ForestTrainerT::ForestT forest = bagging_wrapper.train_forest(rnd_engine);
         auto stop_time = std::chrono::high_resolution_clock::now();
         auto duration = stop_time - start_time;
         auto period = std::chrono::high_resolution_clock::period();

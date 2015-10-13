@@ -98,6 +98,7 @@ public:
     using StatisticsFactoryT = TStatisticsFactory;
     using StatisticsT = typename TStatisticsFactory::value_type;
     using SampleIteratorT = TSampleIterator;
+    using RandomEngineT = TRandomEngine;
 
 protected:
     StatisticsFactoryT statistics_factory_;
@@ -127,7 +128,7 @@ public:
     }
 
     // Has to be implemented by a base class
-    virtual std::vector<SplitPointT> sample_split_points(SampleIteratorT first_sample, SampleIteratorT last_sample, TRandomEngine &rnd_engine) const = 0;
+    virtual std::vector<SplitPointT> sample_split_points(SampleIteratorT first_sample, SampleIteratorT last_sample, RandomEngineT &rnd_engine) const = 0;
     
     // Has to be implemented by a base class
     virtual SplitStatistics<StatisticsT> compute_split_statistics(SampleIteratorT first_sample, SampleIteratorT last_sample, const std::vector<SplitPointT> &split_points) const = 0;

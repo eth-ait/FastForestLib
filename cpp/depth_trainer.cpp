@@ -26,10 +26,10 @@ using SampleContainerT = std::vector<SampleT>;
 using SampleIteratorT= typename SampleContainerT::iterator;
 using ConstSampleIteratorT= typename SampleContainerT::const_iterator;
 
-template <class TSampleIterator, class TRandomEngine> using WeakLearnerAliasT
-    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, TRandomEngine>;
+template <class TSampleIterator> using WeakLearnerAliasT
+    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, RandomEngineT>;
 
-using ForestTrainerT = ait::DepthForestTrainer<WeakLearnerAliasT, SampleIteratorT, RandomEngineT>;
+using ForestTrainerT = ait::DepthForestTrainer<WeakLearnerAliasT, SampleIteratorT>;
 using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
 
 int main(int argc, const char *argv[]) {

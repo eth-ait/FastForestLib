@@ -21,9 +21,9 @@
 
 namespace ait
 {
-    
+
 namespace mpi = boost::mpi;
-    
+
 template <template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
 class DistributedForestTrainer : public LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>
 {

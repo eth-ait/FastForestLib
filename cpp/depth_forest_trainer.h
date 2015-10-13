@@ -10,8 +10,8 @@
 
 namespace ait
 {
-    
-template <template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
+
+template <template <typename> class TWeakLearner, typename TSampleIterator>
 class DepthForestTrainer
 {
 public:
@@ -20,7 +20,8 @@ public:
     using SampleIteratorT = TSampleIterator;
     using SampleT = typename TSampleIterator::value_type;
     
-    using WeakLearnerT = TWeakLearner<SampleIteratorT, TRandomEngine>;
+    using WeakLearnerT = TWeakLearner<SampleIteratorT>;
+    using RandomEngineT = typename WeakLearnerT::RandomEngineT;
     
     using StatisticsT = typename WeakLearnerT::StatisticsT;
     using SplitPointT = typename WeakLearnerT::SplitPointT;
@@ -43,7 +44,12 @@ public:
     DepthForestTrainer(const WeakLearnerT &weak_learner, const ParametersT &training_parameters)
         : weak_learner_(weak_learner), training_parameters_(training_parameters)
     {}
-
+    
+    const ParametersT& get_parameters() const
+    {
+        return training_parameters_;
+    }
+    
     void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine, int current_depth = 1) const
     {
         output_spaces(std::cout, current_depth - 1);
@@ -109,7 +115,7 @@ public:
         train_tree_recursive(tree_iter.right_child(), i_split, samples_end, rnd_engine, current_depth + 1);
     }
 
-    Tree<SplitPointT, StatisticsT> train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
+    Tree<SplitPointT, StatisticsT> train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT &rnd_engine) const
     {
         Tree<SplitPointT, StatisticsT> tree(training_parameters_.tree_depth);
         train_tree_recursive(tree.get_root_iterator(), samples_start, samples_end, rnd_engine);
@@ -118,11 +124,11 @@ public:
     
     Tree<SplitPointT, StatisticsT> train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end) const
     {
-        TRandomEngine rnd_engine;
+        RandomEngineT rnd_engine;
         return train_tree(samples_start, samples_end, rnd_engine);
     }
     
-    Forest<SplitPointT, StatisticsT> train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
+    Forest<SplitPointT, StatisticsT> train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT &rnd_engine) const
     {
         Forest<SplitPointT, StatisticsT> forest;
         for (int i=0; i < training_parameters_.num_of_trees; i++)
@@ -135,7 +141,7 @@ public:
     
     Forest<SplitPointT, StatisticsT> train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end) const
     {
-        TRandomEngine rnd_engine;
+        RandomEngineT rnd_engine;
         return train_forest(samples_start, samples_end, rnd_engine);
     }
 };

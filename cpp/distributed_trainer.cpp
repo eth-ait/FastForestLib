@@ -38,6 +38,7 @@ template <typename TSampleIterator, typename TRandomEngine> using WeakLearnerAli
 
 using ForestTrainerT = ait::DistributedForestTrainer<WeakLearnerAliasT, SampleIteratorT, RandomEngineT>;
 using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
+//using BaggingWrapperT = BaggingWrapper<ForestTrainerT>;
 
 namespace mpi = boost::mpi;
 

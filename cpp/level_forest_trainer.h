@@ -24,7 +24,7 @@
 namespace ait
 {
 
-template <template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
+template <template <typename> class TWeakLearner, typename TSampleIterator>
 class LevelForestTrainer
 {
 public:
@@ -36,7 +36,8 @@ public:
     using SamplePointerIteratorT = typename std::vector<SamplePointerT>::const_iterator;
     using SamplePointerIteratorWrapperT = ait::PointerIteratorWrapper<SamplePointerIteratorT, const SampleT>;
     
-    using WeakLearnerT = TWeakLearner<SamplePointerIteratorWrapperT, TRandomEngine>;
+    using WeakLearnerT = TWeakLearner<SamplePointerIteratorWrapperT>;
+    using RandomEngineT = typename WeakLearnerT::RandomEngineT;
 
     using StatisticsT = typename WeakLearnerT::StatisticsT;
     using SplitPointT = typename WeakLearnerT::SplitPointT;
@@ -44,6 +45,7 @@ public:
     using TreeT = Tree<SplitPointT, StatisticsT>;
     using NodeType = typename TreeT::NodeT;
     using NodeIterator = typename TreeT::NodeIterator;
+
 
 protected:
     const WeakLearnerT weak_learner_;
@@ -261,7 +263,7 @@ protected:
 
     };
 
-    virtual TreeNodeMap<std::vector<SplitPointT>> sample_split_points_batch(TreeT &tree, const TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map, TRandomEngine &rnd_engine) const
+    virtual TreeNodeMap<std::vector<SplitPointT>> sample_split_points_batch(TreeT &tree, const TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map, RandomEngineT &rnd_engine) const
     {
         TreeNodeMap<std::vector<SplitPointT>> split_points_batch(tree);
         for (auto map_it = node_to_sample_map.cbegin(); map_it != node_to_sample_map.cend(); ++map_it)
@@ -345,8 +347,13 @@ public:
     
     virtual ~LevelForestTrainer()
     {}
+    
+    const ParametersT& get_parameters() const
+    {
+        return training_parameters_;
+    }
 
-    virtual void train_tree_level(TreeT &tree, size_type current_level, SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
+    virtual void train_tree_level(TreeT &tree, size_type current_level, SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT &rnd_engine) const
     {
         typename TreeT::TreeLevel tl(tree, current_level);
         TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map = get_sample_node_map(tree, tl, samples_start, samples_end);
@@ -370,7 +377,7 @@ public:
         }
     }
 
-    TreeT train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
+    TreeT train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT &rnd_engine) const
     {
         TreeT tree(training_parameters_.tree_depth);
         tree.get_root_iterator().set_leaf();
@@ -384,11 +391,11 @@ public:
     
     TreeT train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end) const
     {
-        TRandomEngine rnd_engine;
+        RandomEngineT rnd_engine;
         return train_tree(samples_start, samples_end, rnd_engine);
     }
     
-    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine) const
+    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT &rnd_engine) const
     {
         ForestT forest;
         for (int i=0; i < training_parameters_.num_of_trees; i++)
@@ -401,7 +408,7 @@ public:
 
     ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end) const
     {
-        TRandomEngine rnd_engine;
+        RandomEngineT rnd_engine;
         return train_forest(samples_start, samples_end, rnd_engine);
     }
 
@@ -412,20 +419,20 @@ public:
 namespace boost {
 namespace serialization {
 
-template<typename Archive, template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine, typename T>
-inline void save_construct_data(Archive & ar, const typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
+template<typename Archive, template <typename> class TWeakLearner, typename TSampleIterator, typename T>
+inline void save_construct_data(Archive & ar, const typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
 {
     ait::log_info() << "Saving TreeNodeMapWithIndex";
     ar << obj->tree_;
 }
 
-template<typename Archive, template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine, typename T>
-inline void load_construct_data(Archive & ar, typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
+template<typename Archive, template <typename> class TWeakLearner, typename TSampleIterator, typename T>
+inline void load_construct_data(Archive & ar, typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T> *obj, const unsigned int file_version)
 {
     ait::log_info() << "Reconstructing TreeNodeMapWithIndex";
-    typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::TreeT *tree;
+    typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::TreeT *tree;
     ar >> tree;
-    ::new(obj) typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>::template TreeNodeMapWithIndex<T>(tree);
+    ::new(obj) typename ait::LevelForestTrainer<TWeakLearner, TSampleIterator>::template TreeNodeMapWithIndex<T>(tree);
 }
 
 }
