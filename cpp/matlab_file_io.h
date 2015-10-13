@@ -25,9 +25,9 @@ namespace ait
 {
 
 template <typename data_type = double, typename label_type = std::size_t>
-std::vector<ait::Image> load_images_from_matlab_file(const std::string &filename, const std::string &data_array_name = "data", const std::string &label_array_name = "label")
+std::vector<ait::Image<>> load_images_from_matlab_file(const std::string &filename, const std::string &data_array_name = "data", const std::string &label_array_name = "label")
 {
-    using ImageType = ait::Image;
+    using ImageType = ait::Image<>;
 
     /*
     * Open file to get directory

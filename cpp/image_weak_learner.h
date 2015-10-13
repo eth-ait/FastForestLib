@@ -14,6 +14,7 @@
 #include <cmath>
 
 #include <Eigen/Dense>
+#include <CImg.h>
 
 #include "ait.h"
 #include "node.h"
@@ -64,11 +65,13 @@ public:
     }
 };
 
+template <typename TPixel = pixel_type>
 class Image
 {
 public:
-    using DataMatrixType = Eigen::Matrix<pixel_type, Eigen::Dynamic, Eigen::Dynamic>;
-    using LabelMatrixType = Eigen::Matrix<label_type, Eigen::Dynamic, Eigen::Dynamic>;
+    using PixelT = TPixel;
+    using DataMatrixType = Eigen::Matrix<TPixel, Eigen::Dynamic, Eigen::Dynamic>;
+    using LabelMatrixType = Eigen::Matrix<TPixel, Eigen::Dynamic, Eigen::Dynamic>;
 
 private:
     DataMatrixType data_matrix_;
@@ -114,21 +117,39 @@ public:
 
     static Image load_from_files(const std::string& data_filename, const std::string& label_filename)
     {
-        // TODO: Load from file
-        DataMatrixType data;
-        LabelMatrixType labels;
-        return Image(data, labels);
+        cimg_library::CImg<TPixel> data_image(data_filename.c_str());
+        cimg_library::CImg<TPixel> label_image(label_filename.c_str());
+        int width = data_image.width();
+        int height = data_image.height();
+        int depth = data_image.depth();
+        int spectrum = data_image.spectrum();
+        // TODO: Show error if this happens
+        assert(width == label_image.width());
+        assert(height == label_image.height());
+        assert(depth == label_image.depth());
+        assert(spectrum == label_image.spectrum());
+        assert(depth == 1);
+        assert(spectrum == 1);
+        DataMatrixType data(width, height);
+        LabelMatrixType label(width, height);
+        for (int w = 0; w < width; ++w)
+        {
+            for (int h = 0; h < height; ++h)
+            {
+                data(w, h) = data_image(w, h, 0, 0, 0, 0);
+                label(w, h) = label_image(w, h, 0, 0, 0, 0);
+            }
+        }
+        return Image(data, label);
     }
 };
 
+template <typename TPixel = pixel_type>
 class ImageSample
 {
-private:
-    const Image *image_ptr_;
-    offset_type x_;
-    offset_type y_;
-
 public:
+    using PixelT = TPixel;
+
     friend void swap(ImageSample &a, ImageSample &b) {
         using std::swap;
         std::swap(a.image_ptr_, b.image_ptr_);
@@ -136,7 +157,7 @@ public:
         std::swap(a.y_, b.y_);
     }
 
-    ImageSample(const Image *image_ptr, offset_type x, offset_type y)
+    ImageSample(const Image<TPixel> *image_ptr, offset_type x, offset_type y)
     : image_ptr_(image_ptr), x_(x), y_(y)
     {}
 
@@ -149,7 +170,7 @@ public:
         return image_ptr_->get_label_matrix()(x_, y_);
     }
 
-    const Image & get_image() const
+    const Image<TPixel> & get_image() const
     {
         return *image_ptr_;
     }
@@ -163,10 +184,18 @@ public:
     {
         return y_;
     }
+
+private:
+    const Image<TPixel> *image_ptr_;
+    offset_type x_;
+    offset_type y_;
 };
 
+template <typename TPixel = pixel_type>
 class ImageSplitPoint {
 public:
+    using PixelT = TPixel;
+
     ImageSplitPoint()
     : offset_x1_(0), offset_y1_(0), offset_x2_(0), offset_y2_(0), threshold_(0)
     {}
@@ -174,13 +203,13 @@ public:
     ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, scalar_type threshold)
     : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold) {}
 
-    Direction evaluate(const ImageSample &sample) const
+    Direction evaluate(const ImageSample<TPixel> &sample) const
     {
-        pixel_type pixel_difference = compute_pixel_difference(sample);
+        TPixel pixel_difference = compute_pixel_difference(sample);
         return evaluate(pixel_difference);
     }
 
-    Direction evaluate(pixel_type value) const
+    Direction evaluate(TPixel value) const
     {
         if (value < threshold_)
             return Direction::LEFT;
@@ -214,17 +243,17 @@ public:
     }
 
 private:
-    scalar_type compute_pixel_difference(const ImageSample &sample) const {
-        pixel_type pixel1_value = compute_pixel_value(sample, offset_x1_, offset_y1_);
-        pixel_type pixel2_value = compute_pixel_value(sample, offset_x2_, offset_y2_);
+    scalar_type compute_pixel_difference(const ImageSample<TPixel> &sample) const {
+        TPixel pixel1_value = compute_pixel_value(sample, offset_x1_, offset_y1_);
+        TPixel pixel2_value = compute_pixel_value(sample, offset_x2_, offset_y2_);
         return pixel1_value - pixel2_value;
     }
     
-    scalar_type compute_pixel_value(const ImageSample &sample, offset_type offset_x, offset_type offset_y) const {
-        const Image &image = sample.get_image();
+    scalar_type compute_pixel_value(const ImageSample<TPixel> &sample, offset_type offset_x, offset_type offset_y) const {
+        const Image<TPixel> &image = sample.get_image();
         offset_type x = sample.get_x();
         offset_type y = sample.get_y();
-        pixel_type pixel_value;
+        TPixel pixel_value;
         if (x + offset_x < 0 || x + offset_x >= image.width() || y + offset_y < 0 || y + offset_y >= image.height())
             pixel_value = 0;
         else
@@ -265,17 +294,18 @@ private:
     scalar_type threshold_;
 };
 
-template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
-class ImageWeakLearner : public WeakLearner<ImageSplitPoint, TStatisticsFactory, TSampleIterator, TRandomEngine>
+template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64, typename TPixel = pixel_type>
+class ImageWeakLearner : public WeakLearner<ImageSplitPoint<TPixel>, TStatisticsFactory, TSampleIterator, TRandomEngine>
 {
-    using BaseT = WeakLearner<ImageSplitPoint, TStatisticsFactory, TSampleIterator, TRandomEngine>;
+    using BaseT = WeakLearner<ImageSplitPoint<TPixel>, TStatisticsFactory, TSampleIterator, TRandomEngine>;
 
     const ImageWeakLearnerParameters parameters_;
 
 public:
+    using PixelT = TPixel;
     using ParametersT = ImageWeakLearnerParameters;
     using StatisticsT = typename BaseT::StatisticsT;
-    using SplitPointT = ImageSplitPoint;
+    using SplitPointT = ImageSplitPoint<TPixel>;
 
     ImageWeakLearner(const ParametersT &parameters, const TStatisticsFactory &statistics_factory)
     : BaseT(statistics_factory), parameters_(parameters)
@@ -283,9 +313,9 @@ public:
 
     ~ImageWeakLearner() {}
 
-    virtual std::vector<ImageSplitPoint> sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine &rnd_engine) const
+    virtual std::vector<SplitPointT> sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine &rnd_engine) const
     {
-        std::vector<ImageSplitPoint> split_points;
+        std::vector<SplitPointT> split_points;
         // TODO: Seed with parameter value
         // TOOD: Image width?
 
@@ -319,14 +349,14 @@ public:
             offset_type offset_y2 = offsets_y[offset_y_distribution(rnd_engine)];
             for (size_type i_t=0; i_t < parameters_.num_of_thresholds(); i_t++) {
                 scalar_type threshold = threshold_distribution(rnd_engine);
-                ImageSplitPoint split_point(offset_x1, offset_y1, offset_x2, offset_y2, threshold);
+                SplitPointT split_point(offset_x1, offset_y1, offset_x2, offset_y2, threshold);
                 split_points.push_back(split_point);
             }
         }
         return split_points;
     }
 
-    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<ImageSplitPoint> &split_points) const
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<SplitPointT> &split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
         SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);

@@ -21,7 +21,8 @@ namespace ait
 {
     
     /// @brief Trim leading whitespacess from a std::string.
-    inline std::string& trim_leading(std::string& str) {
+    inline std::string& trim_leading(std::string& str)
+    {
         str.erase(str.begin(),
                   std::find_if(str.begin(), str.end(),
                                std::not1(std::function<bool(int)>([] (int c) -> bool { return std::isspace(c); }
@@ -30,7 +31,8 @@ namespace ait
     }
     
     /// @brief Trim trailing whitespacess from a std::string.
-    inline std::string& trim_trailing(std::string& str) {
+    inline std::string& trim_trailing(std::string& str)
+    {
         str.erase(std::find_if(str.rbegin(), str.rend(),
                                std::not1(std::function<bool(int)>([] (int c) -> bool { return std::isspace(c); }
         ))).base(), str.end());
@@ -38,8 +40,18 @@ namespace ait
     }
     
     /// @brief Trim leading and trailing whitespacess from a std::string.
-    inline std::string& trim(std::string& str) {
+    inline std::string& trim(std::string& str)
+    {
         return trim_trailing(trim_leading(str));
+    }
+
+    template <typename T>
+    inline T convert_from_string(const std::string& str)
+    {
+        std::istringstream sin(str);
+        T value;
+        sin >> value;
+        return value;
     }
     
     template <typename T, char delimiter = ','>
@@ -54,7 +66,7 @@ namespace ait
             explicit CSVIterator()
             : sin_ptr_(nullptr)
             {}
-            
+
             explicit CSVIterator(std::istream* sin_ptr)
             : sin_ptr_(sin_ptr)
             {}
@@ -68,10 +80,11 @@ namespace ait
                 
                 std::istringstream sline(line);
                 std::string cell;
-                while (sline.good())
+                while (std::getline(sline, cell, delimiter))
                 {
                     T value;
-                    sline >> value;
+                    std::istringstream stmp(cell);
+                    stmp >> value;
                     eval_if_string<T, std::string&(std::string&)>::eval(value, trim);
                     row_.push_back(value);
                 }
@@ -88,21 +101,14 @@ namespace ait
 
             bool equal(const CSVIterator &other) const
             {
-                if (this->sin_ptr_->good() || other.sin_ptr_->good())
-                {
-                    return this->sin_ptr_ == other.sin_ptr_;
-                }
-                else
-                {
-                    return false;
-                }
+                return this->sin_ptr_ == other.sin_ptr_;
             }
             
             typename CSVIterator::iterator_facade_::reference& dereference() const
             {
                 return row_;
             }
-            
+
             std::istream* sin_ptr_;
             typename CSVIterator::iterator_facade_::value_type row_;
         };
@@ -116,7 +122,8 @@ namespace ait
         
         iterator begin()
         {
-            return iterator(&sin_);
+            iterator it = iterator(&sin_);
+            return ++it;
         }
 
         iterator end()

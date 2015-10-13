@@ -15,6 +15,7 @@
 #include <cereal/archives/binary.hpp>
 #include <boost/mpi/environment.hpp>
 #include <boost/mpi/communicator.hpp>
+#include <boost/filesystem/path.hpp>
 #include <tclap/CmdLine.h>
 
 #include "ait.h"
@@ -23,7 +24,8 @@
 #include "csv_utils.h"
 #include "matlab_file_io.h"
 
-using SampleT = ait::ImageSample;
+using ImageT = ait::Image<>;
+using SampleT = ait::ImageSample<>;
 using StatisticsT = ait::HistogramStatistics<SampleT>;
 using RandomEngineT = std::mt19937_64;
 
@@ -77,12 +79,30 @@ int main(int argc, const char *argv[]) {
 
         // Read data from file.
         ait::log_info(false) << "Reading images ... " << std::flush;
-        std::vector<ait::Image> images;
+        std::vector<ImageT> images;
         for (auto it = image_list.cbegin(); it != image_list.cend(); ++it)
         {
-            const std::string& data_filename = std::get<0>(*it);
-            const std::string& label_filename = std::get<1>(*it);
-            ait::Image image = ait::Image::load_from_files(data_filename, label_filename);
+            boost::filesystem::path data_path;
+            boost::filesystem::path label_path = boost::filesystem::path(std::get<1>(*it));
+            if (data_path.is_absolute())
+            {
+                data_path = boost::filesystem::path(std::get<0>(*it));
+            }
+            else
+            {
+                data_path = boost::filesystem::path(image_list_file_arg.getValue()).parent_path();
+                data_path /= std::get<0>(*it);
+            }
+            if (label_path.is_absolute())
+            {
+                label_path = boost::filesystem::path(std::get<1>(*it));
+            }
+            else
+            {
+                label_path = boost::filesystem::path(image_list_file_arg.getValue()).parent_path();
+                label_path /= std::get<1>(*it);
+            }
+            ImageT image = ImageT::load_from_files(data_path.string(), label_path.string());
             images.push_back(std::move(image));
         }
         ait::log_info(false) << " Done." << std::endl;
@@ -110,7 +130,7 @@ int main(int argc, const char *argv[]) {
                     for (int y=0; y < images[i].get_data_matrix().cols(); y++)
                     {
 //                        int y = 0;
-                        SampleT sample = ait::ImageSample(&images[i], x, y);
+                        SampleT sample = SampleT(&images[i], x, y);
 //                        ImageSamplePointerT sample_ptr = std::make_shared<SampleT>(&images[i], x, y);
                         samples.push_back(sample);
                     }
@@ -183,7 +203,7 @@ int main(int argc, const char *argv[]) {
                     {
                         for (int y=0; y < images[i].get_data_matrix().cols(); y++)
                         {
-                            SampleT sample = ait::ImageSample(&images[i], x, y);
+                            SampleT sample = SampleT(&images[i], x, y);
                             //                        ImageSamplePointerT sample_ptr = std::make_shared<SampleT>(&images[i], x, y);
                             samples.push_back(sample);
                         }

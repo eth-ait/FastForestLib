@@ -12,15 +12,18 @@ if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 	endif()
 endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
-find_package(Boost 1.4.0 COMPONENTS serialization mpi log REQUIRED)
+find_package(Boost 1.4.0 COMPONENTS serialization mpi log filesystem system REQUIRED)
 find_package(Eigen3 3.1.2 REQUIRED)
 find_package(Cereal REQUIRED)
 find_package(TCLAP REQUIRED)
 find_package(CImg REQUIRED)
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS cimg_use_png)
 find_package(MPI REQUIRED)
+find_package(X11 REQUIRED)
+find_package(PNG REQUIRED)
 
 if(!${WIN32} AND !${APPLE})
-	find_package(MATLAB REQUIRED)
+	find_package(MATLAB)
 	set(MATLAB_LIB_DIR ${MATLAB_MX_LIBRARY})
 endif(!${WIN32} AND !${APPLE})
 
@@ -29,6 +32,12 @@ include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${MATLAB_INCLUDE_DIR})
 include_directories(${CEREAL_INCLUDE_DIR})
 include_directories(${MPI_INCLUDE_PATH})
+include_directories(${CIMG_INCLUDE_DIR})
+include_directories(${PNG_INCLUDE_DIR})
+if(${UNIX})
+	include_directories(${X11_INCLUDE_DIR})
+endif()
+
 
 link_directories(${MATLAB_LIB_DIR})
 
@@ -45,24 +54,26 @@ else(${WIN32})
     set(MATLAB_LIBRARIES mat mx)
 endif(${WIN32})
 
-add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
-add_executable(level_forest_trainer level_trainer.cpp ${headers} level_forest_trainer.h)
-add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h)
-
-target_compile_definitions(level_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
-target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
-target_compile_options(dist_forest_trainer PRIVATE ${MPI_COMPILE_FLAGS})
-
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_DEBUG>)
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING)
 
-target_link_libraries(depth_forest_trainer ${MATLAB_LIBRARIES})
-target_link_libraries(level_forest_trainer ${MATLAB_LIBRARIES})
-target_link_libraries(dist_forest_trainer ${MATLAB_LIBRARIES} ${Boost_LIBRARIES} ${MPI_LIBRARIES} ${MPI_LINK_FLAGS})
-
+add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
+target_link_libraries(depth_forest_trainer ${MATLAB_LIBRARIES} ${PNG_LIBRARIES})
 target_compile_features(depth_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+
+add_executable(level_forest_trainer level_trainer.cpp ${headers} level_forest_trainer.h)
+target_compile_definitions(level_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
+target_link_libraries(level_forest_trainer ${MATLAB_LIBRARIES} ${PNG_LIBRARIES})
 target_compile_features(level_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
-target_compile_features(dist_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+
+if(${UNIX})
+	add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h)
+	target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
+	target_compile_options(dist_forest_trainer PRIVATE ${MPI_COMPILE_FLAGS})
+	target_link_libraries(dist_forest_trainer ${Boost_LIBRARIES} ${MPI_LIBRARIES} ${MPI_LINK_FLAGS} ${X11_LIBRARIES} ${PNG_LIBRARIES})
+	target_compile_features(dist_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+endif()
+
 #set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
 #enable_testing()

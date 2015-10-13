@@ -17,7 +17,8 @@
 #include "eigen_matrix_io.h"
 #include "matlab_file_io.h"
 
-using SampleT = ait::ImageSample;
+using ImageT = ait::Image<>;
+using SampleT = ait::ImageSample<>;
 using StatisticsT = ait::HistogramStatistics<SampleT>;
 using RandomEngineT = std::mt19937_64;
 
@@ -46,7 +47,7 @@ int main(int argc, const char *argv[]) {
         
         // Read data from file.
         ait::log_info(false) << "Reading images ... " << std::flush;
-        std::vector<ait::Image> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
+        std::vector<ImageT> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
         ait::log_info(false) << " Done." << std::endl;
         
         // Compute number of classes from data.
@@ -70,7 +71,7 @@ int main(int argc, const char *argv[]) {
                 for (int y=0; y < images[i].get_data_matrix().cols(); y++)
                 {
                     //                    int y = 0;
-                    SampleT sample = ait::ImageSample(&images[i], x, y);
+                    SampleT sample = SampleT(&images[i], x, y);
                     samples.push_back(sample);
                 }
             }
