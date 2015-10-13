@@ -24,8 +24,9 @@
 #include "csv_utils.h"
 #include "matlab_file_io.h"
 
-using ImageT = ait::Image<>;
-using SampleT = ait::ImageSample<>;
+using PixelT = ait::pixel_type;
+using ImageT = ait::Image<PixelT>;
+using SampleT = ait::ImageSample<PixelT>;
 using StatisticsT = ait::HistogramStatistics<SampleT>;
 using RandomEngineT = std::mt19937_64;
 
@@ -33,7 +34,7 @@ using SampleContainerT = std::vector<SampleT>;
 using SampleIteratorT= typename SampleContainerT::const_iterator;
 
 template <typename TSampleIterator, typename TRandomEngine> using WeakLearnerAliasT
-    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, TRandomEngine>;
+    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, TRandomEngine, PixelT>;
 
 using ForestTrainerT = ait::DistributedForestTrainer<WeakLearnerAliasT, SampleIteratorT, RandomEngineT>;
 using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
