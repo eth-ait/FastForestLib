@@ -11,6 +11,7 @@
 namespace ait
 {
 
+    /// @brief A provider for sample bags that allows bagging of meta-samples (i.e. images).
     template <typename TRandomEngine, typename SampleT>
     class BaggingSampleProvider
     {
@@ -18,7 +19,7 @@ namespace ait
         virtual std::vector<SampleT> get_sample_bag(TRandomEngine& rnd_engine) const = 0;
     };
 
-    // TODO: Allow bagging of meta-samples (i.e. images)
+    /// @brief A wrapper for a forest trainer that allows bagging of the samples before training.
     template <template <typename> class TForestTrainer, typename SampleT>
     class BaggingWrapper
     {
@@ -47,7 +48,7 @@ namespace ait
             return train_tree(rnd_engine);
         }
 
-        ForestT train_forest(RandomEngineT &rnd_engine) const
+        ForestT train_forest(RandomEngineT& rnd_engine) const
         {
             ForestT forest;
             for (int i=0; i < trainer_.get_parameters().num_of_trees; i++)

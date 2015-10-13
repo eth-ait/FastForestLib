@@ -30,22 +30,22 @@ public:
     ~Node()
     {}
 
-    const TSplitPoint & get_split_point() const
+    const TSplitPoint& get_split_point() const
     {
         return split_point_;
     }
 
-    void set_split_point(const TSplitPoint &split_point)
+    void set_split_point(const TSplitPoint& split_point)
     {
         split_point_ = split_point;
     }
 
-    const TStatistics & get_statistics() const
+    const TStatistics& get_statistics() const
     {
         return statistics_;
     }
 
-    void set_statistics(const TStatistics &statistics)
+    void set_statistics(const TStatistics& statistics)
     {
         statistics_ = statistics;
     }
@@ -55,7 +55,7 @@ private:
     friend class boost::serialization::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive & split_point_;
         archive & statistics_;
@@ -65,7 +65,7 @@ private:
     friend class cereal::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive(cereal::make_nvp("split_point", split_point_));
         archive(cereal::make_nvp("statistics", statistics_));

@@ -99,7 +99,7 @@ namespace ait
                 }
             }
 
-            bool equal(const CSVIterator &other) const
+            bool equal(const CSVIterator& other) const
             {
                 return this->sin_ptr_ == other.sin_ptr_;
             }

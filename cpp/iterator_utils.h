@@ -51,7 +51,7 @@ public:
     
     template <typename OtherBaseIterator, typename OtherValueType>
     PointerIteratorWrapper(
-        const PointerIteratorWrapper<OtherBaseIterator, OtherValueType> &other,
+        const PointerIteratorWrapper<OtherBaseIterator, OtherValueType>& other,
         typename boost::enable_if<
             boost::is_convertible<OtherBaseIterator, BaseIterator>,
             int

@@ -34,14 +34,15 @@ private:
     const WeakLearnerT weak_learner_;
     const ParametersT training_parameters_;
 
-    void output_spaces(std::ostream &stream, int num_of_spaces) const
+    template <typename T>
+    void output_spaces(T& stream, int num_of_spaces) const
     {
         for (int i = 0; i < num_of_spaces; i++)
             stream << " ";
     }
 
 public:
-    DepthForestTrainer(const WeakLearnerT &weak_learner, const ParametersT &training_parameters)
+    DepthForestTrainer(const WeakLearnerT& weak_learner, const ParametersT& training_parameters)
         : weak_learner_(weak_learner), training_parameters_(training_parameters)
     {}
     
@@ -50,10 +51,10 @@ public:
         return training_parameters_;
     }
     
-    void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine &rnd_engine, int current_depth = 1) const
+    void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT samples_start, SampleIteratorT samples_end, TRandomEngine& rnd_engine, int current_depth = 1) const
     {
-        output_spaces(std::cout, current_depth - 1);
-        std::cout << "depth: " << current_depth << ", samples: " << (samples_end - samples_start) << std::endl;
+        output_spaces(log_info(false), current_depth - 1);
+        log_info() << "depth: " << current_depth << ", samples: " << (samples_end - samples_start);
 
         // Assign statistics to node
         StatisticsT statistics = weak_learner_.compute_statistics(samples_start, samples_end);
@@ -63,16 +64,16 @@ public:
         if (samples_end - samples_start < training_parameters_.minimum_num_of_samples)
         {
             tree_iter.set_leaf();
-            output_spaces(std::cout, current_depth - 1);
-            std::cout << "Minimum number of samples. Stopping." << std::endl;
+            output_spaces(log_info(false), current_depth - 1);
+            log_info() << "Minimum number of samples. Stopping.";
             return;
         }
 
         // Stop splitting the node if it is a leaf node
         if (tree_iter.is_leaf())
         {
-            output_spaces(std::cout, current_depth - 1);
-            std::cout << "Reached leaf node. Stopping." << std::endl;
+            output_spaces(log_info(false), current_depth - 1);
+            log_info() << "Reached leaf node. Stopping.";
             return;
         }
 
@@ -86,12 +87,11 @@ public:
 
         scalar_type best_information_gain = std::get<1>(best_split_point_tuple);
         // Stop splitting the node if the best information gain is below the minimum information gain
-        // TODO: Introduce leaf flag in nodes or copy statistics into each child node?
         if (best_information_gain < training_parameters_.minimum_information_gain)
         {
             tree_iter.set_leaf();
-            output_spaces(std::cout, current_depth - 1);
-            std::cout << "Too little information gain. Stopping." << std::endl;
+            output_spaces(log_info(false), current_depth - 1);
+            log_info() << "Too little information gain. Stopping.";
             return;
         }
 
@@ -115,7 +115,7 @@ public:
         train_tree_recursive(tree_iter.right_child(), i_split, samples_end, rnd_engine, current_depth + 1);
     }
 
-    Tree<SplitPointT, StatisticsT> train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT &rnd_engine) const
+    Tree<SplitPointT, StatisticsT> train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
     {
         Tree<SplitPointT, StatisticsT> tree(training_parameters_.tree_depth);
         train_tree_recursive(tree.get_root_iterator(), samples_start, samples_end, rnd_engine);
@@ -128,7 +128,7 @@ public:
         return train_tree(samples_start, samples_end, rnd_engine);
     }
     
-    Forest<SplitPointT, StatisticsT> train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT &rnd_engine) const
+    Forest<SplitPointT, StatisticsT> train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
     {
         Forest<SplitPointT, StatisticsT> forest;
         for (int i=0; i < training_parameters_.num_of_trees; i++)

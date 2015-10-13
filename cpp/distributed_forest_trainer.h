@@ -32,7 +32,7 @@ class DistributedForestTrainer : public LevelForestTrainer<TWeakLearner, TSample
 public:
     struct DistributedTrainingParameters : public BaseT::ParametersT
     {
-        // TODO
+        // TODO: Add distributed training parameters?
     };
 
     using ParametersT = DistributedTrainingParameters;
@@ -43,7 +43,7 @@ public:
     using StatisticsT = typename BaseT::StatisticsT;
     using TreeT = typename BaseT::TreeT;
 
-    explicit DistributedForestTrainer(mpi::communicator &comm, const WeakLearnerT &weak_learner, const ParametersT &training_parameters)
+    explicit DistributedForestTrainer(mpi::communicator& comm, const WeakLearnerT& weak_learner, const ParametersT& training_parameters)
     : BaseT(weak_learner, training_parameters), comm_(comm), training_parameters_(training_parameters)
     {}
     
@@ -53,7 +53,7 @@ public:
 protected:
     template <typename T> using TreeNodeMap = typename BaseT::template TreeNodeMap<T>;
 
-    void broadcast_tree(TreeT &tree, int root = 0) const
+    void broadcast_tree(TreeT& tree, int root = 0) const
     {
         if (comm_.rank() == root)
         {
@@ -68,7 +68,7 @@ protected:
     }
 
     template <typename ValueType>
-    void broadcast_tree_node_map(TreeT &tree, TreeNodeMap<ValueType> &map, int root = 0) const
+    void broadcast_tree_node_map(TreeT& tree, TreeNodeMap<ValueType>& map, int root = 0) const
     {
         std::map<size_type, ValueType> wrapper_map;
         if (comm_.rank() != root)
@@ -78,10 +78,10 @@ protected:
         broadcast(comm_, map.base_map(), root);
     }
     
-    void exchange_split_statistics_batch(TreeT &tree, TreeNodeMap<SplitStatistics<StatisticsT>> &map, int root = 0) const
+    void exchange_split_statistics_batch(TreeT& tree, TreeNodeMap<SplitStatistics<StatisticsT>>& map, int root = 0) const
     {
         std::vector<TreeNodeMap<SplitStatistics<StatisticsT>>> maps(comm_.size(), TreeNodeMap<SplitStatistics<StatisticsT>>(tree));
-        gather(comm_, map, &maps[0], root);
+        gather(comm_, map,& maps[0], root);
         if (comm_.rank() == root)
         {
             log_debug() << "First split_statistics size: " << map.cbegin()->get_left_statistics(0).num_of_samples();
@@ -90,8 +90,8 @@ protected:
             {
                 for (auto map_it = it->cbegin(); map_it != it->cend(); ++map_it)
                 {
-                    SplitStatistics<StatisticsT> &split_statistics = map[map_it.node_iterator()];
-                    const SplitStatistics<StatisticsT> &other_split_statistics = *map_it;
+                    SplitStatistics<StatisticsT>& split_statistics = map[map_it.node_iterator()];
+                    const SplitStatistics<StatisticsT>& other_split_statistics = *map_it;
                     if (split_statistics.size() == 0)
                     {
                         split_statistics = other_split_statistics;
@@ -107,14 +107,14 @@ protected:
         broadcast_tree_node_map(tree, map, root);
     }
 
-    virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT &tree, const TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map, const TreeNodeMap<std::vector<SplitPointT>> &split_points_batch) const override
+    virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, const TreeNodeMap<std::vector<SplitPointT>>& split_points_batch) const override
     {
         TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = BaseT::compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
         exchange_split_statistics_batch(tree, split_statistics_batch);
         return split_statistics_batch;
     }
 
-    virtual TreeNodeMap<std::vector<SplitPointT>> sample_split_points_batch(TreeT &tree, const TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map, TRandomEngine &rnd_engine) const override
+    virtual TreeNodeMap<std::vector<SplitPointT>> sample_split_points_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, TRandomEngine& rnd_engine) const override
     {
         TreeNodeMap<std::vector<SplitPointT>> split_points_batch(tree);
         if (comm_.rank() == 0)
@@ -125,7 +125,7 @@ protected:
         return split_points_batch;
     }
     
-    void exchange_statistics_batch(TreeT &tree, TreeNodeMap<StatisticsT> &map, int root = 0) const
+    void exchange_statistics_batch(TreeT& tree, TreeNodeMap<StatisticsT>& map, int root = 0) const
     {
         std::vector<TreeNodeMap<StatisticsT>> maps(comm_.size(), TreeNodeMap<StatisticsT>(tree));
         gather(comm_, map, &maps[0], root);

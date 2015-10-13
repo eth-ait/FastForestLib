@@ -18,7 +18,7 @@ namespace ait
 {
 
 template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime>
-std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> load_matrix(const std::string &filename)
+std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> load_matrix(const std::string& filename)
 {
 	using MatrixType = Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>;
 
@@ -55,7 +55,7 @@ std::unique_ptr<Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>> loa
 }
 
 template <typename Scalar, int RowsAtCompileTime, int ColsAtCompileTime>
-void save_matrix(const std::string &filename, const Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime> &matrix)
+void save_matrix(const std::string& filename, const Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>& matrix)
 {
 	using MatrixType = Eigen::Matrix<Scalar, RowsAtCompileTime, ColsAtCompileTime>;
 

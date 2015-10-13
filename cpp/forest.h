@@ -45,13 +45,13 @@ public:
     Forest() {}
 
     /// @brief Add a tree to the forest.
-    void add_tree(const TreeT &tree)
+    void add_tree(const TreeT& tree)
     {
         trees_.push_back(tree);
     }
     
     /// @brief Add a tree to the forest.
-    void add_tree(TreeT &&tree)
+    void add_tree(TreeT& tree)
     {
         trees_.push_back(std::move(tree));
     }
@@ -77,13 +77,13 @@ public:
     }
 
     /// @brief Return a tree in the forest.
-    const TreeT & get_tree(size_type index) const
+    const TreeT& get_tree(size_type index) const
     {
         return trees_[index];
     }
 
     /// @brief Return a tree in the forest.
-    TreeT & get_tree(size_type index)
+    TreeT& get_tree(size_type index)
     {
         return trees_[index];
     }
@@ -96,9 +96,9 @@ public:
 
     // TODO: Think about evaluation methods
     template <typename TSample>
-    void evaluate(const std::vector<TSample> &samples, const std::function<void (const TSample &sample, const typename TreeT::ConstNodeIterator &)> &func) const {
+    void evaluate(const std::vector<TSample>& samples, const std::function<void (const TSample& sample, const typename TreeT::ConstNodeIterator& )>& func) const {
         for (size_type i=0; i < size(); i++) {
-            const TreeT &tree = trees_[i];
+            const TreeT& tree = trees_[i];
             for (auto it = samples.cbegin(); it != samples.cend(); it++)
             {
                 typename TreeT::ConstNodeIterator node_iter = tree.evaluate_to_iterator(*it);
@@ -108,9 +108,9 @@ public:
     }
     
     template <typename TSampleIterator>
-    void evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end, const std::function<void (const TSampleIterator &, const typename TreeT::ConstNodeIterator &)> &func) const {
+    void evaluate(const TSampleIterator& it_start, const TSampleIterator& it_end, const std::function<void (const TSampleIterator& , const typename TreeT::ConstNodeIterator& )>& func) const {
         for (size_type i=0; i < size(); i++) {
-            const TreeT &tree = trees_[i];
+            const TreeT& tree = trees_[i];
             for (auto it = it_start; it != it_end; ++it)
             {
                 typename TreeT::ConstNodeIterator node_iter = tree.evaluate_to_iterator(*it);
@@ -120,8 +120,8 @@ public:
     }
 
     template <typename TSample>
-    void evaluate(const std::vector<TSample> &samples, const std::function<void (const TSample &sample, const NodeT &)> &func) const {
-        evaluate(samples, [&func] (const TSample &sample, const typename TreeT::ConstNodeIterator &node_iter)
+    void evaluate(const std::vector<TSample>& samples, const std::function<void (const TSample& sample, const NodeT& )>& func) const {
+        evaluate(samples, [&func] (const TSample& sample, const typename TreeT::ConstNodeIterator& node_iter)
         {
 //            func(sample, *node_iter);
         });
@@ -131,7 +131,7 @@ public:
     /// @param samples The collection of samples.
     /// @return A vector of the results. See #Evaluate().
     template <typename TSample>
-    std::vector<std::vector<size_type>> evaluate(const std::vector<TSample> &samples) const
+    std::vector<std::vector<size_type>> evaluate(const std::vector<TSample>& samples) const
     {
         std::vector<std::vector<size_type>> forest_leaf_node_indices;
         evaluate(samples, forest_leaf_node_indices);
@@ -143,7 +143,7 @@ public:
     /// @param it_end The last sample iterator.
     /// @return A vector of the results. See #Evaluate().
     template <typename TSampleIterator>
-    std::vector<std::vector<size_type>> evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end) const
+    std::vector<std::vector<size_type>> evaluate(const TSampleIterator& it_start, const TSampleIterator& it_end) const
     {
         std::vector<std::vector<size_type>> forest_leaf_node_indices;
         evaluate(it_start, it_end, forest_leaf_node_indices);
@@ -159,7 +159,7 @@ public:
     ///                          So leaf_node_indices.size() will be equal to
     ///                          NumOfTrees().
     template <typename TSample>
-    void evaluate(const std::vector<TSample> &samples, std::vector<std::vector<size_type>> &forest_leaf_node_indices) const
+    void evaluate(const std::vector<TSample>& samples, std::vector<std::vector<size_type>>& forest_leaf_node_indices) const
     {
         forest_leaf_node_indices.reserve(size());
         for (size_type i=0; i < size(); i++)
@@ -181,7 +181,7 @@ public:
     ///                          So leaf_node_indices.size() will be equal to
     ///                          NumOfTrees().
     template <typename TSampleIterator>
-    void evaluate(const TSampleIterator &it_start, const TSampleIterator &it_end, std::vector<std::vector<size_type>> &forest_leaf_node_indices) const
+    void evaluate(const TSampleIterator& it_start, const TSampleIterator& it_end, std::vector<std::vector<size_type>>& forest_leaf_node_indices) const
     {
         forest_leaf_node_indices.reserve(size());
         for (size_type i=0; i < size(); i++)
@@ -194,7 +194,7 @@ public:
     }
 
     template <typename TSample>
-    const std::vector<std::vector<typename TreeT::ConstNodeIterator>> evaluate_to_iterator(const std::vector<TSample> &samples) const
+    const std::vector<std::vector<typename TreeT::ConstNodeIterator>> evaluate_to_iterator(const std::vector<TSample>& samples) const
     {
         std::vector<std::vector<typename TreeT::ConstNodeIterator>> forest_leaf_nodes;
         forest_leaf_nodes.reserve(size());
@@ -217,7 +217,7 @@ private:
     friend class boost::serialization::access;
 
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive & trees_;
     }
@@ -226,7 +226,7 @@ private:
     friend class cereal::access;
 
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive(cereal::make_nvp("trees", trees_));
     }
@@ -240,9 +240,9 @@ class ForestUtilities
 {
     using ForestType = Forest<TSplitPoint, TStatistics>;
     
-    const ForestType &forest_;
+    const ForestType& forest_;
 public:
-    ForestUtilities(const ForestType &forest)
+    ForestUtilities(const ForestType& forest)
     : forest_(forest)
     {}
 

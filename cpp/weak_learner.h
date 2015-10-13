@@ -27,7 +27,7 @@ public:
     SplitStatistics() {}
 
     template <typename TStatisticsFactory>
-    SplitStatistics(size_t num_of_split_points, const TStatisticsFactory &statistics_factory)
+    SplitStatistics(size_t num_of_split_points, const TStatisticsFactory& statistics_factory)
     {
         left_statistics_collection_.resize(num_of_split_points, statistics_factory.create());
         right_statistics_collection_.resize(num_of_split_points, statistics_factory.create());
@@ -37,28 +37,27 @@ public:
         return left_statistics_collection_.size();
     }
 
-    TStatistics & get_left_statistics(size_type index)
+    TStatistics& get_left_statistics(size_type index)
     {
         return left_statistics_collection_[index];
     }
     
-    TStatistics & get_right_statistics(size_type index)
+    TStatistics& get_right_statistics(size_type index)
     {
         return right_statistics_collection_[index];
     }
     
-    const TStatistics & get_left_statistics(size_type index) const
+    const TStatistics& get_left_statistics(size_type index) const
     {
         return left_statistics_collection_[index];
     }
 
-    const TStatistics & get_right_statistics(size_type index) const
+    const TStatistics& get_right_statistics(size_type index) const
     {
         return right_statistics_collection_[index];
     }
 
-    // TODO: This is not very nice.
-    void accumulate(const SplitStatistics &split_statistics)
+    void accumulate(const SplitStatistics& split_statistics)
     {
         assert(size() == split_statistics.size());
         for (size_type i = 0; i < size(); i++)
@@ -73,7 +72,7 @@ private:
     friend class boost::serialization::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive & left_statistics_collection_;
         archive & right_statistics_collection_;
@@ -83,18 +82,19 @@ private:
     friend class cereal::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive(cereal::make_nvp("left_statistics_collection", left_statistics_collection_));
         archive(cereal::make_nvp("right_statistics_collection", right_statistics_collection_));
     }
 };
 
-template <typename TSplitPoint, typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
+template <typename TSplitPointCandidates, typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
 class WeakLearner
 {
 public:
-    using SplitPointT = TSplitPoint;
+    using SplitPointCandidatesT = TSplitPointCandidates;
+    using SplitPointT = typename SplitPointCandidatesT::SplitPointT;
     using StatisticsFactoryT = TStatisticsFactory;
     using StatisticsT = typename TStatisticsFactory::value_type;
     using SampleIteratorT = TSampleIterator;
@@ -103,7 +103,7 @@ public:
 protected:
     StatisticsFactoryT statistics_factory_;
 
-    virtual scalar_type compute_information_gain(const StatisticsT &current_statistics, const StatisticsT &left_statistics, const StatisticsT &right_statistics) const
+    virtual scalar_type compute_information_gain(const StatisticsT& current_statistics, const StatisticsT& left_statistics, const StatisticsT& right_statistics) const
     {
         scalar_type current_entropy = current_statistics.entropy();
         scalar_type left_entropy = left_statistics.entropy();
@@ -115,7 +115,7 @@ protected:
     }
 
 public:
-    WeakLearner(const StatisticsFactoryT &statistics_factory)
+    WeakLearner(const StatisticsFactoryT& statistics_factory)
     : statistics_factory_(statistics_factory)
     {}
 
@@ -128,10 +128,10 @@ public:
     }
 
     // Has to be implemented by a base class
-    virtual std::vector<SplitPointT> sample_split_points(SampleIteratorT first_sample, SampleIteratorT last_sample, RandomEngineT &rnd_engine) const = 0;
+    virtual SplitPointCandidatesT sample_split_points(SampleIteratorT first_sample, SampleIteratorT last_sample, RandomEngineT& rnd_engine) const = 0;
     
     // Has to be implemented by a base class
-    virtual SplitStatistics<StatisticsT> compute_split_statistics(SampleIteratorT first_sample, SampleIteratorT last_sample, const std::vector<SplitPointT> &split_points) const = 0;
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(SampleIteratorT first_sample, SampleIteratorT last_sample, const SplitPointCandidatesT& split_points) const = 0;
 
     StatisticsT compute_statistics(SampleIteratorT first_sample, SampleIteratorT last_sample) const
     {
@@ -143,7 +143,7 @@ public:
         return statistics;
     }
 
-    virtual std::tuple<size_type, scalar_type> find_best_split_point_tuple(const StatisticsT &current_statistics, const SplitStatistics<StatisticsT> &split_statistics) const {
+    virtual std::tuple<size_type, scalar_type> find_best_split_point_tuple(const StatisticsT& current_statistics, const SplitStatistics<StatisticsT>& split_statistics) const {
         size_type best_split_point_index = 0;
         scalar_type best_information_gain = -std::numeric_limits<scalar_type>::infinity();
         for (size_type i = 0; i < split_statistics.size(); i++)
@@ -159,7 +159,7 @@ public:
         return std::make_tuple(best_split_point_index, best_information_gain);
     }
 
-    SampleIteratorT partition(SampleIteratorT first_sample, SampleIteratorT last_sample, const SplitPointT &split_point) const {
+    SampleIteratorT partition(SampleIteratorT first_sample, SampleIteratorT last_sample, const SplitPointT& split_point) const {
         SampleIteratorT it_left = first_sample;
         SampleIteratorT it_right = last_sample - 1;
         while (it_left < it_right) {

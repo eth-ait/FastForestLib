@@ -25,7 +25,7 @@ namespace ait
 {
 
 template <typename data_type = double, typename label_type = std::size_t>
-std::vector<ait::Image<>> load_images_from_matlab_file(const std::string &filename, const std::string &data_array_name = "data", const std::string &label_array_name = "label")
+std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filename, const std::string& data_array_name = "data", const std::string& label_array_name = "label")
 {
     using ImageType = ait::Image<>;
 
@@ -93,68 +93,5 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string &filena
 
     return images;
 }
-
-// TODO
-//template <typename data_type=double>
-//std::map<std::string, Eigen::Matrix<data_type, Eigen::Dynamic, Eigen::Dynamic>> load_matlab_file(const std::string &filename, const std::vector<std::string> &array_names) {
-//    using MatrixType = Eigen::Matrix<data_type, Eigen::Dynamic, Eigen::Dynamic>;
-
-//    std::map<std::string, MatrixType> array_map;
-
-//    std::cout << "Reading file '" << filename << "'" << std::endl;
-
-//    /*
-//    * Open file to get directory
-//    */
-//    MATFile *pmat = matOpen(filename.c_str(), "r");
-//    if (pmat == nullptr)
-//        throw std::runtime_error("Error opening file '" + filename + "'.");
-
-//    /*
-//    * get directory of MAT-file
-//    */
-//    int	  ndir;
-//    char **dir = matGetDir(pmat, &ndir);
-//    if (dir == NULL)
-//        throw std::runtime_error("Error reading directory of file '" + filename + "'.");
-//    else {
-//        std::cout << "Directory of '" << filename << "'" << std::endl;
-//        for (int i = 0; i < ndir; i++)
-//            std::cout << dir[i] << std::endl;
-//    }
-//    mxFree(dir);
-
-//    /* In order to use matGetNextXXX correctly, reopen file to read in headers. */
-//    if (matClose(pmat) != 0)
-//        throw std::runtime_error("Error closing file '" + filename + "'.");
-//    pmat = matOpen(filename.c_str(), "r");
-//    if (pmat == nullptr)
-//        throw std::runtime_error("Error opening file '" + filename + "'.");
-
-//    /* Get headers of all variables */
-//    std::cout << std::endl << "Examining the header for each variable:" << std::endl;
-//    for (const std::string &name : array_names) {
-//        mxArray *pa = matGetVariable(pmat, name.c_str());
-//        if (pa == nullptr)
-//            throw std::runtime_error("Error reading in file '" + filename + "'.");
-//        /* Diagnose header pa */
-//        mwSize num_of_dimensions = mxGetNumberOfDimensions(pa);
-//        std::cout << "According to its header, array '" << name << "' has " << num_of_dimensions << " dimensions" << std::endl;
-//        if (num_of_dimensions != 2)
-//            throw std::runtime_error("Can only handle arrays with a dimension of 2.");
-//        const double *data_ptr = mxGetPr(pa);
-//        MatrixType matrix(mxGetM(pa), mxGetN(pa));
-//        for (int row = 0; row < matrix.rows(); row++)
-//        for (int col = 0; col < matrix.cols(); col++)
-//            matrix(row, col) = data_ptr[row + col * matrix.rows()];
-//        mxDestroyArray(pa);
-//        array_map[name] = std::move(matrix);
-//    }
-
-//    if (matClose(pmat) != 0)
-//        throw std::runtime_error("Error closing file '" + filename + "'.");
-
-//    return array_map;
-//}
 
 }

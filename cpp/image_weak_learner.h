@@ -57,20 +57,20 @@ private:
     DataMatrixType data_matrix_;
     LabelMatrixType label_matrix_;
 
-    void check_equal_dimensions(const DataMatrixType &data_matrix, const LabelMatrixType &label_matrix) const
+    void check_equal_dimensions(const DataMatrixType& data_matrix, const LabelMatrixType& label_matrix) const
     {
         if (data_matrix.rows() != label_matrix.rows() || data_matrix.cols() != label_matrix.cols())
             throw std::runtime_error("The data and label matrix must have the same dimension.");
     }
 
 public:
-    explicit Image(const DataMatrixType &data_matrix, const LabelMatrixType &label_matrix)
+    explicit Image(const DataMatrixType& data_matrix, const LabelMatrixType& label_matrix)
     : data_matrix_(data_matrix), label_matrix_(label_matrix)
     {
         check_equal_dimensions(data_matrix, label_matrix);
     }
 
-    explicit Image(DataMatrixType &&data_matrix, LabelMatrixType &&label_matrix)
+    explicit Image(DataMatrixType&& data_matrix, LabelMatrixType&& label_matrix)
     : data_matrix_(std::move(data_matrix)), label_matrix_(std::move(label_matrix))
     {
         check_equal_dimensions(data_matrix, label_matrix);
@@ -131,7 +131,7 @@ class ImageSample
 public:
     using PixelT = TPixel;
 
-    friend void swap(ImageSample &a, ImageSample &b) {
+    friend void swap(ImageSample& a, ImageSample& b) {
         using std::swap;
         std::swap(a.image_ptr_, b.image_ptr_);
         std::swap(a.x_, b.x_);
@@ -142,7 +142,7 @@ public:
     : image_ptr_(image_ptr), x_(x), y_(y)
     {}
 
-    ImageSample(const ImageSample &other)
+    ImageSample(const ImageSample& other)
     : image_ptr_(other.image_ptr_), x_(other.x_), y_(other.y_)
     {}
 
@@ -151,7 +151,7 @@ public:
         return image_ptr_->get_label_matrix()(x_, y_);
     }
 
-    const Image<TPixel> & get_image() const
+    const Image<TPixel>& get_image() const
     {
         return *image_ptr_;
     }
@@ -224,7 +224,7 @@ public:
     ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, scalar_type threshold)
     : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold) {}
 
-    Direction evaluate(const ImageSample<TPixel> &sample) const
+    Direction evaluate(const ImageSample<TPixel>& sample) const
     {
         TPixel pixel_difference = compute_pixel_difference(sample);
         return evaluate(pixel_difference);
@@ -264,14 +264,14 @@ public:
     }
 
 private:
-    scalar_type compute_pixel_difference(const ImageSample<TPixel> &sample) const {
+    scalar_type compute_pixel_difference(const ImageSample<TPixel>& sample) const {
         TPixel pixel1_value = compute_pixel_value(sample, offset_x1_, offset_y1_);
         TPixel pixel2_value = compute_pixel_value(sample, offset_x2_, offset_y2_);
         return pixel1_value - pixel2_value;
     }
     
-    scalar_type compute_pixel_value(const ImageSample<TPixel> &sample, offset_type offset_x, offset_type offset_y) const {
-        const Image<TPixel> &image = sample.get_image();
+    scalar_type compute_pixel_value(const ImageSample<TPixel>& sample, offset_type offset_x, offset_type offset_y) const {
+        const Image<TPixel>& image = sample.get_image();
         offset_type x = sample.get_x();
         offset_type y = sample.get_y();
         TPixel pixel_value;
@@ -286,7 +286,7 @@ private:
     friend class boost::serialization::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive & offset_x1_;
         archive & offset_y1_;
@@ -299,7 +299,7 @@ private:
     friend class cereal::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive(cereal::make_nvp("offset_x1", offset_x1_));
         archive(cereal::make_nvp("offset_y1", offset_y1_));
@@ -328,13 +328,13 @@ public:
     using StatisticsT = typename BaseT::StatisticsT;
     using SplitPointT = ImageSplitPoint<TPixel>;
 
-    ImageWeakLearner(const ParametersT &parameters, const TStatisticsFactory &statistics_factory)
+    ImageWeakLearner(const ParametersT& parameters, const TStatisticsFactory& statistics_factory)
     : BaseT(statistics_factory), parameters_(parameters)
     {}
 
     ~ImageWeakLearner() {}
 
-    virtual std::vector<SplitPointT> sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine &rnd_engine) const
+    virtual std::vector<SplitPointT> sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const
     {
         std::vector<SplitPointT> split_points;
         // TODO: Seed with parameter value
@@ -380,7 +380,7 @@ public:
     }
 
     // TODO: Put SplitPoints into own datastructure to allow computing a feature value once and evaluating it on all thresholds
-    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<SplitPointT> &split_points) const
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const std::vector<SplitPointT>& split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
         SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);

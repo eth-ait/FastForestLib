@@ -24,6 +24,8 @@
 #include "csv_utils.h"
 #include "matlab_file_io.h"
 
+// TODO: Distributed bagging sample provider
+
 using PixelT = ait::pixel_type;
 using ImageT = ait::Image<PixelT>;
 using SampleT = ait::ImageSample<PixelT>;
@@ -194,7 +196,6 @@ int main(int argc, const char *argv[]) {
             }
 
             // Optionally: Compute some stats and print them.
-            // TODO
             if (print_confusion_matrix_switch.getValue())
             {
                 // Extract samples from data.
@@ -206,7 +207,6 @@ int main(int argc, const char *argv[]) {
                         for (int y=0; y < images[i].get_data_matrix().cols(); y++)
                         {
                             SampleT sample = SampleT(&images[i], x, y);
-                            //                        ImageSamplePointerT sample_ptr = std::make_shared<SampleT>(&images[i], x, y);
                             samples.push_back(sample);
                         }
                     }
@@ -223,8 +223,8 @@ int main(int argc, const char *argv[]) {
                 {
                     for (auto sample_it=samples.cbegin(); sample_it != samples.cend(); sample_it++)
                     {
-                        const auto &node_it = tree_it->cbegin() + (forest_leaf_indices[tree_it - forest.cbegin()][sample_it - samples.cbegin()]);
-                        const auto &statistics = node_it->get_statistics();
+                        const auto& node_it = tree_it->cbegin() + (forest_leaf_indices[tree_it - forest.cbegin()][sample_it - samples.cbegin()]);
+                        const auto& statistics = node_it->get_statistics();
                         auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
                         auto label = max_it - statistics.get_histogram().cbegin();
                         if (label == sample_it->get_label())
@@ -244,11 +244,11 @@ int main(int argc, const char *argv[]) {
             }
         }
     }
-    catch (const TCLAP::ArgException &e)
+    catch (const TCLAP::ArgException& e)
     {
         std::cerr << "Error parsing command line: " << e.error() << " for arg " << e.argId() << std::endl;
     }
-    catch (const std::runtime_error &error)
+    catch (const std::runtime_error& error)
     {
         std::cerr << "Runtime exception occured" << std::endl;
         std::cerr << error.what() << std::endl;

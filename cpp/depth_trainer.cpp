@@ -138,8 +138,8 @@ int main(int argc, const char *argv[]) {
             {
                 for (auto sample_it=samples.cbegin(); sample_it != samples.cend(); sample_it++)
                 {
-                    const auto &node_it = tree_it->cbegin() + (forest_leaf_indices[tree_it - forest.cbegin()][sample_it - samples.cbegin()]);
-                    const auto &statistics = node_it->get_statistics();
+                    const auto& node_it = tree_it->cbegin() + (forest_leaf_indices[tree_it - forest.cbegin()][sample_it - samples.cbegin()]);
+                    const auto& statistics = node_it->get_statistics();
                     auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
                     auto label = max_it - statistics.get_histogram().cbegin();
                     if (label == sample_it->get_label())
@@ -158,7 +158,7 @@ int main(int argc, const char *argv[]) {
             ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
         }
     }
-    catch (const std::runtime_error &error)
+    catch (const std::runtime_error& error)
     {
         std::cerr << "Runtime exception occured" << std::endl;
         std::cerr << error.what() << std::endl;

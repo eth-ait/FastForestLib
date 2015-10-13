@@ -16,7 +16,6 @@
 namespace ait
 {
 
-    // TODO: Extract into mpl_utils.h
     BOOST_MPL_HAS_XXX_TRAIT_DEF(is_saving)
     BOOST_MPL_HAS_XXX_TRAIT_DEF(is_loading)
     

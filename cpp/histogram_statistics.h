@@ -52,12 +52,12 @@ public:
     {}
 
     /// @brief Create a histogram from a vector of counts per class.
-    HistogramStatistics(const std::vector<size_type> &histogram)
+    HistogramStatistics(const std::vector<size_type>& histogram)
     : histogram_(histogram),
     num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend(), 0))
     {}
 
-    void lazy_accumulate(const TSample &sample)
+    void lazy_accumulate(const TSample& sample)
     {
         size_type label = sample.get_label();
         histogram_[label]++;
@@ -68,14 +68,14 @@ public:
         compute_num_of_samples();
     }
 
-    void accumulate(const TSample &sample)
+    void accumulate(const TSample& sample)
     {
         size_type label = sample.get_label();
         histogram_[label]++;
         num_of_samples_++;
     }
     
-    void accumulate(const HistogramStatistics &statistics)
+    void accumulate(const HistogramStatistics& statistics)
     {
         assert(histogram_.size() == statistics.histogram_.size());
         for (size_type i=0; i < statistics.histogram_.size(); i++)
@@ -115,7 +115,7 @@ public:
     }
 
     /// @brief Return the vector of counts per class.
-    const std::vector<size_type> & get_histogram() const
+    const std::vector<size_type>& get_histogram() const
     {
         return histogram_;
     }
@@ -144,7 +144,7 @@ private:
     friend class boost::serialization::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive & histogram_;
         archive & num_of_samples_;
@@ -154,7 +154,7 @@ private:
     friend class cereal::access;
     
     template <typename Archive>
-    void serialize(Archive &archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive(cereal::make_nvp("histogram", histogram_));
         archive(cereal::make_nvp("num_of_samples", num_of_samples_));

@@ -23,7 +23,7 @@ public:
         bool closed_;
         
     public:
-        explicit LogStream(std::ostream &sout, bool new_line = true)
+        explicit LogStream(std::ostream& sout, bool new_line = true)
         : sout_(&sout), new_line_(new_line), closed_(false)
         {}
 
@@ -45,7 +45,7 @@ public:
         {}
 
         template <typename T>
-        LogStream & operator<<(const T &t)
+        LogStream& operator<<(const T& t)
         {
             if (sout_ != nullptr)
             {
@@ -54,7 +54,7 @@ public:
             return *this;
         }
 
-        LogStream & operator<<(std::basic_ostream<char>& (*func)(std::basic_ostream<char> &))
+        LogStream& operator<<(std::basic_ostream<char>& (*func)(std::basic_ostream<char>& ))
         {
             func(*sout_);
             return *this;
@@ -104,14 +104,14 @@ public:
         return stream;
     }
 
-    void set_prefix(const std::string &prefix)
+    void set_prefix(const std::string& prefix)
     {
         prefix_ = prefix;
     }
     
 };
 
-static Logger & logger()
+static Logger& logger()
 {
     static Logger logger_;
     return logger_;
@@ -119,19 +119,19 @@ static Logger & logger()
 
 static Logger::LogStream log_info(bool new_line = true)
 {
-    Logger &lg = logger();
+    Logger& lg = logger();
     return lg.info(new_line);
 }
 
 static Logger::LogStream log_debug(bool new_line = true)
 {
-    Logger &lg = logger();
+    Logger& lg = logger();
     return lg.debug(new_line);
 }
     
 static Logger::LogStream log_error(bool new_line = true)
 {
-    Logger &lg = logger();
+    Logger& lg = logger();
     return lg.error(new_line);
 }
 
