@@ -23,6 +23,7 @@ def run(matlab_file, forest_file, config, profiler=None):
     sample_indices = training_data.create_sample_indices()
     weak_learner_context = image_weak_learner.WeakLearnerContext(config.weak_learner_parameters, training_data)
 
+    print("Training forest with {} samples ...".format(len(sample_indices)))
     trainer = RandomForestTrainer()
     from time import time
     start_time = time()
