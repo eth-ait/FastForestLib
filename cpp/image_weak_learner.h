@@ -13,6 +13,12 @@
 #include <random>
 #include <cmath>
 
+#ifdef SERIALIZE_WITH_BOOST
+#include <boost/serialization/vector.hpp>
+#include "serialization_utils.h"
+#endif
+#include <cereal/types/vector.hpp>
+#include <cereal/types/tuple.hpp>
 #include <Eigen/Dense>
 #include <CImg.h>
 
@@ -33,9 +39,7 @@ using label_type = std::int16_t;
 class ImageWeakLearnerParameters
 {
 public:
-//    double samples_per_image_fraction = 0.01;
-//    double bagging_fraction = 0.2;
-    double samples_per_image_fraction = 0.5;
+    double samples_per_image_fraction = 1.0;
     double bagging_fraction = 1.0;
     int num_of_thresholds = 10;
     int num_of_features = 10;
@@ -106,13 +110,24 @@ public:
         int height = data_image.height();
         int depth = data_image.depth();
         int spectrum = data_image.spectrum();
-        // TODO: Show error if this happens
         assert(width == label_image.width());
         assert(height == label_image.height());
         assert(depth == label_image.depth());
         assert(spectrum == label_image.spectrum());
         assert(depth == 1);
         assert(spectrum == 1);
+        if (width != label_image.width() || height != label_image.height())
+        {
+            throw std::runtime_error("Data and label images need to have the same size");
+        }
+        if (depth != 1 || depth != label_image.depth())
+        {
+            throw std::runtime_error("Images need to have a depth of 1 (CImg depth)");
+        }
+        if (spectrum != 1 || spectrum != label_image.spectrum())
+        {
+            throw std::runtime_error("Images need to have a spectrum of 1 (CImg spectrum)");
+        }
         DataMatrixType data(width, height);
         LabelMatrixType label(width, height);
         for (int w = 0; w < width; ++w)
@@ -140,7 +155,7 @@ public:
         std::swap(a.y_, b.y_);
     }
 
-    ImageSample(const Image<TPixel>* image_ptr, offset_type x, offset_type y)
+    explicit ImageSample(const Image<TPixel>* image_ptr, offset_type x, offset_type y)
     : image_ptr_(image_ptr), x_(x), y_(y)
     {}
 
@@ -180,7 +195,7 @@ class ImageSampleProvider : public BaggingSampleProvider<TRandomEngine, ImageSam
     using SampleT = ImageSample<TPixel>;
 
 public:
-    ImageSampleProvider(const std::vector<Image<TPixel>>& images, const ImageWeakLearnerParameters& parameters)
+    explicit ImageSampleProvider(const std::vector<Image<TPixel>>& images, const ImageWeakLearnerParameters& parameters)
     : images_(images), parameters_(parameters)
     {}
 
@@ -216,6 +231,10 @@ private:
 
 struct ImageFeature
 {
+    explicit ImageFeature()
+    : offset_x1(0), offset_y1(0), offset_x2(0), offset_y2(0)
+    {}
+
     explicit ImageFeature(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2)
     : offset_x1(offset_x1), offset_y1(offset_y1), offset_x2(offset_x2), offset_y2(offset_y2)
     {}
@@ -275,11 +294,40 @@ struct ImageFeature
     offset_type offset_y1;
     offset_type offset_x2;
     offset_type offset_y2;
+    
+private:
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+    
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive & offset_x1;
+        archive & offset_y1;
+        archive & offset_x2;
+        archive & offset_y2;
+    }
+#endif
+
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive(cereal::make_nvp("offset_x1", offset_x1));
+        archive(cereal::make_nvp("offset_y1", offset_y1));
+        archive(cereal::make_nvp("offset_x2", offset_x2));
+        archive(cereal::make_nvp("offset_y2", offset_y2));
+    }
 };
 
 struct ImageThreshold
 {
-    ImageThreshold(scalar_type threshold)
+    explicit ImageThreshold()
+    : threshold(0)
+    {}
+
+    explicit ImageThreshold(scalar_type threshold)
     : threshold(threshold)
     {}
 
@@ -289,6 +337,25 @@ struct ImageThreshold
     }
 
     scalar_type threshold;
+
+private:
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+    
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive & threshold;
+    }
+#endif
+    
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive(cereal::make_nvp("threshold", threshold));
+    }
 };
 
 template <typename TPixel = pixel_type>
@@ -296,15 +363,15 @@ class ImageSplitPoint {
 public:
     using PixelT = TPixel;
 
-    ImageSplitPoint()
+    explicit ImageSplitPoint()
     : offset_x1_(0), offset_y1_(0), offset_x2_(0), offset_y2_(0), threshold_(0)
     {}
 
-    ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, scalar_type threshold)
+    explicit ImageSplitPoint(offset_type offset_x1, offset_type offset_y1, offset_type offset_x2, offset_type offset_y2, scalar_type threshold)
     : offset_x1_(offset_x1), offset_y1_(offset_y1), offset_x2_(offset_x2), offset_y2_(offset_y2), threshold_(threshold)
     {}
 
-    ImageSplitPoint(const ImageFeature& feature, const ImageThreshold& threshold)
+    explicit ImageSplitPoint(const ImageFeature& feature, const ImageThreshold& threshold)
     : offset_x1_(feature.offset_x1), offset_y1_(feature.offset_y1), offset_x2_(feature.offset_x2), offset_y2_(feature.offset_y2), threshold_(threshold.threshold)
     {}
 
@@ -408,7 +475,7 @@ public:
     using iterator = typename std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>>::iterator;
     using const_iterator = typename std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>>::const_iterator;
 
-    ImageSplitPointCandidates()
+    explicit ImageSplitPointCandidates()
     : size_(0)
     {}
 
@@ -464,6 +531,26 @@ public:
     }
 
 private:
+#ifdef SERIALIZE_WITH_BOOST
+    friend class boost::serialization::access;
+
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive & candidates_;
+        archive & size_;
+    }
+#endif
+    
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive(cereal::make_nvp("candidates", candidates_));
+        archive(cereal::make_nvp("size", size_));
+    }
+    
     std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>> candidates_;
     size_type size_;
 };

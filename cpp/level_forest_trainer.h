@@ -367,7 +367,6 @@ public:
         {
             TreeNodeMap<SplitPointCandidatesT> split_points_batch = sample_split_points_batch(tree, node_to_sample_map, rnd_engine);
             TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
-            // Receive split statistics from rank > 0
             TreeNodeMap<SplitPointT> best_split_point_batch = find_best_split_point_batch(tree, split_points_batch, current_statistics, split_statistics_batch);
             for (auto map_it = best_split_point_batch.begin(); map_it != best_split_point_batch.end(); ++map_it)
             {

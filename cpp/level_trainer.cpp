@@ -18,6 +18,7 @@
 #include "ait.h"
 #include "logger.h"
 #include "level_forest_trainer.h"
+#include "bagging_wrapper.h"
 #include "image_weak_learner.h"
 #include "matlab_file_io.h"
 
@@ -69,24 +70,6 @@ int main(int argc, const char* argv[]) {
         ait::size_type num_of_classes = static_cast<ait::size_type>(max_label) + 1;
         ait::log_info(false) << " Found " << num_of_classes << " classes." << std::endl;
 
-        // Extract samples from data.
-        ait::log_info(false) << "Creating samples ... " << std::flush;
-        SampleContainerT samples;
-        for (auto i = 0; i < images.size(); i++) {
-            for (int x=0; x < images[i].get_data_matrix().rows(); x++)
-            {
-//                if (x % 8 != 0)
-//                    continue;
-                for (int y=0; y < images[i].get_data_matrix().cols(); y++)
-                {
-//                    int y = 0;
-                    SampleT sample = SampleT(&images[i], x, y);
-                    samples.push_back(sample);
-                }
-            }
-        }
-        ait::log_info(false) << " Done." << std::endl;
-        
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
         WeakLearnerT::ParametersT weak_learner_parameters;
@@ -135,10 +118,28 @@ int main(int argc, const char* argv[]) {
                 ait::log_info(false) << " Done." << std::endl;
             }
         }
-
+        
         // Optionally: Compute some stats and print them.
         if (print_confusion_matrix)
         {
+            // Extract samples from data.
+            ait::log_info(false) << "Creating samples for testing ... " << std::flush;
+            SampleContainerT samples;
+            for (auto i = 0; i < images.size(); i++) {
+                for (int x=0; x < images[i].get_data_matrix().rows(); x++)
+                {
+                    //                if (x % 8 != 0)
+                    //                    continue;
+                    for (int y=0; y < images[i].get_data_matrix().cols(); y++)
+                    {
+                        //                    int y = 0;
+                        SampleT sample = SampleT(&images[i], x, y);
+                        samples.push_back(sample);
+                    }
+                }
+            }
+            ait::log_info(false) << " Done." << std::endl;
+
             // For each tree extract leaf node indices for each sample.
             std::vector<std::vector<ait::size_type>> forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());
 
@@ -171,12 +172,7 @@ int main(int argc, const char* argv[]) {
     }
     catch (const TCLAP::ArgException &e)
     {
-        std::cerr << "Error parsing command line: " << e.error() << " for arg " << e.argId() << std::endl;
-    }
-    catch (const std::runtime_error &error)
-    {
-        std::cerr << "Runtime exception occured" << std::endl;
-        std::cerr << error.what() << std::endl;
+        ait::log_error() << "Error parsing command line: " << e.error() << " for arg " << e.argId();
     }
 
     return 0;

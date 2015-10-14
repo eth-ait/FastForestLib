@@ -20,6 +20,7 @@
 
 #include "ait.h"
 #include "distributed_forest_trainer.h"
+#include "bagging_wrapper.h"
 #include "image_weak_learner.h"
 #include "csv_utils.h"
 #include "matlab_file_io.h"
@@ -34,13 +35,18 @@ using RandomEngineT = std::mt19937_64;
 
 using SampleContainerT = std::vector<SampleT>;
 using SampleIteratorT= typename SampleContainerT::const_iterator;
+using SampleProviderT = ait::ImageSampleProvider<RandomEngineT>;
 
-template <typename TSampleIterator, typename TRandomEngine> using WeakLearnerAliasT
-    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, TRandomEngine, PixelT>;
+template <typename TSampleIterator> using WeakLearnerAliasT
+    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, RandomEngineT, PixelT>;
 
-using ForestTrainerT = ait::DistributedForestTrainer<WeakLearnerAliasT, SampleIteratorT, RandomEngineT>;
+template <class TSampleIterator> using ForestTrainerAliasT
+    = typename ait::DistributedForestTrainer<WeakLearnerAliasT, TSampleIterator>;
+
+using BaggingWrapperT = ait::BaggingWrapper<ForestTrainerAliasT, SampleT>;
+using ForestTrainerT = typename BaggingWrapperT::ForestTrainerT;
+//using ForestTrainerT = ait::DistributedForestTrainer<WeakLearnerAliasT, SampleIteratorT, RandomEngineT>;
 using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
-//using BaggingWrapperT = BaggingWrapper<ForestTrainerT>;
 
 namespace mpi = boost::mpi;
 
@@ -53,6 +59,8 @@ int main(int argc, const char* argv[]) {
         prefix_stream << world.rank() << "> ";
         ait::logger().set_prefix(prefix_stream.str());
         ait::log_info() << "Rank " << world.rank() << " of " << world.size() << ".";
+        
+        MPI::COMM_WORLD.Set_errhandler ( MPI::ERRORS_THROW_EXCEPTIONS );
 
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Distributed RF trainer", ' ', "0.3");
@@ -121,34 +129,14 @@ int main(int argc, const char* argv[]) {
         ait::size_type num_of_classes = static_cast<ait::size_type>(max_label) + 1;
         ait::log_info(false) << " Found " << num_of_classes << " classes." << std::endl;
 
-        // Extract samples from data.
-        ait::log_info(false) << "Creating samples ... " << std::flush;
-        SampleContainerT samples;
-        for (auto i = 0; i < images.size(); i++) {
-            if ((i - world.rank()) % world.size() == 0)
-            {
-                for (int x=0; x < images[i].get_data_matrix().rows(); x++)
-                {
-//                    if (x % 8 != 0)
-//                        continue;
-                    for (int y=0; y < images[i].get_data_matrix().cols(); y++)
-                    {
-//                        int y = 0;
-                        SampleT sample = SampleT(&images[i], x, y);
-//                        ImageSamplePointerT sample_ptr = std::make_shared<SampleT>(&images[i], x, y);
-                        samples.push_back(sample);
-                    }
-                }
-            }
-        }
-        ait::log_info(false) << " Done." << std::endl;
-
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
         WeakLearnerT::ParametersT weak_learner_parameters;
         ForestTrainerT::ParametersT training_parameters;
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(world, iwl, training_parameters);
+        SampleProviderT sample_provider(images, weak_learner_parameters);
+        BaggingWrapperT bagging_wrapper(trainer, sample_provider);
 #ifdef AIT_TESTING
         RandomEngineT rnd_engine(11);
 #else
@@ -159,7 +147,7 @@ int main(int argc, const char* argv[]) {
 
         // Train a forest and time it.
         auto start_time = std::chrono::high_resolution_clock::now();
-        ForestTrainerT::ForestT forest = trainer.train_forest(samples.cbegin(), samples.cend(), rnd_engine);
+        ForestTrainerT::ForestT forest = bagging_wrapper.train_forest(rnd_engine);
         auto stop_time = std::chrono::high_resolution_clock::now();
         auto duration = stop_time - start_time;
         auto period = std::chrono::high_resolution_clock::period();
@@ -199,8 +187,8 @@ int main(int argc, const char* argv[]) {
             if (print_confusion_matrix_switch.getValue())
             {
                 // Extract samples from data.
-                ait::log_info(false) << "Creating samples ... " << std::flush;
-                samples.clear();
+                ait::log_info(false) << "Creating samples for testing ... " << std::flush;
+                SampleContainerT samples;
                 for (auto i = 0; i < images.size(); i++) {
                     for (int x=0; x < images[i].get_data_matrix().rows(); x++)
                     {
@@ -246,13 +234,8 @@ int main(int argc, const char* argv[]) {
     }
     catch (const TCLAP::ArgException& e)
     {
-        std::cerr << "Error parsing command line: " << e.error() << " for arg " << e.argId() << std::endl;
+        ait::log_error() << "Error parsing command line: " << e.error() << " for arg " << e.argId();
     }
-    catch (const std::runtime_error& error)
-    {
-        std::cerr << "Runtime exception occured" << std::endl;
-        std::cerr << error.what() << std::endl;
-    }
-    
+
     return 0;
 }

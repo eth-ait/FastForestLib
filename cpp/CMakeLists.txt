@@ -45,7 +45,7 @@ link_directories(${MATLAB_LIB_DIR})
 
 set(headers ait.h image_weak_learner.h training.h weak_learner.h
 	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h
-	iterator_utils.h mpl_utils.h logger.h csv_utils.h bagging_wrapper.h)
+	iterator_utils.h mpl_utils.h logger.h csv_utils.h bagging_wrapper.h serialization_utils.h)
 #file(GLOB headers
 #	"*.h"
 #)

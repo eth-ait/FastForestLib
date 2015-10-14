@@ -16,6 +16,11 @@
 #include <boost/mpi/communicator.hpp>
 #include <boost/mpi/collectives.hpp>
 
+#ifdef SERIALIZE_WITH_BOOST
+#include <boost/serialization/vector.hpp>
+#include "serialization_utils.h"
+#endif
+
 #include "ait.h"
 #include "level_forest_trainer.h"
 
@@ -24,10 +29,10 @@ namespace ait
 
 namespace mpi = boost::mpi;
 
-template <template <typename, typename> class TWeakLearner, typename TSampleIterator, typename TRandomEngine = std::mt19937_64>
-class DistributedForestTrainer : public LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>
+template <template <typename> class TWeakLearner, typename TSampleIterator>
+class DistributedForestTrainer : public LevelForestTrainer<TWeakLearner, TSampleIterator>
 {
-    using BaseT = LevelForestTrainer<TWeakLearner, TSampleIterator, TRandomEngine>;
+    using BaseT = LevelForestTrainer<TWeakLearner, TSampleIterator>;
 
 public:
     struct DistributedTrainingParameters : public BaseT::ParametersT
@@ -39,7 +44,10 @@ public:
     
     using SamplePointerT = typename BaseT::SamplePointerT;
     using WeakLearnerT = typename BaseT::WeakLearnerT;
+    using RandomEngineT = typename BaseT::RandomEngineT;
+
     using SplitPointT = typename BaseT::SplitPointT;
+    using SplitPointCandidatesT = typename BaseT::SplitPointCandidatesT;
     using StatisticsT = typename BaseT::StatisticsT;
     using TreeT = typename BaseT::TreeT;
 
@@ -107,16 +115,16 @@ protected:
         broadcast_tree_node_map(tree, map, root);
     }
 
-    virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, const TreeNodeMap<std::vector<SplitPointT>>& split_points_batch) const override
+    virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, const TreeNodeMap<SplitPointCandidatesT>& split_points_batch) const override
     {
         TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = BaseT::compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
         exchange_split_statistics_batch(tree, split_statistics_batch);
         return split_statistics_batch;
     }
 
-    virtual TreeNodeMap<std::vector<SplitPointT>> sample_split_points_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, TRandomEngine& rnd_engine) const override
+    virtual TreeNodeMap<SplitPointCandidatesT> sample_split_points_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, RandomEngineT& rnd_engine) const override
     {
-        TreeNodeMap<std::vector<SplitPointT>> split_points_batch(tree);
+        TreeNodeMap<SplitPointCandidatesT> split_points_batch(tree);
         if (comm_.rank() == 0)
         {
             split_points_batch = std::move(BaseT::sample_split_points_batch(tree, node_to_sample_map, rnd_engine));
@@ -177,7 +185,7 @@ protected:
         return statistics_batch;
     }
 
-    virtual void train_tree_level(TreeT &tree, size_type current_level, TSampleIterator samples_start, TSampleIterator samples_end, TRandomEngine &rnd_engine) const override
+    virtual void train_tree_level(TreeT &tree, size_type current_level, TSampleIterator samples_start, TSampleIterator samples_end, RandomEngineT &rnd_engine) const override
     {
         BaseT::train_tree_level(tree, current_level, samples_start, samples_end, rnd_engine);
         broadcast_tree(tree);
