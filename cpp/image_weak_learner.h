@@ -39,7 +39,7 @@ using label_type = std::int16_t;
 class ImageWeakLearnerParameters
 {
 public:
-    // TODO
+    // TODO: Only for testing.
 //    double samples_per_image_fraction = 0.2;
 //    double bagging_fraction = 0.1;
     double samples_per_image_fraction = 1.0;
@@ -217,7 +217,7 @@ public:
         return image_list_.size() * image_width_ * image_height_;
     }
     
-    // TODO
+    // TODO: remove?
 //    std::vector<size_type> get_sample_bag_indices(TRandomEngine& rnd_engine) const
 //    {
 //        int samples_per_bag = std::round(parameters_.bagging_fraction * get_num_of_samples());
@@ -264,25 +264,48 @@ public:
     void load_samples(const std::vector<size_type>& indices)
     {
         log_info(false) << "Loading sample bag ...";
-        // TODO: caching of images
         clear_samples();
+        std::map<size_type, ImageT> old_image_map(std::move(image_map_));
         image_map_.clear();
-        // TODO: Keep last image and image_index and don't look again in the map if it didn't change
+        int last_image_index = -1;
+        const ImageT* last_image_ptr = nullptr;
         for (auto it = indices.cbegin(); it != indices.cend(); ++it)
         {
             size_type index = *it;
             size_type image_index = index / (image_width_ * image_height_);
-            typename std::map<size_type, ImageT>::const_iterator image_it = image_map_.find(image_index);
-            if (image_it == image_map_.cend())
+            const ImageT* image_ptr;
+            if (image_index == last_image_index)
             {
-                ImageT image = load_image(image_index);
-                image_map_[image_index] = std::move(image);
+                // Image was already used in the previous iteration.
+                image_ptr = last_image_ptr;
             }
-            const ImageT& image = image_map_.at(image_index);
+            else
+            {
+                typename std::map<size_type, ImageT>::const_iterator image_it = image_map_.find(image_index);
+                if (image_it == image_map_.cend())
+                {
+                    // Image is not yet in the image map.
+                    image_it = old_image_map.find(image_index);
+                    if (image_it != old_image_map.cend())
+                    {
+                        // Image was found in the previously used image map (cached).
+                        image_map_[image_index] = std::move(image_it->second);
+                    }
+                    else
+                    {
+                        // Load image into memory.
+                        ImageT image = load_image(image_index);
+                        image_map_[image_index] = std::move(image);
+                    }
+                }
+                image_ptr = &image_map_.at(image_index);
+            }
             size_type x = index % (image_width_ * image_height_) % image_width_;
             size_type y = index % (image_width_ * image_height_) / image_width_;
-            SampleT sample(&image, x, y);
+            SampleT sample(image_ptr, x, y);
             samples_.push_back(std::move(sample));
+            last_image_index = image_index;
+            last_image_ptr = image_ptr;
         }
         log_info(true) << "Done";
     }
@@ -320,113 +343,6 @@ private:
     std::map<size_type, ImageT> image_map_;
     std::vector<SampleT> samples_;
 };
-
-
-// TODO
-//template <typename TRandomEngine, typename TPixel = pixel_type>
-//class ImageSampleProvider : public BaggingSampleProvider<TRandomEngine, ImageSample<TPixel>>
-//{
-//    using SampleT = ImageSample<TPixel>;
-//
-//public:
-//    explicit ImageSampleProvider(const std::vector<Image<TPixel>>& images, const ImageWeakLearnerParameters& parameters)
-//    : images_(images), parameters_(parameters)
-//    {}
-//
-//    virtual std::vector<SampleT> get_sample_bag(TRandomEngine& rnd_engine) const
-//    {
-//        log_info(false) << "Creating sample bag ...";
-//        std::vector<SampleT> samples;
-//        int images_per_bag = std::round(parameters_.bagging_fraction * images_.size());
-//        std::uniform_int_distribution<> image_dist(0, images_.size() - 1);
-//        for (int i = 0; i < images_per_bag; i++)
-//        {
-//            int image_index = image_dist(rnd_engine);
-//            const Image<TPixel>& image = images_[image_index];
-//            int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image.width() * image.height());
-//            std::uniform_int_distribution<> x_dist(0, image.width() - 1);
-//            std::uniform_int_distribution<> y_dist(0, image.height() - 1);
-//            for (int j = 0; j < num_of_samples_per_image; j++)
-//            {
-//                int x = x_dist(rnd_engine);
-//                int y = y_dist(rnd_engine);
-//                ImageSample<TPixel> sample(&image, x, y);
-//                samples.push_back(std::move(sample));
-//            }
-//        }
-//        log_info(true) << "Done";
-//        return samples;
-//    }
-//    
-//
-//private:
-//    const std::vector<Image<TPixel>>& images_;
-//    const ImageWeakLearnerParameters parameters_;
-//};
-
-// TODO
-//template <typename TRandomEngine, typename TPixel = pixel_type>
-//class DistributedImageSampleProvider : public DistributedBaggingSampleProvider<TRandomEngine, ImageSample<TPixel>>
-//{
-//    using ImageT = Image<TPixel>;
-//    using SampleT = ImageSample<TPixel>;
-//    
-//public:
-//    explicit DistributedImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ImageWeakLearnerParameters& parameters)
-//    : image_list_(image_list), parameters_(parameters)
-//    {
-//        // TODO: Assuming all images have same dimensions. Is there a better way?
-//        ImageT image = load_image(0);
-//        width_ = image.width();
-//        height_ = image.height();
-//    }
-//    
-//    virtual size_type get_num_of_samples() const
-//    {
-//        return static_cast<size_type>(image_list_.size() * parameters_.samples_per_image_fraction * width_ * height_);
-//    }
-//
-//    virtual std::vector<size_type> get_sample_bag_indices(TRandomEngine& rnd_engine) const
-//    {
-//        std::vector<size_type> bag_indices;
-//        // TODO: Implement
-//        return bag_indices;
-//    }
-//
-//    virtual std::vector<SampleT> get_samples(const std::vector<size_type>& indices) const
-//    {
-//        std::vector<SampleT> samples;
-//        for (auto it = indices.begin(); it != indices.end(); ++it)
-//        {
-//            samples.push_back(std::move(get_sample(*it)));
-//        }
-//        return samples;
-//    };
-//
-//    virtual SampleT get_sample(size_type index) const
-//    {
-//        // TODO: How to memory manage images
-//        ImageT img = load_image(0);
-//        SampleT sample(&img, 0, 0);
-//        // TODO: Implement
-//        return sample;
-//    };
-//    
-//private:
-//    ImageT load_image(size_type index) const
-//    {
-//        const std::tuple<std::string, std::string>& image_files = image_list_[index];
-//        const std::string& data_file = std::get<0>(image_files);
-//        const std::string& label_file = std::get<1>(image_files);
-//        ImageT image = ImageT::load_from_files(data_file, label_file);
-//        return image;
-//    }
-//
-//    const std::vector<std::tuple<std::string, std::string>>& image_list_;
-//    const ImageWeakLearnerParameters parameters_;
-//    int width_;
-//    int height_;
-//};
 
 struct ImageFeature
 {
@@ -777,8 +693,6 @@ public:
     virtual SplitPointCandidatesT sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const
     {
         SplitPointCandidatesT split_points;
-        // TODO: Seed with parameter value
-        // TOOD: Image width?
 
         // TODO: Fix discrete offset distributions
         offset_type offset_x_range_low = parameters_.feature_offset_x_range_low;
@@ -821,7 +735,6 @@ public:
         return split_points;
     }
 
-    // TODO: Put SplitPoints into own datastructure to allow computing a feature value once and evaluating it on all thresholds
     virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
