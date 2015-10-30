@@ -45,7 +45,8 @@ link_directories(${MATLAB_LIB_DIR})
 
 set(headers ait.h image_weak_learner.h training.h weak_learner.h
 	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h
-	iterator_utils.h mpl_utils.h logger.h csv_utils.h bagging_wrapper.h serialization_utils.h)
+	iterator_utils.h mpl_utils.h logger.h csv_utils.h serialization_utils.h
+	bagging_wrapper.h)
 #file(GLOB headers
 #	"*.h"
 #)
@@ -63,13 +64,17 @@ add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_tr
 target_link_libraries(depth_forest_trainer ${MATLAB_LIBRARIES} ${PNG_LIBRARIES})
 target_compile_features(depth_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 
-add_executable(level_forest_trainer level_trainer.cpp ${headers} level_forest_trainer.h)
+add_executable(level_forest_trainer level_trainer.cpp ${headers} level_forest_trainer.h bagging_wrapper.h)
 target_compile_definitions(level_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
-target_link_libraries(level_forest_trainer ${MATLAB_LIBRARIES} ${PNG_LIBRARIES})
+target_link_libraries(level_forest_trainer ${PNG_LIBRARIES})
 target_compile_features(level_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+if(${UNIX})
+	target_link_libraries(depth_forest_trainer ${X11_LIBRARIES})
+	target_link_libraries(level_forest_trainer ${Boost_LIBRARIES} ${X11_LIBRARIES})
+endif()
 
 if(${UNIX})
-	add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h)
+	add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h distributed_bagging_wrapper.h)
 	target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
 	target_compile_options(dist_forest_trainer PRIVATE ${MPI_COMPILE_FLAGS})
 	target_link_libraries(dist_forest_trainer ${Boost_LIBRARIES} ${MPI_LIBRARIES} ${MPI_LINK_FLAGS} ${X11_LIBRARIES} ${PNG_LIBRARIES})

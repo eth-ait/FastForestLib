@@ -11,63 +11,57 @@
 namespace ait
 {
 
-    /// @brief A provider for sample bags that allows bagging of meta-samples (i.e. images).
-    template <typename TRandomEngine, typename SampleT>
-    class BaggingSampleProvider
+/// @brief A wrapper for a forest trainer that allows bagging of the samples before training.
+template <template <typename> class TForestTrainer, typename TSampleProvider>
+class BaggingWrapper
+{
+public:
+    using SampleProviderT = TSampleProvider;
+    using SampleIteratorT = typename SampleProviderT::SampleIteratorT;
+    using ForestTrainerT = TForestTrainer<SampleIteratorT>;
+    using ForestT = typename ForestTrainerT::ForestT;
+    using TreeT = typename ForestTrainerT::TreeT;
+    using RandomEngineT = typename ForestTrainerT::RandomEngineT;
+
+    BaggingWrapper(const ForestTrainerT& trainer, SampleProviderT& provider)
+    : trainer_(trainer), provider_(provider)
+    {}
+
+    TreeT train_tree(RandomEngineT& rnd_engine) const
     {
-    public:
-        virtual std::vector<SampleT> get_sample_bag(TRandomEngine& rnd_engine) const = 0;
-    };
+        provider_.load_samples(rnd_engine);
+        SampleIteratorT samples_start = provider_.get_samples_begin();
+        SampleIteratorT samples_end = provider_.get_samples_end();
+        return  trainer_.train_tree(samples_start, samples_end);
+    }
 
-    /// @brief A wrapper for a forest trainer that allows bagging of the samples before training.
-    template <template <typename> class TForestTrainer, typename SampleT>
-    class BaggingWrapper
+    TreeT train_tree() const
     {
-    public:
-        using SampleIteratorT = typename std::vector<SampleT>::const_iterator;
-        using ForestTrainerT = TForestTrainer<SampleIteratorT>;
-        using ForestT = typename ForestTrainerT::ForestT;
-        using TreeT = typename ForestTrainerT::TreeT;
-        using RandomEngineT = typename ForestTrainerT::RandomEngineT;
+        RandomEngineT rnd_engine;
+        return train_tree(rnd_engine);
+    }
 
-        BaggingWrapper(const ForestTrainerT& trainer, const BaggingSampleProvider<RandomEngineT, SampleT>& provider)
-        : trainer_(trainer), provider_(provider)
-        {}
-
-        TreeT train_tree(RandomEngineT& rnd_engine) const
+    ForestT train_forest(RandomEngineT& rnd_engine) const
+    {
+        ForestT forest;
+        for (int i=0; i < trainer_.get_parameters().num_of_trees; i++)
         {
-            std::vector<SampleT> samples = provider_.get_sample_bag(rnd_engine);
-            SampleIteratorT samples_start = samples.cbegin();
-            SampleIteratorT samples_end = samples.cend();
-            return  trainer_.train_tree(samples_start, samples_end);
+            TreeT tree = train_tree(rnd_engine);
+            forest.add_tree(std::move(tree));
         }
+        return forest;
+    }
 
-        TreeT train_tree() const
-        {
-            RandomEngineT rnd_engine;
-            return train_tree(rnd_engine);
-        }
+    ForestT train_forest() const
+    {
+        RandomEngineT rnd_engine;
+        return train_forest(rnd_engine);
+    }
 
-        ForestT train_forest(RandomEngineT& rnd_engine) const
-        {
-            ForestT forest;
-            for (int i=0; i < trainer_.get_parameters().num_of_trees; i++)
-            {
-                TreeT tree = train_tree(rnd_engine);
-                forest.add_tree(std::move(tree));
-            }
-            return forest;
-        }
+private:
+    const ForestTrainerT& trainer_;
+    SampleProviderT& provider_;
+};
 
-        ForestT train_forest() const
-        {
-            RandomEngineT rnd_engine;
-            return train_forest(rnd_engine);
-        }
-
-    private:
-        const ForestTrainerT& trainer_;
-        const BaggingSampleProvider<RandomEngineT, SampleT>& provider_;
-    };
 
 }

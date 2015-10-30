@@ -85,7 +85,7 @@ int main(int argc, const char* argv[]) {
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);
 #ifdef AIT_TESTING
-        RandomEngineT rnd_engine(11);
+        RandomEngineT rnd_engine(13);
 #else
         std::random_device rnd_device;
         ait::log_info() << "rnd(): " << rnd_device();
@@ -128,6 +128,23 @@ int main(int argc, const char* argv[]) {
         // Optionally: Compute some stats and print them.
         if (print_confusion_matrix)
         {
+            std::vector<ait::size_type> sample_counts(num_of_classes, 0);
+            for (auto sample_it = samples.cbegin(); sample_it != samples.cend(); sample_it++)
+            {
+                ++sample_counts[sample_it->get_label()];
+            }
+            auto logger = ait::log_info(true);
+            logger << "Sample counts>> ";
+            for (int c = 0; c < num_of_classes; ++c)
+            {
+                if (c > 0)
+                {
+                    logger << ", ";
+                }
+                logger << "class " << c << ": " << sample_counts[c];
+            }
+            logger.close();
+
             // For each tree extract leaf node indices for each sample.
             std::vector<std::vector<ait::size_type>> forest_leaf_indices = forest.evaluate(samples.cbegin(), samples.cend());
             

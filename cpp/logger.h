@@ -111,25 +111,25 @@ public:
     
 };
 
-static Logger& logger()
+inline Logger& logger()
 {
     static Logger logger_;
     return logger_;
 }
 
-static Logger::LogStream log_info(bool new_line = true)
+inline Logger::LogStream log_info(bool new_line = true)
 {
     Logger& lg = logger();
     return lg.info(new_line);
 }
 
-static Logger::LogStream log_debug(bool new_line = true)
+inline Logger::LogStream log_debug(bool new_line = true)
 {
     Logger& lg = logger();
     return lg.debug(new_line);
 }
     
-static Logger::LogStream log_error(bool new_line = true)
+inline Logger::LogStream log_error(bool new_line = true)
 {
     Logger& lg = logger();
     return lg.error(new_line);

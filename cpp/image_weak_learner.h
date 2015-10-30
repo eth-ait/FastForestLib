@@ -39,6 +39,9 @@ using label_type = std::int16_t;
 class ImageWeakLearnerParameters
 {
 public:
+    // TODO
+//    double samples_per_image_fraction = 0.2;
+//    double bagging_fraction = 0.1;
     double samples_per_image_fraction = 1.0;
     double bagging_fraction = 1.0;
     int num_of_thresholds = 10;
@@ -70,6 +73,10 @@ private:
     }
 
 public:
+    explicit Image()
+    {
+    }
+
     explicit Image(const DataMatrixType& data_matrix, const LabelMatrixType& label_matrix)
     : data_matrix_(data_matrix), label_matrix_(label_matrix)
     {
@@ -190,44 +197,236 @@ private:
 };
 
 template <typename TRandomEngine, typename TPixel = pixel_type>
-class ImageSampleProvider : public BaggingSampleProvider<TRandomEngine, ImageSample<TPixel>>
+class ImageSampleProvider
 {
-    using SampleT = ImageSample<TPixel>;
-
 public:
-    explicit ImageSampleProvider(const std::vector<Image<TPixel>>& images, const ImageWeakLearnerParameters& parameters)
-    : images_(images), parameters_(parameters)
-    {}
+    using SampleT = ImageSample<TPixel>;
+    using SampleIteratorT = typename std::vector<SampleT>::const_iterator;
 
-    virtual std::vector<SampleT> get_sample_bag(TRandomEngine& rnd_engine) const
+    explicit ImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ImageWeakLearnerParameters& parameters)
+    : image_list_(image_list), parameters_(parameters)
     {
-        log_info(false) << "Creating sample bag ...";
-        std::vector<SampleT> samples;
-        int images_per_bag = std::round(parameters_.bagging_fraction * images_.size());
-        std::uniform_int_distribution<> image_dist(0, images_.size() - 1);
-        for (int i = 0; i < images_per_bag; i++)
+        assert(image_list.size() > 0);
+        ImageT image = load_image(0);
+        image_width_ = image.width();
+        image_height_ = image.height();
+    }
+    
+    size_type get_num_of_samples() const
+    {
+        return image_list_.size() * image_width_ * image_height_;
+    }
+    
+    // TODO
+//    std::vector<size_type> get_sample_bag_indices(TRandomEngine& rnd_engine) const
+//    {
+//        int samples_per_bag = std::round(parameters_.bagging_fraction * get_num_of_samples());
+//        std::vector<size_type> indices(samples_per_bag);
+//        std::uniform_int_distribution<> dist(0, get_num_of_samples() - 1);
+//        for (int i = 0; i < samples_per_bag; i++)
+//        {
+//            int index = dist(rnd_engine);
+//            indices[i] = index;
+//        }
+//        return indices;
+//    }
+
+    // TODO
+    std::vector<size_type> get_sample_bag_indices(TRandomEngine& rnd_engine) const
+    {
+        int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width_ * image_height_);
+        int num_of_images_per_bag = std::round(parameters_.bagging_fraction * image_list_.size());
+        int samples_per_bag = num_of_images_per_bag * num_of_samples_per_image;
+        std::vector<size_type> indices(samples_per_bag);
+        std::uniform_int_distribution<> image_dist(0, image_list_.size() - 1);
+        std::uniform_int_distribution<> x_dist(0, image_width_ - 1);
+        std::uniform_int_distribution<> y_dist(0, image_height_ - 1);
+        for (int i = 0; i < num_of_images_per_bag; i++)
         {
             int image_index = image_dist(rnd_engine);
-            const Image<TPixel>& image = images_[image_index];
-            int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image.width() * image.height());
-            std::uniform_int_distribution<> x_dist(0, image.width() - 1);
-            std::uniform_int_distribution<> y_dist(0, image.height() - 1);
             for (int j = 0; j < num_of_samples_per_image; j++)
             {
                 int x = x_dist(rnd_engine);
                 int y = y_dist(rnd_engine);
-                ImageSample<TPixel> sample(&image, x, y);
-                samples.push_back(std::move(sample));
+                size_type index = image_index * image_width_ * image_height_ + y * image_width_ + x;
+                indices[i * num_of_samples_per_image + j] = index;
             }
         }
+        return indices;
+    }
+
+    void load_samples(TRandomEngine& rnd_engine)
+    {
+        std::vector<size_type> indices = get_sample_bag_indices(rnd_engine);
+        load_samples(indices);
+    }
+    
+    void load_samples(const std::vector<size_type>& indices)
+    {
+        log_info(false) << "Loading sample bag ...";
+        // TODO: caching of images
+        clear_samples();
+        image_map_.clear();
+        // TODO: Keep last image and image_index and don't look again in the map if it didn't change
+        for (auto it = indices.cbegin(); it != indices.cend(); ++it)
+        {
+            size_type index = *it;
+            size_type image_index = index / (image_width_ * image_height_);
+            typename std::map<size_type, ImageT>::const_iterator image_it = image_map_.find(image_index);
+            if (image_it == image_map_.cend())
+            {
+                ImageT image = load_image(image_index);
+                image_map_[image_index] = std::move(image);
+            }
+            const ImageT& image = image_map_.at(image_index);
+            size_type x = index % (image_width_ * image_height_) % image_width_;
+            size_type y = index % (image_width_ * image_height_) / image_width_;
+            SampleT sample(&image, x, y);
+            samples_.push_back(std::move(sample));
+        }
         log_info(true) << "Done";
-        return samples;
+    }
+    
+
+    void clear_samples()
+    {
+        samples_.clear();
+    }
+    
+    SampleIteratorT get_samples_begin() const
+    {
+        return samples_.cbegin();
+    }
+
+    SampleIteratorT get_samples_end() const
+    {
+        return samples_.cend();
     }
 
 private:
-    const std::vector<Image<TPixel>>& images_;
+    using ImageT = Image<TPixel>;
+    ImageT load_image(size_type index) const
+    {
+        const std::string& data_path = std::get<0>(image_list_[index]);
+        const std::string& label_path = std::get<1>(image_list_[index]);
+        ImageT image = ImageT::load_from_files(data_path, label_path);
+        return image;
+    }
+
+    size_type image_width_;
+    size_type image_height_;
+    const std::vector<std::tuple<std::string, std::string>> image_list_;
     const ImageWeakLearnerParameters parameters_;
+    std::map<size_type, ImageT> image_map_;
+    std::vector<SampleT> samples_;
 };
+
+
+// TODO
+//template <typename TRandomEngine, typename TPixel = pixel_type>
+//class ImageSampleProvider : public BaggingSampleProvider<TRandomEngine, ImageSample<TPixel>>
+//{
+//    using SampleT = ImageSample<TPixel>;
+//
+//public:
+//    explicit ImageSampleProvider(const std::vector<Image<TPixel>>& images, const ImageWeakLearnerParameters& parameters)
+//    : images_(images), parameters_(parameters)
+//    {}
+//
+//    virtual std::vector<SampleT> get_sample_bag(TRandomEngine& rnd_engine) const
+//    {
+//        log_info(false) << "Creating sample bag ...";
+//        std::vector<SampleT> samples;
+//        int images_per_bag = std::round(parameters_.bagging_fraction * images_.size());
+//        std::uniform_int_distribution<> image_dist(0, images_.size() - 1);
+//        for (int i = 0; i < images_per_bag; i++)
+//        {
+//            int image_index = image_dist(rnd_engine);
+//            const Image<TPixel>& image = images_[image_index];
+//            int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image.width() * image.height());
+//            std::uniform_int_distribution<> x_dist(0, image.width() - 1);
+//            std::uniform_int_distribution<> y_dist(0, image.height() - 1);
+//            for (int j = 0; j < num_of_samples_per_image; j++)
+//            {
+//                int x = x_dist(rnd_engine);
+//                int y = y_dist(rnd_engine);
+//                ImageSample<TPixel> sample(&image, x, y);
+//                samples.push_back(std::move(sample));
+//            }
+//        }
+//        log_info(true) << "Done";
+//        return samples;
+//    }
+//    
+//
+//private:
+//    const std::vector<Image<TPixel>>& images_;
+//    const ImageWeakLearnerParameters parameters_;
+//};
+
+// TODO
+//template <typename TRandomEngine, typename TPixel = pixel_type>
+//class DistributedImageSampleProvider : public DistributedBaggingSampleProvider<TRandomEngine, ImageSample<TPixel>>
+//{
+//    using ImageT = Image<TPixel>;
+//    using SampleT = ImageSample<TPixel>;
+//    
+//public:
+//    explicit DistributedImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ImageWeakLearnerParameters& parameters)
+//    : image_list_(image_list), parameters_(parameters)
+//    {
+//        // TODO: Assuming all images have same dimensions. Is there a better way?
+//        ImageT image = load_image(0);
+//        width_ = image.width();
+//        height_ = image.height();
+//    }
+//    
+//    virtual size_type get_num_of_samples() const
+//    {
+//        return static_cast<size_type>(image_list_.size() * parameters_.samples_per_image_fraction * width_ * height_);
+//    }
+//
+//    virtual std::vector<size_type> get_sample_bag_indices(TRandomEngine& rnd_engine) const
+//    {
+//        std::vector<size_type> bag_indices;
+//        // TODO: Implement
+//        return bag_indices;
+//    }
+//
+//    virtual std::vector<SampleT> get_samples(const std::vector<size_type>& indices) const
+//    {
+//        std::vector<SampleT> samples;
+//        for (auto it = indices.begin(); it != indices.end(); ++it)
+//        {
+//            samples.push_back(std::move(get_sample(*it)));
+//        }
+//        return samples;
+//    };
+//
+//    virtual SampleT get_sample(size_type index) const
+//    {
+//        // TODO: How to memory manage images
+//        ImageT img = load_image(0);
+//        SampleT sample(&img, 0, 0);
+//        // TODO: Implement
+//        return sample;
+//    };
+//    
+//private:
+//    ImageT load_image(size_type index) const
+//    {
+//        const std::tuple<std::string, std::string>& image_files = image_list_[index];
+//        const std::string& data_file = std::get<0>(image_files);
+//        const std::string& label_file = std::get<1>(image_files);
+//        ImageT image = ImageT::load_from_files(data_file, label_file);
+//        return image;
+//    }
+//
+//    const std::vector<std::tuple<std::string, std::string>>& image_list_;
+//    const ImageWeakLearnerParameters parameters_;
+//    int width_;
+//    int height_;
+//};
 
 struct ImageFeature
 {
