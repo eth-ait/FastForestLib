@@ -12,7 +12,7 @@ macro(_cimg_check_path)
   endif()
 
   if(NOT CIMG_OK)
-    message(STATUS "Cereal include path was specified but not CImg.h file was found: ${CIMG_INCLUDE_DIR}")
+    message(STATUS "CImg include path was specified but not CImg.h file was found: ${CIMG_INCLUDE_DIR}")
   endif()
 
 endmacro()
@@ -32,6 +32,6 @@ if(CIMG_INCLUDE_DIR)
 endif()
 
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(Cereal DEFAULT_MSG CIMG_INCLUDE_DIR CIMG_OK)
+find_package_handle_standard_args(CImg DEFAULT_MSG CIMG_INCLUDE_DIR CIMG_OK)
 
 mark_as_advanced(CIMG_INCLUDE_DIR)

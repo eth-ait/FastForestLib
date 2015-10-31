@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 2.8.11)
+cmake_minimum_required(VERSION 3.1.3)
 
 project("DistRandomForest")
 
@@ -24,6 +24,11 @@ find_package(MPI REQUIRED)
 find_package(X11 REQUIRED)
 find_package(PNG REQUIRED)
 
+# Workaround for libpng problem on some platforms
+if(PNG_SKIP_SETJMP_CHECK)
+	add_definitions(-DPNG_SKIP_SETJMP_CHECK)
+endif()
+
 if(!${WIN32} AND !${APPLE})
 	find_package(MATLAB)
 	set(MATLAB_LIB_DIR ${MATLAB_MX_LIBRARY})
@@ -32,6 +37,7 @@ endif(!${WIN32} AND !${APPLE})
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${MATLAB_INCLUDE_DIR})
+include_directories(${TCLAP_INCLUDE_DIR})
 include_directories(${CEREAL_INCLUDE_DIR})
 include_directories(${MPI_INCLUDE_PATH})
 include_directories(${CIMG_INCLUDE_DIR})
