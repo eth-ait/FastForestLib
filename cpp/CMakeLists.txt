@@ -104,7 +104,6 @@ if(${UNIX})
 	target_link_libraries(dist_forest_trainer ${Boost_LIBRARIES} ${MPI_LIBRARIES} ${MPI_LINK_FLAGS} ${X11_LIBRARIES} ${PNG_LIBRARIES})
 	target_compile_features(dist_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 endif()
-message(${MPI_COMPILE_FLAGS})
 
 #set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
