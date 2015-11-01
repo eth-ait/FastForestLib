@@ -21,11 +21,18 @@ public:
         std::ostream* sout_;
         bool new_line_;
         bool closed_;
+        bool allocated_;
         
     public:
+        explicit LogStream()
+        : sout_(new std::ofstream()), new_line_(false), closed_(true), allocated_(true)
+        {
+        }
+
         explicit LogStream(std::ostream& sout, bool new_line = true)
-        : sout_(&sout), new_line_(new_line), closed_(false)
-        {}
+        : sout_(&sout), new_line_(new_line), closed_(false), allocated_(false)
+        {
+        }
 
         ~LogStream()
         {
@@ -33,16 +40,16 @@ public:
             {
                 close();
             }
+            if (allocated_)
+            {
+                delete sout_;
+            }
         }
 
         operator std::basic_ostream<char>&()
         {
             return *sout_;
         }
-
-        explicit LogStream()
-        : sout_(nullptr)
-        {}
 
         template <typename T>
         LogStream& operator<<(const T& t)
@@ -62,7 +69,10 @@ public:
 
         void flush()
         {
-            sout_->flush();
+            if (sout_ != nullptr)
+            {
+                sout_->flush();
+            }
         }
 
         void close()
