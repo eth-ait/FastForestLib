@@ -52,6 +52,7 @@ public:
     offset_type feature_offset_y_range_high = 15;
     scalar_type threshold_range_low = -300.0;
     scalar_type threshold_range_high = +300;
+    label_type background_label = -1;
 };
 
 template <typename TPixel = pixel_type>
@@ -202,7 +203,7 @@ class ImageSampleProvider
 public:
     using SampleT = ImageSample<TPixel>;
     using SampleIteratorT = typename std::vector<SampleT>::const_iterator;
-    using SplitSampleBagItemT = std::vector<size_type>;
+    using SampleBagBatchT = std::vector<size_type>;
     using ImageT = Image<TPixel>;
 
     explicit ImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ImageWeakLearnerParameters& parameters)
@@ -214,7 +215,7 @@ public:
         image_height_ = image.height();
     }
 
-    std::vector<SplitSampleBagItemT> compute_split_sample_bag(size_type num_of_splits, TRandomEngine& rnd_engine) const
+    std::vector<SampleBagBatchT> compute_sample_bag_batches(size_type num_of_batches, TRandomEngine& rnd_engine) const
 	{
         int num_of_images_per_bag = std::round(parameters_.bagging_fraction * image_list_.size());
         std::vector<size_type> image_indices(num_of_images_per_bag);
@@ -225,26 +226,25 @@ public:
 			image_indices[i] = image_index;
         }
         std::sort(image_indices.begin(), image_indices.end());
-        std::vector<SplitSampleBagItemT> split_sample_bag(num_of_splits);
-        for (int i = 0; i < num_of_splits; i++)
+        std::vector<SampleBagBatchT> split_sample_bag(num_of_batches);
+        for (int i = 0; i < num_of_batches; i++)
         {
-            size_type index_start = compute_split_start_index(i, num_of_splits, num_of_images_per_bag);
-            size_type index_end = compute_split_start_index(i + 1, num_of_splits, num_of_images_per_bag);
+            size_type index_start = compute_batch_start_index(i, num_of_batches, num_of_images_per_bag);
+            size_type index_end = compute_batch_start_index(i + 1, num_of_batches, num_of_images_per_bag);
             auto bag_it_start = image_indices.cbegin() + index_start;
             auto bag_it_end = image_indices.cbegin() + index_end;
-            SplitSampleBagItemT split_image_indices(bag_it_start, bag_it_end);
-        	split_sample_bag[i] = std::move(split_image_indices);
+            SampleBagBatchT image_indices_batch(bag_it_start, bag_it_end);
+        	split_sample_bag[i] = std::move(image_indices_batch);
         }
         return split_sample_bag;
     }
 
-    void load_split_samples(const SplitSampleBagItemT& split_sample_item, TRandomEngine& rnd_engine)
+    void load_sample_batch(const SampleBagBatchT& split_sample_item, TRandomEngine& rnd_engine)
     {
         log_info(false) << "Loading split sample bag ...";
         clear_samples();
         std::map<size_type, ImageT> old_image_map(std::move(image_map_));
         image_map_.clear();
-        int last_image_index = -1;
         for (auto it = split_sample_item.cbegin(); it != split_sample_item.cend(); ++it)
         {
             size_type image_index = *it;
@@ -263,12 +263,17 @@ public:
 			int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width_ * image_height_);
 			std::uniform_int_distribution<> x_dist(0, image_width_ - 1);
 			std::uniform_int_distribution<> y_dist(0, image_height_ - 1);
-			for (int i = 0; i < num_of_samples_per_image; i++)
+			int accepted_count = 0;
+			while (accepted_count < num_of_samples_per_image)
 			{
 				int x = x_dist(rnd_engine);
 				int y = y_dist(rnd_engine);
 				SampleT sample(image_ptr, x, y);
-				samples_.push_back(std::move(sample));
+				if (sample.get_label() != parameters_.background_label)
+				{
+					samples_.push_back(std::move(sample));
+					++accepted_count;
+				}
 			}
 		}
 		else
@@ -278,49 +283,19 @@ public:
 				for (int y = 0; y < image_height_; ++y)
 				{
 					SampleT sample(image_ptr, x, y);
-					samples_.push_back(std::move(sample));
+					if (sample.get_label() != parameters_.background_label)
+					{
+						samples_.push_back(std::move(sample));
+					}
 				}
 			}
 		}
     }
 
-    void load_samples(TRandomEngine& rnd_engine)
+    void load_sample_bag(TRandomEngine& rnd_engine)
     {
-        std::vector<size_type> indices = get_sample_bag_indices(rnd_engine);
-        load_samples(indices);
-    }
-    
-    void load_samples(const std::vector<size_type>& indices)
-    {
-        log_info(false) << "Loading sample bag ...";
-        clear_samples();
-        std::map<size_type, ImageT> old_image_map(std::move(image_map_));
-        image_map_.clear();
-        int last_image_index = -1;
-        const ImageT* last_image_ptr = nullptr;
-        for (auto it = indices.cbegin(); it != indices.cend(); ++it)
-        {
-            size_type index = *it;
-            size_type image_index = index / (image_width_ * image_height_);
-            const ImageT* image_ptr;
-            if (image_index == last_image_index)
-            {
-                // Image was already used in the previous iteration.
-                image_ptr = last_image_ptr;
-            }
-            else
-            {
-                ensure_image_is_loaded(image_index, old_image_map);
-                image_ptr = &image_map_.at(image_index);
-            }
-            size_type x = index % (image_width_ * image_height_) % image_width_;
-            size_type y = index % (image_width_ * image_height_) / image_width_;
-            SampleT sample(image_ptr, x, y);
-            samples_.push_back(std::move(sample));
-            last_image_index = image_index;
-            last_image_ptr = image_ptr;
-        }
-        log_info(true) << "Done";
+    	std::vector<SampleBagBatchT> sample_bag_batches = compute_sample_bag_batches(1, rnd_engine);
+		load_sample_batch(sample_bag_batches[0], rnd_engine);
     }
 
     void clear_image_cache()
@@ -384,32 +359,9 @@ private:
         return image;
     }
 
-    std::vector<size_type> get_sample_bag_indices(TRandomEngine& rnd_engine) const
+    size_type compute_batch_start_index(size_type batch_index, size_type num_of_batches, size_type batch_size) const
     {
-        int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width_ * image_height_);
-        int num_of_images_per_bag = std::round(parameters_.bagging_fraction * image_list_.size());
-        int samples_per_bag = num_of_images_per_bag * num_of_samples_per_image;
-        std::vector<size_type> indices(samples_per_bag);
-        std::uniform_int_distribution<> image_dist(0, image_list_.size() - 1);
-        std::uniform_int_distribution<> x_dist(0, image_width_ - 1);
-        std::uniform_int_distribution<> y_dist(0, image_height_ - 1);
-        for (int i = 0; i < num_of_images_per_bag; i++)
-        {
-            int image_index = image_dist(rnd_engine);
-            for (int j = 0; j < num_of_samples_per_image; j++)
-            {
-                int x = x_dist(rnd_engine);
-                int y = y_dist(rnd_engine);
-                size_type index = image_index * image_width_ * image_height_ + y * image_width_ + x;
-                indices[i * num_of_samples_per_image + j] = index;
-            }
-        }
-        return indices;
-    }
-
-    size_type compute_split_start_index(size_type split_index, size_type num_of_splits, size_type num_of_items) const
-    {
-        return static_cast<size_type>(split_index * num_of_items / static_cast<double>(num_of_splits));
+        return static_cast<size_type>(batch_index * batch_size / static_cast<double>(num_of_batches));
     }
 
     size_type image_width_;

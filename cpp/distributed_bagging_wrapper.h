@@ -35,7 +35,7 @@ class DistributedBaggingWrapper
 {
 public:
     using SampleProviderT = TSampleProvider;
-    using SplitSampleBagItemT = typename SampleProviderT::SplitSampleBagItemT;
+    using SampleBagBatchT = typename SampleProviderT::SampleBagBatchT;
     using SampleIteratorT = typename SampleProviderT::SampleIteratorT;
     using ForestTrainerT = TForestTrainer<SampleIteratorT>;
     using ForestT = typename ForestTrainerT::ForestT;
@@ -48,13 +48,13 @@ public:
 
     TreeT train_tree(RandomEngineT& rnd_engine) const
     {
-    	std::vector<SplitSampleBagItemT> split_sample_bag;
+    	std::vector<SampleBagBatchT> sample_bag_batches;
     	if (comm_.rank() == 0)
     	{
-    		split_sample_bag = provider_.compute_split_sample_bag(comm_.size(), rnd_engine);
+    		sample_bag_batches = provider_.compute_sample_bag_batches(comm_.size(), rnd_engine);
     	}
-    	SplitSampleBagItemT split_sample = scatter_vector(split_sample_bag);
-		provider_.load_split_samples(split_sample, rnd_engine);
+    	SampleBagBatchT sample_batch = scatter_vector(sample_bag_batches);
+		provider_.load_sample_batch(sample_batch, rnd_engine);
         SampleIteratorT samples_start = provider_.get_samples_begin();
         SampleIteratorT samples_end = provider_.get_samples_end();
         // Train tree.

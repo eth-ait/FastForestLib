@@ -29,7 +29,7 @@ public:
 
     TreeT train_tree(RandomEngineT& rnd_engine) const
     {
-        provider_.load_samples(rnd_engine);
+        provider_.load_sample_bag(rnd_engine);
         SampleIteratorT samples_start = provider_.get_samples_begin();
         SampleIteratorT samples_end = provider_.get_samples_end();
         return  trainer_.train_tree(samples_start, samples_end);
