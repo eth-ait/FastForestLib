@@ -63,11 +63,11 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string", cmd);
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string", cmd);
-        TCLAP::SwitchArg print_confusion_matrix_switch("c", "conf-matrix", "Print confusion matrix", cmd, true);
+        TCLAP::SwitchArg hide_confusion_matrix_switch("c", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
         cmd.parse(argc, argv);
 
         const int num_of_classes = num_of_classes_arg.getValue();
-        const bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
+        const bool print_confusion_matrix = !hide_confusion_matrix_switch.getValue();
         const std::string image_list_file = image_list_file_arg.getValue();
 
         // Read image file list
@@ -162,12 +162,11 @@ int main(int argc, const char* argv[]) {
             if (print_confusion_matrix && world.rank() == 0)
             {
                 ait::log_info(false) << "Creating samples for testing ... " << std::flush;
-                std::vector<ait::size_type> sample_indices(sample_provider.get_num_of_samples());
-                for (ait::size_type i = 0; i < sample_provider.get_num_of_samples(); ++i)
+                sample_provider.clear_samples();
+                for (int i = 0; i < image_list.size(); ++i)
                 {
-                    sample_indices[i] = i;
+                	sample_provider.load_samples_from_image(i, rnd_engine);
                 }
-                sample_provider.load_samples(sample_indices);
                 SampleIteratorT samples_start = sample_provider.get_samples_begin();
                 SampleIteratorT samples_end = sample_provider.get_samples_end();
                 ait::log_info(false) << " Done." << std::endl;

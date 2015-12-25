@@ -35,6 +35,7 @@ class DistributedBaggingWrapper
 {
 public:
     using SampleProviderT = TSampleProvider;
+    using SplitSampleBagItemT = typename SampleProviderT::SplitSampleBagItemT;
     using SampleIteratorT = typename SampleProviderT::SampleIteratorT;
     using ForestTrainerT = TForestTrainer<SampleIteratorT>;
     using ForestT = typename ForestTrainerT::ForestT;
@@ -47,25 +48,13 @@ public:
 
     TreeT train_tree(RandomEngineT& rnd_engine) const
     {
-        // TODO: Introduce memory management of images.
-        size_type num_of_samples = provider_.get_num_of_samples();
-        std::vector<size_type> bag_indices;
-        if (comm_.rank() == 0)
-        {
-            bag_indices = provider_.get_sample_bag_indices(rnd_engine);
-            std::sort(bag_indices.begin(), bag_indices.end());
-        }
-        broadcast_vector(bag_indices);
-        // Split samples indices among all computing nodes.
-        size_type index_start = compute_split_start_index(comm_.rank(), num_of_samples);
-        size_type index_end = compute_split_start_index(comm_.rank() + 1, num_of_samples) - 1;
-        ait::log_debug() << "index_start: " << index_start << ", index_end: " << index_end;
-        auto bag_it_start = std::lower_bound(bag_indices.cbegin(), bag_indices.cend(), index_start);
-        auto bag_it_stop = std::upper_bound(bag_indices.cbegin(), bag_indices.cend(), index_end);
-        ait::log_debug() << "bag_it_start: " << (bag_it_start - bag_indices.cbegin()) << ", bag_it_end: " << (bag_it_stop - bag_indices.cbegin());
-        std::vector<size_type> selected_indices(bag_it_start, bag_it_stop);
-        // Load samples.
-        provider_.load_samples(selected_indices);
+    	std::vector<SplitSampleBagItemT> split_sample_bag;
+    	if (comm_.rank() == 0)
+    	{
+    		split_sample_bag = provider_.compute_split_sample_bag(comm_.size(), rnd_engine);
+    	}
+    	SplitSampleBagItemT split_sample = scatter_vector(split_sample_bag);
+		provider_.load_split_samples(split_sample, rnd_engine);
         SampleIteratorT samples_start = provider_.get_samples_begin();
         SampleIteratorT samples_end = provider_.get_samples_end();
         // Train tree.
@@ -97,14 +86,11 @@ public:
 
 private:
     template <typename T>
-    void broadcast_vector(std::vector<T>& vec, int root = 0) const
+    T scatter_vector(std::vector<T>& vec, int root = 0) const
     {
-        broadcast(comm_, vec, root);
-    }
-
-    size_type compute_split_start_index(int rank, size_type num_of_samples) const
-    {
-        return static_cast<size_type>(rank * num_of_samples / static_cast<double>(comm_.size()));
+    	T out_value;
+    	scatter(comm_, vec, out_value, root);
+    	return out_value;
     }
 
     boost::mpi::communicator comm_;
