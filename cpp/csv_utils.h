@@ -13,6 +13,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
+#include <vector>
 #include "mpl_utils.h"
 
 #include <boost/iterator/iterator_facade.hpp>
@@ -60,6 +61,8 @@ class CSVReader
     class CSVIterator
     : public boost::iterator_facade<CSVIterator, const std::vector<T>, boost::forward_traversal_tag>
     {
+		using IteratorFacadeType = boost::iterator_facade<CSVIterator, const std::vector<T>, boost::forward_traversal_tag>;
+
         friend class CSVReader;
         friend class boost::iterator_core_access;
 
@@ -104,13 +107,13 @@ class CSVReader
             return this->sin_ptr_ == other.sin_ptr_;
         }
         
-        typename CSVIterator::iterator_facade_::reference& dereference() const
+        typename IteratorFacadeType::iterator_facade_::reference& dereference() const
         {
             return row_;
         }
 
         std::istream* sin_ptr_;
-        typename CSVIterator::iterator_facade_::value_type row_;
+        typename IteratorFacadeType::iterator_facade_::value_type row_;
     };
 
 public:

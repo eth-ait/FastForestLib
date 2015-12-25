@@ -143,12 +143,14 @@ private:
         }
 
     private:
+		using IteratorAdapterType = boost::iterator_adaptor<NodeIterator_<BaseIterator, ValueType>, BaseIterator, ValueType>;
+
         BaseIterator begin_;
 
         friend class boost::iterator_core_access;
         template <typename, typename> friend class NodeIterator_;
 
-        typename NodeIterator_::iterator_adaptor_::reference dereference() const
+        typename IteratorAdapterType::iterator_facade_::reference dereference() const
         {
             return this->base()->node;
         }
@@ -367,20 +369,6 @@ public:
         }
         return leaf_nodes;
     }
-
-    template <typename TSample>
-    std::vector<ConstNodeIterator> evaluate(const std::vector<TSample>& samples, size_type max_depth = std::numeric_limits<size_type>::max()) const
-    {
-        std::vector<ConstNodeIterator> leaf_nodes;
-        leaf_nodes.reserve(samples.size());
-        for (auto it = samples.cbegin(); it != samples.cend(); it++)
-        {
-            ConstNodeIterator node_iter = evaluate(*it, max_depth);
-            leaf_nodes.push_back(std::move(node_iter));
-        }
-        return leaf_nodes;
-    }
-    
 
     /// @brief Evaluate a data-points on the tree (const version).
     /// @param data_point The data-point.

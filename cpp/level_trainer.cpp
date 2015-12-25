@@ -32,15 +32,15 @@ using RandomEngineT = std::mt19937_64;
 using SampleProviderT = ait::ImageSampleProvider<RandomEngineT>;
 
 template <class TSampleIterator> using WeakLearnerAliasT
-    = typename ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, RandomEngineT, PixelT>;
+    = ait::ImageWeakLearner<StatisticsT::Factory, TSampleIterator, RandomEngineT, PixelT>;
 
 template <class TSampleIterator> using ForestTrainerAliasT
-    = typename ait::LevelForestTrainer<WeakLearnerAliasT, TSampleIterator>;
+    = ait::LevelForestTrainer<WeakLearnerAliasT, TSampleIterator>;
 
 using BaggingWrapperT = ait::BaggingWrapper<ForestTrainerAliasT, SampleProviderT>;
-using SampleIteratorT = typename BaggingWrapperT::SampleIteratorT;
-using ForestTrainerT = typename BaggingWrapperT::ForestTrainerT;
-using WeakLearnerT = typename ForestTrainerT::WeakLearnerT;
+using SampleIteratorT = BaggingWrapperT::SampleIteratorT;
+using ForestTrainerT = BaggingWrapperT::ForestTrainerT;
+using WeakLearnerT = ForestTrainerT::WeakLearnerT;
 
 int main(int argc, const char* argv[]) {
     try {

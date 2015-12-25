@@ -61,10 +61,24 @@ public:
     {}
     
 private:
+	using IteratorAdapterType = boost::iterator_adaptor<
+		PointerIteratorWrapper<BaseIterator, ValueType>,
+		BaseIterator,
+		typename boost::mpl::eval_if<
+		boost::is_same<boost::use_default, ValueType>,
+		boost::mpl::eval_if<
+		boost::is_pointer<typename BaseIterator::value_type>,
+		boost::mpl::identity<boost::remove_pointer<typename BaseIterator::value_type>>,
+		extract_element_type<typename BaseIterator::value_type>
+		>,
+		boost::mpl::identity<ValueType>
+		>::type
+	>;
+
     friend class boost::iterator_core_access;
     template <typename, typename> friend class PointerIteratorWrapper;
 
-    typename PointerIteratorWrapper::iterator_adaptor_::reference dereference() const
+    typename IteratorAdapterType::iterator_facade_::reference dereference() const
     {
         return *(*this->base());
     }

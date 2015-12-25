@@ -116,11 +116,13 @@ protected:
             }
 
         private:
+			using IteratorAdaptorType = boost::iterator_adaptor<iterator_<TBaseIterator, TValue>, TBaseIterator, TValue>;
+
             friend class boost::iterator_core_access;
             template <typename, typename> friend class iterator_;
 
             
-            typename iterator_::iterator_adaptor_::reference dereference() const
+            typename IteratorAdaptorType::iterator_facade_::reference dereference() const
             {
                 return this->base()->second;
             }
