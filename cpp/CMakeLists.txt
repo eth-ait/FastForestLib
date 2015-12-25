@@ -6,6 +6,13 @@ cmake_policy(SET CMP0004 OLD)
 
 set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
 
+if(NOT DEFINED WITH_MATLAB)
+    set(WITH_MATLAB FALSE)
+endif()
+if(NOT DEFINED WITHOUT_MPI)
+    set(WITHOUT_MPI FALSE)
+endif()
+
 #if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #    find_package(OpenMP)
 #	if (OPENMP_FOUND)
@@ -15,7 +22,7 @@ set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
 #endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 
 find_package(Threads REQUIRED)
-if(WITHOUT_MPI)
+if(${WITHOUT_MPI})
 	find_package(Boost 1.4.0 COMPONENTS serialization log filesystem system REQUIRED)
 else()
 	find_package(MPI REQUIRED)
@@ -30,11 +37,11 @@ find_package(X11 REQUIRED)
 find_package(PNG REQUIRED)
 
 # Workaround for libpng problem on some platforms
-if(PNG_SKIP_SETJMP_CHECK)
+if(${PNG_SKIP_SETJMP_CHECK})
 	add_definitions(-DPNG_SKIP_SETJMP_CHECK)
 endif()
 
-if(!WITHOUT_MATLAB)
+if(${WITH_MATLAB})
 	if(!${WIN32} AND !${APPLE})
 		find_package(MATLAB)
 		set(MATLAB_LIB_DIR ${MATLAB_MX_LIBRARY})
@@ -43,7 +50,7 @@ endif()
 
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
-if(!WITHOUT_MATLAB)
+if(${WITH_MATLAB})
 	include_directories(${MATLAB_INCLUDE_DIR})
 endif()
 include_directories(${TCLAP_INCLUDE_DIR})
@@ -56,7 +63,7 @@ if(${UNIX})
 endif()
 
 
-if(!WITHOUT_MATLAB)
+if(${WITH_MATLAB})
 	link_directories(${MATLAB_LIB_DIR})
 endif()
 
@@ -68,7 +75,7 @@ set(headers ait.h image_weak_learner.h training.h weak_learner.h
 #	"*.h"
 #)
 
-if(!WITHOUT_MATLAB)
+if(${WITH_MATLAB})
 	if(${WIN32})
 	    set(MATLAB_LIBRARIES libmat libmx)
 	else(${WIN32})
@@ -79,7 +86,7 @@ endif()
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_DEBUG>)
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING)
 
-if(!WITHOUT_MATLAB)
+if(${WITH_MATLAB})
 	add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
 	target_link_libraries(depth_forest_trainer ${MATLAB_LIBRARIES} ${PNG_LIBRARIES})
 	target_compile_features(depth_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
@@ -92,13 +99,13 @@ target_link_libraries(level_forest_trainer ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(level_forest_trainer ${Boost_LIBRARIES})
 target_compile_features(level_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 if(${UNIX})
-	if(!WITHOUT_MATLAB)
+	if(${WITH_MATLAB})
 		target_link_libraries(depth_forest_trainer ${X11_LIBRARIES})
 	endif()
 	target_link_libraries(level_forest_trainer ${X11_LIBRARIES})
 endif()
 
-if(UNIX AND !WITHOUT_MPI)
+if(${UNIX} AND NOT ${WITHOUT_MPI})
 	add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h distributed_bagging_wrapper.h)
 	target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
 	# On some Unix systems MPI_COMPILE_FLAGS is " -fexceptions"
