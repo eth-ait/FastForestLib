@@ -51,6 +51,7 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string", cmd);
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string", cmd);
         TCLAP::SwitchArg hide_confusion_matrix_switch("c", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
+        TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Label of background pixels to be ignored", false, -1, "int", cmd);
         cmd.parse(argc, argv);
 
         const int num_of_classes = num_of_classes_arg.getValue();
@@ -94,9 +95,15 @@ int main(int argc, const char* argv[]) {
         }
         ait::log_info(false) << " Done." << std::endl;
 
+        // TODO: Ensure that label images do not contain values > num_of_classes except for background pixels. Other approach: Test samples directly below.
+
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
         WeakLearnerT::ParametersT weak_learner_parameters;
+        if (background_label_arg.isSet())
+        {
+            weak_learner_parameters.background_label = background_label_arg.getValue();
+        }
         ForestTrainerT::ParametersT training_parameters;
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);

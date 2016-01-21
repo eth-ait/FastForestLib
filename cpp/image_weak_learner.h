@@ -44,8 +44,13 @@ public:
 //    double bagging_fraction = 0.1;
     double samples_per_image_fraction = 1.0;
     double bagging_fraction = 1.0;
+#ifdef AIT_TESTING
     int num_of_thresholds = 10;
     int num_of_features = 10;
+#else
+    int num_of_thresholds = 100;
+    int num_of_features = 100;
+#endif
     offset_type feature_offset_x_range_low = 3;
     offset_type feature_offset_x_range_high = 15;
     offset_type feature_offset_y_range_low = 3;

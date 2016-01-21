@@ -60,6 +60,7 @@ public:
     void lazy_accumulate(const TSample& sample)
     {
         size_type label = sample.get_label();
+        assert(label < histogram_.size());
         histogram_[label]++;
     }
 
@@ -71,6 +72,7 @@ public:
     void accumulate(const TSample& sample)
     {
         size_type label = sample.get_label();
+        assert(label < histogram_.size());
         histogram_[label]++;
         num_of_samples_++;
     }
@@ -100,6 +102,7 @@ public:
     {
         for (T it = it_start; it != it_end; ++it)
         {
+            assert(histogram_.size() == *it.histogram_.size());
             for (size_type i=0; i < it->histogram_.size(); i++)
             {
                 histogram_[i] += it->histogram_[i];
