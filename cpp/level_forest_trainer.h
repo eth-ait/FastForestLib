@@ -388,6 +388,8 @@ public:
                 typename TreeT::NodeIterator node_it = map_it.node_iterator();
                 node_it->set_split_point(std::get<0>(*map_it));
                 SplitInformation& split_information = std::get<1>(*map_it);
+                node_it.left_child().set_leaf(true);
+                node_it.right_child().set_leaf(true);
                 if (split_information.information_gain < training_parameters_.minimum_information_gain
                     || split_information.total_num_of_samples < training_parameters_.minimum_num_of_samples)
                 {
@@ -397,8 +399,6 @@ public:
                 {
                     node_it.set_leaf(false);
                 }
-                node_it.left_child().set_leaf(true);
-                node_it.right_child().set_leaf(true);
             }
         }
     }

@@ -123,14 +123,16 @@ private:
         
         NodeIterator_ left_child() const
         {
-            assert(!this->is_leaf());
+            // TODO: Remove assertion or necessary for staying within the tree
+//            assert(!this->is_leaf());
             size_type left_child_offset = get_node_index() + 1;
             return NodeIterator_(this->base() + left_child_offset, begin_);
         }
         
         NodeIterator_ right_child() const
         {
-            assert(!this->is_leaf());
+            // TODO: Remove assertion or necessary for staying within the tree
+//            assert(!this->is_leaf());
             size_type right_child_offset = get_node_index() + 2;
             return NodeIterator_(this->base() + right_child_offset, begin_);
         }
