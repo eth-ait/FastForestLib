@@ -73,6 +73,9 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
     print("Normalized confusion matrix:")
     print norm_confusion_matrix
 
+    print("Diagonal of normalized confusion matrix:")
+    print norm_confusion_matrix.diagonal()
+
 
     print("")
     print("Computing per-frame confusion matrix...")
@@ -121,6 +124,8 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
     print("Normalized confusion matrix:")
     print norm_confusion_matrix
 
+    print("Diagonal of normalized confusion matrix:")
+    print norm_confusion_matrix.diagonal()
 
     # def traverse_tree(node, sample_index):
     #     if node.left_child is None or node.left_child.statistics is None or node.right_child.statistics is None:
@@ -164,11 +169,11 @@ def load_configuration_from_python_file(filename):
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 3:
-        print("Usage: python {} <forest file> <test data file> [configuration file] [prediction output file]".format(sys.argv[0]))
+        print("Usage: python {} <test data file> <forest file> [configuration file] [prediction output file]".format(sys.argv[0]))
         sys.exit(1)
 
-    forest_file = sys.argv[1]
-    test_data_file = sys.argv[2]
+    test_data_file = sys.argv[1]
+    forest_file = sys.argv[2]
 
     config_file = 'configuration.py'
     if len(sys.argv) > 3:

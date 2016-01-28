@@ -1,3 +1,9 @@
+Requirements:
+numpy==1.10.4
+scipy==0.17.0
+wheel=0.24.0
+Cython==0.23.4
+
 To compile the Cython extension you have to run:
 python setup.py build_ext --inplace
 
@@ -6,5 +12,5 @@ python main.py <matlab data file> <forest file> [configuration file]
 If the number of samples per image is <= 0, then all pixels in an image will be used for training.
 
 A forest can be evaluated on a dataset by running:
-python main_predict.py <forest file> <matlab data file>
+python main_predict.py <matlab data file> <forest file>
 
