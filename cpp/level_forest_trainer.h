@@ -57,7 +57,15 @@ protected:
         for (int i = 0; i < num_of_spaces; i++)
             stream << " ";
     }
-
+    
+    struct SplitInformation
+    {
+        scalar_type information_gain;
+        size_type total_num_of_samples;
+        size_type left_num_of_samples;
+        size_type right_num_of_samples;
+    };
+    
     template <typename T>
     class TreeNodeMap
     {
@@ -293,16 +301,21 @@ protected:
         return split_statistics_batch;
     }
     
-    virtual TreeNodeMap<SplitPointT> find_best_split_point_batch(TreeT& tree, const TreeNodeMap<SplitPointCandidatesT>& split_points_batch, const TreeNodeMap<StatisticsT>& current_statistics, const TreeNodeMap<SplitStatistics<StatisticsT>>& split_statistics_batch) const
+    virtual TreeNodeMap<std::tuple<SplitPointT, SplitInformation>> find_best_split_point_batch(TreeT& tree, const TreeNodeMap<SplitPointCandidatesT>& split_points_batch, const TreeNodeMap<StatisticsT>& current_statistics, const TreeNodeMap<SplitStatistics<StatisticsT>>& split_statistics_batch) const
     {
-        TreeNodeMap<SplitPointT> best_split_point_batch(tree);
+        TreeNodeMap<std::tuple<SplitPointT, SplitInformation>> best_split_point_batch(tree);
         for (auto map_it = split_statistics_batch.cbegin(); map_it != split_statistics_batch.cend(); ++map_it)
         {
             const SplitPointCandidatesT& split_points = split_points_batch[map_it.node_iterator()];
             std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point_tuple(current_statistics[map_it.node_iterator()], *map_it);
             size_type best_split_point_index = std::get<0>(best_split_point_tuple);
             SplitPointT best_split_point = split_points.get_split_point(best_split_point_index);
-            best_split_point_batch[map_it.node_iterator()] = best_split_point;
+            SplitInformation best_split_information;
+            best_split_information.information_gain = std::get<1>(best_split_point_tuple);
+            best_split_information.total_num_of_samples = current_statistics[map_it.node_iterator()].num_of_samples();
+            best_split_information.left_num_of_samples = map_it->get_left_statistics(best_split_point_index).num_of_samples();
+            best_split_information.right_num_of_samples = map_it->get_right_statistics(best_split_point_index).num_of_samples();
+            best_split_point_batch[map_it.node_iterator()] = std::make_tuple(best_split_point, best_split_information);
         }
         return best_split_point_batch;
     }
@@ -369,18 +382,27 @@ public:
         {
             TreeNodeMap<SplitPointCandidatesT> split_points_batch = sample_split_points_batch(tree, node_to_sample_map, rnd_engine);
             TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
-            TreeNodeMap<SplitPointT> best_split_point_batch = find_best_split_point_batch(tree, split_points_batch, current_statistics, split_statistics_batch);
+            TreeNodeMap<std::tuple<SplitPointT, SplitInformation>> best_split_point_batch = find_best_split_point_batch(tree, split_points_batch, current_statistics, split_statistics_batch);
             for (auto map_it = best_split_point_batch.begin(); map_it != best_split_point_batch.end(); ++map_it)
             {
                 typename TreeT::NodeIterator node_it = map_it.node_iterator();
-                node_it->set_split_point(*map_it);
-                node_it.set_leaf(false);
+                node_it->set_split_point(std::get<0>(*map_it));
+                SplitInformation& split_information = std::get<1>(*map_it);
+                if (split_information.information_gain < training_parameters_.minimum_information_gain
+                    || split_information.total_num_of_samples < training_parameters_.minimum_num_of_samples)
+                {
+                    node_it.set_leaf(true);
+                }
+                else
+                {
+                    node_it.set_leaf(false);
+                }
                 node_it.left_child().set_leaf(true);
                 node_it.right_child().set_leaf(true);
             }
         }
     }
-
+    
     TreeT train_tree(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
     {
         TreeT tree(training_parameters_.tree_depth);

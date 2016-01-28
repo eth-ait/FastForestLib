@@ -109,7 +109,9 @@ int main(int argc, const char* argv[]) {
         ForestTrainerT trainer(iwl, training_parameters);
         SampleProviderT sample_provider(image_list, weak_learner_parameters);
         BaggingWrapperT bagging_wrapper(trainer, sample_provider);
-#ifdef AIT_TESTING
+// TODO:
+#define AIT_TESTING 0
+#if AIT_TESTING
         RandomEngineT rnd_engine(11);
 #else
         std::random_device rnd_device;
@@ -130,11 +132,13 @@ int main(int argc, const char* argv[]) {
         SampleIteratorT samples_start = sample_provider.get_samples_begin();
         SampleIteratorT samples_end = sample_provider.get_samples_end();
         ForestTrainerT::ForestT forest = trainer.train_forest(samples_start, samples_end, rnd_engine);
-
+        
+        ait::log_info() << "Starting training ...";
         auto stop_time = std::chrono::high_resolution_clock::now();
         auto duration = stop_time - start_time;
         auto period = std::chrono::high_resolution_clock::period();
         double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
+        ait::log_info() << "Done.";
         ait::log_info() << "Running time: " << elapsed_seconds;
 
         // Optionally: Serialize forest to JSON file.
@@ -218,6 +222,7 @@ int main(int argc, const char* argv[]) {
             ait::log_info() << "Confusion matrix:" << std::endl << matrix;
             auto norm_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples_start, samples_end);
             ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
+            ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_matrix.diagonal();
         }
     }
     catch (const TCLAP::ArgException &e)

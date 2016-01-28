@@ -1,2 +1,1 @@
-build_unix/
-build_xcode/
+build_*/

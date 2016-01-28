@@ -12,6 +12,7 @@
 #include <iostream>
 #include <random>
 #include <cmath>
+#include <algorithm>
 
 #ifdef SERIALIZE_WITH_BOOST
 #include <boost/serialization/vector.hpp>
@@ -42,14 +43,16 @@ public:
     // TODO: Only for testing.
 //    double samples_per_image_fraction = 0.2;
 //    double bagging_fraction = 0.1;
-    double samples_per_image_fraction = 1.0;
+    double samples_per_image_fraction = 0.02;
     double bagging_fraction = 1.0;
-#ifdef AIT_TESTING
+// TODO:
+#define AIT_TESTING 0
+#if AIT_TESTING
     int num_of_thresholds = 10;
     int num_of_features = 10;
 #else
-    int num_of_thresholds = 100;
-    int num_of_features = 100;
+    int num_of_thresholds = 200;
+    int num_of_features = 200;
 #endif
     offset_type feature_offset_x_range_low = 3;
     offset_type feature_offset_x_range_high = 15;
@@ -266,20 +269,25 @@ public:
 		if (parameters_.samples_per_image_fraction < 1.0)
 		{
 			int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width_ * image_height_);
-			std::uniform_int_distribution<> x_dist(0, image_width_ - 1);
-			std::uniform_int_distribution<> y_dist(0, image_height_ - 1);
-			int accepted_count = 0;
-			while (accepted_count < num_of_samples_per_image)
-			{
-				int x = x_dist(rnd_engine);
-				int y = y_dist(rnd_engine);
-				SampleT sample(image_ptr, x, y);
-				if (sample.get_label() != parameters_.background_label)
-				{
-					samples_.push_back(std::move(sample));
-					++accepted_count;
-				}
-			}
+            std::vector<SampleT> non_background_samples;
+            for (int x = 0; x < image_width_; ++x)
+            {
+                for (int y = 0; y < image_height_; ++y)
+                {
+                    SampleT sample(image_ptr, x, y);
+                    if (sample.get_label() != parameters_.background_label)
+                    {
+                        non_background_samples.push_back(std::move(sample));
+                    }
+                }
+            }
+            int num_of_samples = std::min(num_of_samples_per_image, static_cast<int>(non_background_samples.size()));
+            for (int i = 0; i < num_of_samples; ++i)
+            {
+                std::uniform_int_distribution<> index_dist(0, non_background_samples.size() - 1 - i);
+                int index = index_dist(rnd_engine);
+                std::swap(non_background_samples[index], non_background_samples.back());
+                samples_.push_back(std::move(non_background_samples.back()));			}
 		}
 		else
 		{
