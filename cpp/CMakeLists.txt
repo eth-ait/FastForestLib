@@ -23,8 +23,8 @@ if(NOT DEFINED WITH_MPI)
 endif()
 
 # Set default option for threading
-if(NOT DEFINED WITH_MULTITHREAD)
-    set(WITH_MULTITHREAD TRUE CACHE BOOL "With multi-threading")
+if(NOT DEFINED WITH_MULTITHREADING)
+    set(WITH_MULTITHREADING TRUE CACHE BOOL "With multi-threading")
 endif()
 
 # Put some variables into the cache
@@ -107,7 +107,9 @@ set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT
 #set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING=1)
 
 # Set AIT_MULTI_THREADING macro if multi-threading is enabled
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_MULTI_THREADING=1)
+if(${WITH_MULTITHREADING})
+    set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_MULTI_THREADING=1)
+endif()
 
 # Executable target: depth_forest_trainer
 add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
