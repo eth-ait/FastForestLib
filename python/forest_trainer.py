@@ -31,7 +31,9 @@ class RandomForestTrainer(object):
 
         def train_recursive(self, node, i_start, i_end, statistics=None, current_depth=1):
             prefix = current_depth * " "
-            print("{}depth {}".format(prefix, current_depth))
+            num_of_samples = i_end - i_start
+
+            print("{}depth: {}, samples: {}".format(prefix, current_depth, num_of_samples))
 
             # define local aliases for some long variable names
             sample_indices = self._sample_indices[i_start:i_end]
@@ -42,7 +44,7 @@ class RandomForestTrainer(object):
             node.statistics = statistics
 
             # stop splitting the node if the minimum number of samples has been reached
-            if i_end - i_start < self._training_parameters.minimumNumOfSamples:
+            if num_of_samples < self._training_parameters.minimumNumOfSamples:
                 node.leaf_node = True
                 print("{}Minimum number of samples. Stopping".format(prefix))
                 return

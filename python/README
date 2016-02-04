@@ -1,7 +1,7 @@
 Requirements:
 numpy==1.10.4
 scipy==0.17.0
-wheel=0.24.0
+wheel==0.24.0
 Cython==0.23.4
 
 To compile the Cython extension you have to run:
