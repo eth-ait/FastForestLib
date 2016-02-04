@@ -7,12 +7,16 @@ cmake_policy(SET CMP0004 OLD)
 # Add some cmake macros
 set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
 
+# Add default location of TCLAP and CImg headers
+set(TCLAP_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/tclap-1.2.1/include" CACHE PATH "TCLAP include path")
+set(CIMG_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/CImg-1.6.9" CACHE PATH "CImg include path")
+
 # Set default options
 if(NOT DEFINED WITH_MATLAB)
     set(WITH_MATLAB FALSE CACHE BOOL "With MATLAB")
 endif()
-if(NOT DEFINED WITHOUT_MPI)
-    set(WITHOUT_MPI FALSE CACHE BOOL "Without MPI")
+if(NOT DEFINED WITH_MPI)
+    set(WITH_MPI FALSE CACHE BOOL "With MPI")
 endif()
 if(${WITH_MATLAB})
 	set(MATLAB_LIB_DIR "" CACHE PATH "Matlab library path")
@@ -31,11 +35,11 @@ set(PNG_SKIP_SETJMP_CHECK FALSE CACHE BOOL "Skip PNG SETJMP check. Required for 
 
 # Find required packages (threads, boost, mpi, eigen3, cereal, tclap, cimg)
 find_package(Threads REQUIRED)
-if(${WITHOUT_MPI})
-	find_package(Boost 1.4.0 COMPONENTS serialization log filesystem system REQUIRED)
-else()
+if(${WITH_MPI})
 	find_package(MPI REQUIRED)
 	find_package(Boost 1.4.0 COMPONENTS serialization mpi log filesystem system REQUIRED)
+else()
+	find_package(Boost 1.4.0 COMPONENTS serialization log filesystem system REQUIRED)
 endif()
 find_package(Eigen3 3.1.2 REQUIRED)
 find_package(Cereal REQUIRED)
@@ -124,7 +128,7 @@ if(${UNIX})
 endif()
 
 # Executable target: dist_forest_trainer
-if(${UNIX} AND NOT ${WITHOUT_MPI})
+if(${UNIX} AND ${WITH_MPI})
 	add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h distributed_bagging_wrapper.h)
 	target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
 	# On some Unix systems MPI_COMPILE_FLAGS is " -fexceptions"
