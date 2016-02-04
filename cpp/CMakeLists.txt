@@ -4,23 +4,32 @@ project("DistRandomForest")
 
 cmake_policy(SET CMP0004 OLD)
 
+# Add some cmake macros
 set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
 
+# Set default options
 if(NOT DEFINED WITH_MATLAB)
-    set(WITH_MATLAB FALSE)
+    set(WITH_MATLAB FALSE CACHE BOOL "With MATLAB")
 endif()
 if(NOT DEFINED WITHOUT_MPI)
-    set(WITHOUT_MPI FALSE)
+    set(WITHOUT_MPI FALSE CACHE BOOL "Without MPI")
 endif()
+if(${WITH_MATLAB})
+	set(MATLAB_LIB_DIR "" CACHE PATH "Matlab library path")
+	set(MATLAB_INCLUDE_DIRS "" CACHE PATH "Matlab include path")
+endif()
+set(PNG_SKIP_SETJMP_CHECK FALSE CACHE BOOL "Skip PNG SETJMP check. Required for some platforms.")
 
+# Enable OpenMP if not using Clang
 #if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #    find_package(OpenMP)
 #	if (OPENMP_FOUND)
 #		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 #		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 #	endif()
-#endif(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#endif()
 
+# Find required packages (threads, boost, mpi, eigen3, cereal, tclap, cimg)
 find_package(Threads REQUIRED)
 if(${WITHOUT_MPI})
 	find_package(Boost 1.4.0 COMPONENTS serialization log filesystem system REQUIRED)
@@ -32,26 +41,31 @@ find_package(Eigen3 3.1.2 REQUIRED)
 find_package(Cereal REQUIRED)
 find_package(TCLAP REQUIRED)
 find_package(CImg REQUIRED)
+
+# Enable PNG support in CImg
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS cimg_use_png)
 find_package(X11 REQUIRED)
 find_package(PNG REQUIRED)
-
 # Workaround for libpng problem on some platforms
 if(${PNG_SKIP_SETJMP_CHECK})
 	add_definitions(-DPNG_SKIP_SETJMP_CHECK)
 endif()
 
+# Add MATLAB Libraries
 if(${WITH_MATLAB})
-	if(!${WIN32} AND !${APPLE})
-		find_package(MATLAB)
-		set(MATLAB_LIB_DIR ${MATLAB_MX_LIBRARY})
-	endif(!${WIN32} AND !${APPLE})
+	if(${WIN32})
+	    set(MATLAB_LIBRARIES libmat libmx)
+	else()
+	    set(MATLAB_LIBRARIES mat mx)
+	endif()
+	link_directories(${MATLAB_LIB_DIR})
 endif()
 
+# Add include directories
 include_directories(${Boost_INCLUDE_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
 if(${WITH_MATLAB})
-	include_directories(${MATLAB_INCLUDE_DIR})
+	include_directories(${MATLAB_INCLUDE_DIRS})
 endif()
 include_directories(${TCLAP_INCLUDE_DIR})
 include_directories(${CEREAL_INCLUDE_DIR})
@@ -62,11 +76,7 @@ if(${UNIX})
 	include_directories(${X11_INCLUDE_DIR})
 endif()
 
-
-if(${WITH_MATLAB})
-	link_directories(${MATLAB_LIB_DIR})
-endif()
-
+# Specify source files to use
 set(headers ait.h image_weak_learner.h training.h weak_learner.h
 	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h
 	iterator_utils.h mpl_utils.h logger.h csv_utils.h serialization_utils.h
@@ -75,23 +85,34 @@ set(headers ait.h image_weak_learner.h training.h weak_learner.h
 #	"*.h"
 #)
 
-if(${WITH_MATLAB})
-	if(${WIN32})
-	    set(MATLAB_LIBRARIES libmat libmx)
-	else(${WIN32})
-	    set(MATLAB_LIBRARIES mat mx)
-	endif(${WIN32})
-endif()
-
+# Set AIT_DEBUG macro for cpp files if in debug mode
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_DEBUG>)
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING)
+# Set AIT_TESTING macro for cpp files if in debug mode
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_TESTING>)
+# Set AIT_TESTING macro for all build modes
+#set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING)
 
-if(${WITH_MATLAB})
-	add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
-	target_link_libraries(depth_forest_trainer ${MATLAB_LIBRARIES} ${PNG_LIBRARIES})
-	target_compile_features(depth_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+# Executable target: depth_forest_trainer
+add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
+target_link_libraries(depth_forest_trainer ${PNG_LIBRARIES})
+target_link_libraries(depth_forest_trainer ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(depth_forest_trainer ${Boost_LIBRARIES})
+target_compile_features(depth_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
+if(${UNIX})
+	target_link_libraries(depth_forest_trainer ${X11_LIBRARIES})
 endif()
 
+# Executable target: depth_forest_trainer_mat
+if(${WITH_MATLAB})
+	add_executable(depth_forest_trainer_mat depth_forest_trainer_mat.cpp ${headers} depth_forest_trainer.h)
+	target_link_libraries(depth_forest_trainer_mat ${MATLAB_LIBRARIES} ${PNG_LIBRARIES})
+	target_compile_features(depth_forest_trainer_mat PRIVATE cxx_auto_type cxx_variadic_templates)
+	if(${UNIX})
+		target_link_libraries(depth_forest_trainer_mat ${X11_LIBRARIES})
+	endif()
+endif()
+
+# Executable target: level_forest_trainer
 add_executable(level_forest_trainer level_trainer.cpp ${headers} level_forest_trainer.h bagging_wrapper.h)
 target_compile_definitions(level_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
 target_link_libraries(level_forest_trainer ${PNG_LIBRARIES})
@@ -99,12 +120,10 @@ target_link_libraries(level_forest_trainer ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(level_forest_trainer ${Boost_LIBRARIES})
 target_compile_features(level_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 if(${UNIX})
-	if(${WITH_MATLAB})
-		target_link_libraries(depth_forest_trainer ${X11_LIBRARIES})
-	endif()
 	target_link_libraries(level_forest_trainer ${X11_LIBRARIES})
 endif()
 
+# Executable target: dist_forest_trainer
 if(${UNIX} AND NOT ${WITHOUT_MPI})
 	add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h distributed_bagging_wrapper.h)
 	target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
@@ -116,6 +135,18 @@ if(${UNIX} AND NOT ${WITHOUT_MPI})
 	target_compile_features(dist_forest_trainer PRIVATE cxx_auto_type cxx_variadic_templates)
 endif()
 
+# Executable target: forest_predictor
+add_executable(forest_predictor forest_predictor.cpp ${headers})
+target_compile_definitions(forest_predictor PUBLIC SERIALIZE_WITH_BOOST)
+target_link_libraries(forest_predictor ${PNG_LIBRARIES})
+target_link_libraries(forest_predictor ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(forest_predictor ${Boost_LIBRARIES})
+target_compile_features(forest_predictor PRIVATE cxx_auto_type cxx_variadic_templates)
+if(${UNIX})
+	target_link_libraries(forest_predictor ${X11_LIBRARIES})
+endif()
+
+# C++11 support (should be done through target_compile_features)
 #set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
 
 #enable_testing()

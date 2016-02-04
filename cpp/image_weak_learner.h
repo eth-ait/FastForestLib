@@ -36,17 +36,25 @@ namespace ait
 using pixel_type = std::int16_t;
 using offset_type = std::int16_t;
 using label_type = std::int16_t;
-
-class ImageWeakLearnerParameters
+    
+class ImageParameters
 {
 public:
     // TODO: Only for testing.
-//    double samples_per_image_fraction = 0.2;
-//    double bagging_fraction = 0.1;
-    double samples_per_image_fraction = 0.02;
+    //    double samples_per_image_fraction = 0.2;
+    //    double bagging_fraction = 0.1;
+#if AIT_TESTING
+    double samples_per_image_fraction = 1.0;
+#else
+    double samples_per_image_fraction = 0.015;
+#endif
     double bagging_fraction = 1.0;
-// TODO:
-#define AIT_TESTING 0
+    label_type background_label = -1;
+};
+
+class ImageWeakLearnerParameters : public ImageParameters
+{
+public:
 #if AIT_TESTING
     int num_of_thresholds = 10;
     int num_of_features = 10;
@@ -59,9 +67,7 @@ public:
     offset_type feature_offset_y_range_low = 3;
     offset_type feature_offset_y_range_high = 15;
     scalar_type threshold_range_low = -300.0;
-    scalar_type threshold_range_high = +300;
-    label_type background_label = -1;
-};
+    scalar_type threshold_range_high = +300;};
 
 template <typename TPixel = pixel_type>
 class Image
@@ -210,11 +216,13 @@ class ImageSampleProvider
 {
 public:
     using SampleT = ImageSample<TPixel>;
-    using SampleIteratorT = typename std::vector<SampleT>::const_iterator;
+    using SampleIteratorT = typename std::vector<SampleT>::iterator;
+    using ConstSampleIteratorT = typename std::vector<SampleT>::const_iterator;
     using SampleBagBatchT = std::vector<size_type>;
     using ImageT = Image<TPixel>;
+    using ParametersT = ImageParameters;
 
-    explicit ImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ImageWeakLearnerParameters& parameters)
+    explicit ImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ImageParameters& parameters)
     : image_list_(image_list), parameters_(parameters)
     {
         assert(image_list.size() > 0);
@@ -296,7 +304,8 @@ public:
 				for (int y = 0; y < image_height_; ++y)
 				{
 					SampleT sample(image_ptr, x, y);
-					if (sample.get_label() != parameters_.background_label)
+                    label_type label = sample.get_label();
+					if (label != parameters_.background_label)
 					{
 						samples_.push_back(std::move(sample));
 					}
@@ -321,12 +330,22 @@ public:
         samples_.clear();
     }
     
-    SampleIteratorT get_samples_begin() const
+    SampleIteratorT get_samples_begin()
+    {
+        return samples_.begin();
+    }
+    
+    SampleIteratorT get_samples_end()
+    {
+        return samples_.end();
+    }
+
+    ConstSampleIteratorT get_samples_cbegin() const
     {
         return samples_.cbegin();
     }
 
-    SampleIteratorT get_samples_end() const
+    ConstSampleIteratorT get_samples_cend() const
     {
         return samples_.cend();
     }
@@ -380,7 +399,7 @@ private:
     size_type image_width_;
     size_type image_height_;
     const std::vector<std::tuple<std::string, std::string>> image_list_;
-    const ImageWeakLearnerParameters parameters_;
+    const ImageParameters parameters_;
     std::map<size_type, ImageT> image_map_;
     std::vector<SampleT> samples_;
 };
@@ -783,37 +802,62 @@ public:
         // TODO: Parallelize
         //#pragma omp parallel for
         // we have to use signed int here because of OpenMP < 3.0
-        for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
+        for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin(); it != split_points.cend(); ++it)
         {
-            for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin(); it != split_points.cend(); ++it)
+            const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
+            for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
             {
                 const ImageFeature& feature = std::get<0>(*it);
                 scalar_type value = feature.compute_pixel_difference(*sample_it);
-                const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
-                size_type index = 0;
+                size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
                 for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
                 {
                     if (threshold_it->left_direction(value))
                     {
-                        split_statistics.get_left_statistics(index).lazy_accumulate(*sample_it);
+                        split_statistics.get_left_statistics(statistics_index).lazy_accumulate(*sample_it);
                     }
                     else
                     {
-                        split_statistics.get_right_statistics(index).lazy_accumulate(*sample_it);
+                        split_statistics.get_right_statistics(statistics_index).lazy_accumulate(*sample_it);
                     }
-                    ++index;
+                    ++statistics_index;
                 }
             }
+
             // TODO: remove
-//            for (size_type i = 0; i < split_points.size(); i++)
-//            {
-//                Direction direction = split_points[i].evaluate(*sample_it);
-//                if (direction == Direction::LEFT)
-//                    split_statistics.get_left_statistics(i).lazy_accumulate(*sample_it);
-//                else
-//                    split_statistics.get_right_statistics(i).lazy_accumulate(*sample_it);
-//            }
+            //            for (size_type i = 0; i < split_points.size(); i++)
+            //            {
+            //                Direction direction = split_points[i].evaluate(*sample_it);
+            //                if (direction == Direction::LEFT)
+            //                    split_statistics.get_left_statistics(i).lazy_accumulate(*sample_it);
+            //                else
+            //                    split_statistics.get_right_statistics(i).lazy_accumulate(*sample_it);
+            //            }
         }
+
+//            
+//            for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin(); it != split_points.cend(); ++it)
+//            {
+//                const ImageFeature& feature = std::get<0>(*it);
+//                scalar_type value = feature.compute_pixel_difference(*sample_it);
+//                for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
+//                {
+//                    size_type index = 0;
+//                    const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
+//                    for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+//                    {
+//                        if (threshold_it->left_direction(value))
+//                        {
+//                            split_statistics.get_left_statistics(index).lazy_accumulate(*sample_it);
+//                        }
+//                        else
+//                        {
+//                            split_statistics.get_right_statistics(index).lazy_accumulate(*sample_it);
+//                        }
+//                        ++index;
+//                    }
+//                }
+//            }
 
         for (size_type i = 0; i < split_points.size(); i++) {
             split_statistics.get_left_statistics(i).finish_lazy_accumulation();
