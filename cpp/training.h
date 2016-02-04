@@ -22,6 +22,9 @@ struct TrainingParameters
 #endif
     int minimum_num_of_samples = 100;
     double minimum_information_gain = 0.0;
+#if AIT_MULTI_THREADING
+    int num_of_threads = -1;
+#endif
 };
 
 }

@@ -13,6 +13,9 @@
 #include <random>
 #include <cmath>
 #include <algorithm>
+#if AIT_MULTI_THREADING
+#include <thread>
+#endif
 
 #ifdef SERIALIZE_WITH_BOOST
 #include <boost/serialization/vector.hpp>
@@ -799,15 +802,12 @@ public:
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
         SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);
-        // TODO: Parallelize
-        //#pragma omp parallel for
-        // we have to use signed int here because of OpenMP < 3.0
         for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin(); it != split_points.cend(); ++it)
         {
+            const ImageFeature& feature = std::get<0>(*it);
             const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
             for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
             {
-                const ImageFeature& feature = std::get<0>(*it);
                 scalar_type value = feature.compute_pixel_difference(*sample_it);
                 size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
                 for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
@@ -824,47 +824,76 @@ public:
                 }
             }
 
-            // TODO: remove
-            //            for (size_type i = 0; i < split_points.size(); i++)
-            //            {
-            //                Direction direction = split_points[i].evaluate(*sample_it);
-            //                if (direction == Direction::LEFT)
-            //                    split_statistics.get_left_statistics(i).lazy_accumulate(*sample_it);
-            //                else
-            //                    split_statistics.get_right_statistics(i).lazy_accumulate(*sample_it);
-            //            }
+            for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+            {
+                size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
+                split_statistics.get_left_statistics(statistics_index).finish_lazy_accumulation();
+                split_statistics.get_right_statistics(statistics_index).finish_lazy_accumulation();
+            }
         }
 
-//            
-//            for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin(); it != split_points.cend(); ++it)
-//            {
-//                const ImageFeature& feature = std::get<0>(*it);
-//                scalar_type value = feature.compute_pixel_difference(*sample_it);
-//                for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
-//                {
-//                    size_type index = 0;
-//                    const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
-//                    for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
-//                    {
-//                        if (threshold_it->left_direction(value))
-//                        {
-//                            split_statistics.get_left_statistics(index).lazy_accumulate(*sample_it);
-//                        }
-//                        else
-//                        {
-//                            split_statistics.get_right_statistics(index).lazy_accumulate(*sample_it);
-//                        }
-//                        ++index;
-//                    }
-//                }
-//            }
-
-        for (size_type i = 0; i < split_points.size(); i++) {
-            split_statistics.get_left_statistics(i).finish_lazy_accumulation();
-            split_statistics.get_right_statistics(i).finish_lazy_accumulation();
-        }
         return split_statistics;
     }
+
+#if AIT_MULTI_THREADING
+    virtual SplitStatistics<StatisticsT> compute_split_statistics_parallel(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points, int num_of_threads) const
+    {
+        if (num_of_threads <= 0)
+        {
+            num_of_threads = std::thread::hardware_concurrency();
+        }
+        std::vector<std::thread> threads(num_of_threads);
+
+        // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
+        SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);
+
+        for (int thread_index = 0; thread_index < num_of_threads; ++thread_index)
+        {
+            auto thread_lambda = [num_of_threads, thread_index, &split_statistics, &split_points, &first_sample, &last_sample]()
+            {
+                for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin() + thread_index;
+                     it != split_points.cend();
+                     it += num_of_threads)
+                {
+                    const ImageFeature& feature = std::get<0>(*it);
+                    const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
+                    for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
+                    {
+                        scalar_type value = feature.compute_pixel_difference(*sample_it);
+                        size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
+                        for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+                        {
+                            if (threshold_it->left_direction(value))
+                            {
+                                split_statistics.get_left_statistics(statistics_index).lazy_accumulate(*sample_it);
+                            }
+                            else
+                            {
+                                split_statistics.get_right_statistics(statistics_index).lazy_accumulate(*sample_it);
+                            }
+                            ++statistics_index;
+                        }
+                    }
+                    
+                    for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+                    {
+                        size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
+                        split_statistics.get_left_statistics(statistics_index).finish_lazy_accumulation();
+                        split_statistics.get_right_statistics(statistics_index).finish_lazy_accumulation();
+                    }
+                }
+            };
+            threads.push_back(std::thread(thread_lambda));
+        }
+
+        for (std::thread& thread : threads)
+        {
+            thread.join();
+        }
+        
+        return split_statistics;
+    }
+#endif
 
 };
 

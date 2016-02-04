@@ -46,6 +46,9 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Label of background pixels to be ignored", false, -1, "int", cmd);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string");
+#if AIT_MULTI_THREADING
+        TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, -1, "int", cmd);
+#endif
         cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
         cmd.parse(argc, argv);
         
@@ -100,6 +103,12 @@ int main(int argc, const char* argv[]) {
             weak_learner_parameters.background_label = background_label_arg.getValue();
         }
         ForestTrainerT::ParametersT training_parameters;
+#if AIT_MULTI_THREADING
+        if (num_of_threads_arg.isSet())
+        {
+            training_parameters.num_of_threads = num_of_threads_arg.getValue();
+        }
+#endif
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);
         SampleProviderT sample_provider(image_list, weak_learner_parameters);

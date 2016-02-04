@@ -10,14 +10,24 @@ set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
 # Add default location of TCLAP and CImg headers
 set(TCLAP_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/tclap-1.2.1/include" CACHE PATH "TCLAP include path")
 set(CIMG_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/CImg-1.6.9" CACHE PATH "CImg include path")
+set(CEREAL_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/cereal-1.1.2/include" CACHE PATH "Cereal include path")
 
-# Set default options
+# Set default option for MATLAB
 if(NOT DEFINED WITH_MATLAB)
     set(WITH_MATLAB FALSE CACHE BOOL "With MATLAB")
 endif()
+
+# Set default option for MPI
 if(NOT DEFINED WITH_MPI)
     set(WITH_MPI FALSE CACHE BOOL "With MPI")
 endif()
+
+# Set default option for threading
+if(NOT DEFINED WITH_MULTITHREAD)
+    set(WITH_MULTITHREAD TRUE CACHE BOOL "With multi-threading")
+endif()
+
+# Put some variables into the cache
 if(${WITH_MATLAB})
 	set(MATLAB_LIB_DIR "" CACHE PATH "Matlab library path")
 	set(MATLAB_INCLUDE_DIRS "" CACHE PATH "Matlab include path")
@@ -90,11 +100,14 @@ set(headers ait.h image_weak_learner.h training.h weak_learner.h
 #)
 
 # Set AIT_DEBUG macro for cpp files if in debug mode
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_DEBUG>)
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_DEBUG=1>)
 # Set AIT_TESTING macro for cpp files if in debug mode
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_TESTING>)
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_TESTING=1>)
 # Set AIT_TESTING macro for all build modes
-#set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING)
+#set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING=1)
+
+# Set AIT_MULTI_THREADING macro if multi-threading is enabled
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_MULTI_THREADING=1)
 
 # Executable target: depth_forest_trainer
 add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
@@ -118,7 +131,6 @@ endif()
 
 # Executable target: level_forest_trainer
 add_executable(level_forest_trainer level_trainer.cpp ${headers} level_forest_trainer.h bagging_wrapper.h)
-target_compile_definitions(level_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
 target_link_libraries(level_forest_trainer ${PNG_LIBRARIES})
 target_link_libraries(level_forest_trainer ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(level_forest_trainer ${Boost_LIBRARIES})
@@ -130,7 +142,7 @@ endif()
 # Executable target: dist_forest_trainer
 if(${UNIX} AND ${WITH_MPI})
 	add_executable(dist_forest_trainer distributed_trainer.cpp ${headers} distributed_forest_trainer.h distributed_bagging_wrapper.h)
-	target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST)
+	target_compile_definitions(dist_forest_trainer PUBLIC SERIALIZE_WITH_BOOST=1)
 	# On some Unix systems MPI_COMPILE_FLAGS is " -fexceptions"
 	string(STRIP "${MPI_COMPILE_FLAGS}" MPI_COMPILE_FLAGS)
 	target_compile_options(dist_forest_trainer PRIVATE "${MPI_COMPILE_FLAGS}")
@@ -141,7 +153,6 @@ endif()
 
 # Executable target: forest_predictor
 add_executable(forest_predictor forest_predictor.cpp ${headers})
-target_compile_definitions(forest_predictor PUBLIC SERIALIZE_WITH_BOOST)
 target_link_libraries(forest_predictor ${PNG_LIBRARIES})
 target_link_libraries(forest_predictor ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(forest_predictor ${Boost_LIBRARIES})

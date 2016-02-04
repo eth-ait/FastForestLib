@@ -296,7 +296,11 @@ protected:
             typename WeakLearnerT::SampleIteratorT sample_it_begin = make_pointer_iterator_wrapper(map_it->cbegin());
             typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->cend());
             // TODO: Move semantics?
+#if AIT_MULTI_THREADING
+            split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics_parallel(sample_it_begin, sample_it_end, split_points, training_parameters_.num_of_threads);
+#else
             split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics(sample_it_begin, sample_it_end, split_points);
+#endif
         }
         return split_statistics_batch;
     }

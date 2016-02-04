@@ -81,7 +81,11 @@ public:
         SplitPointCandidatesT split_points = weak_learner_.sample_split_points(samples_start, samples_end, rnd_engine);
 
         // Compute the statistics for all split points
+#if AIT_MULTI_THREADING
+        SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics_parallel(samples_start, samples_end, split_points, training_parameters_.num_of_threads);
+#else
         SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics(samples_start, samples_end, split_points);
+#endif
 
         // Find the best split point
         std::tuple<size_type, scalar_type> best_split_point_tuple = weak_learner_.find_best_split_point_tuple(statistics, split_statistics);
