@@ -14,3 +14,9 @@ If the number of samples per image is <= 0, then all pixels in an image will be 
 A forest can be evaluated on a dataset by running:
 python main_predict.py <matlab data file> <forest file>
 
+=== Data file format ===
+
+The data is given as a Matlab .MAT file with two fields: data, labels (default names, could be changed).
+Both fields contains a 3-dimensional array of size WxHxN,
+where N is the number of images, W is the width and H is the height of the images.
+The arrays should be of type double.
