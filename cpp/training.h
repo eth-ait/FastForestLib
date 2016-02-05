@@ -12,10 +12,10 @@ namespace ait
 {
 
 struct TrainingParameters
-    {
+{
 #if AIT_TESTING
-    int num_of_trees = 1;
-    int tree_depth = 10;
+    int num_of_trees = 3;
+    int tree_depth = 12;
 #else
     int num_of_trees = 3;
     int tree_depth = 12;

@@ -39,19 +39,17 @@ namespace ait
 using pixel_type = std::int16_t;
 using offset_type = std::int16_t;
 using label_type = std::int16_t;
-    
+
 class ImageParameters
 {
 public:
-    // TODO: Only for testing.
-    //    double samples_per_image_fraction = 0.2;
-    //    double bagging_fraction = 0.1;
 #if AIT_TESTING
-    double samples_per_image_fraction = 1.0;
+    double samples_per_image_fraction = 0.015;
+    double bagging_fraction = 0.1;
 #else
     double samples_per_image_fraction = 0.015;
-#endif
     double bagging_fraction = 1.0;
+#endif
     label_type background_label = -1;
 };
 
@@ -654,18 +652,18 @@ public:
     using const_iterator = typename std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>>::const_iterator;
 
     explicit ImageSplitPointCandidates()
-    : size_(0)
+    : total_size_(0)
     {}
 
     void add_feature_and_thresholds(const ImageFeature& feature, const std::vector<ImageThreshold>& thresholds)
     {
         candidates_.push_back(std::make_tuple(feature, thresholds));
-        size_ += thresholds.size();
+        total_size_ += thresholds.size();
     }
 
     SplitPointT get_split_point(size_type index) const
     {
-        assert(index < size());
+        assert(index < total_size());
         size_type i = 0;
         for (const_iterator it = cbegin(); it != cend(); ++it)
         {
@@ -682,10 +680,16 @@ public:
         }
         throw std::invalid_argument("Could not find split point with the corresponding index.");
     }
-
+    
     size_type size() const
     {
-        return size_;
+        return candidates_.size();
+    }
+    
+
+    size_type total_size() const
+    {
+        return total_size_;
     }
 
     iterator begin()
@@ -716,7 +720,7 @@ private:
     void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive & candidates_;
-        archive & size_;
+        archive & total_size_;
     }
 #endif
     
@@ -726,11 +730,11 @@ private:
     void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
     {
         archive(cereal::make_nvp("candidates", candidates_));
-        archive(cereal::make_nvp("size", size_));
+        archive(cereal::make_nvp("total_size", total_size_));
     }
     
     std::vector<std::tuple<ImageFeature, std::vector<ImageThreshold>>> candidates_;
-    size_type size_;
+    size_type total_size_;
 };
 
 template <typename TStatisticsFactory, typename TSampleIterator, typename TRandomEngine = std::mt19937_64, typename TPixel = pixel_type>
@@ -842,18 +846,19 @@ public:
         {
             num_of_threads = std::thread::hardware_concurrency();
         }
-        std::vector<std::thread> threads(num_of_threads);
+        std::vector<std::thread> threads;
 
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
-        SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);
+        SplitStatistics<StatisticsT> split_statistics(split_points.total_size(), this->statistics_factory_);
 
         for (int thread_index = 0; thread_index < num_of_threads; ++thread_index)
         {
-            auto thread_lambda = [num_of_threads, thread_index, &split_statistics, &split_points, &first_sample, &last_sample]()
+            size_type split_point_offset = std::floor(thread_index * split_points.size() / static_cast<double>(num_of_threads));
+            auto thread_lambda = [split_point_offset, &split_statistics, &split_points, &first_sample, &last_sample]()
             {
-                for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin() + thread_index;
+                for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin() + split_point_offset;
                      it != split_points.cend();
-                     it += num_of_threads)
+                     ++it)
                 {
                     const ImageFeature& feature = std::get<0>(*it);
                     const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
@@ -883,7 +888,8 @@ public:
                     }
                 }
             };
-            threads.push_back(std::thread(thread_lambda));
+            std::thread thread(thread_lambda);
+            threads.push_back(std::move(thread));
         }
 
         for (std::thread& thread : threads)

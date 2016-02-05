@@ -34,6 +34,11 @@ if(${WITH_MATLAB})
 endif()
 set(PNG_SKIP_SETJMP_CHECK FALSE CACHE BOOL "Skip PNG SETJMP check. Required for some platforms.")
 
+# Use libc++ if using Clang
+#if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+#	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++")
+#endif()
+
 # Enable OpenMP if not using Clang
 #if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #    find_package(OpenMP)
