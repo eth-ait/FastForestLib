@@ -47,7 +47,7 @@ public:
     double samples_per_image_fraction = 0.015;
     double bagging_fraction = 0.1;
 #else
-    double samples_per_image_fraction = 0.015;
+    double samples_per_image_fraction = 0.2;
     double bagging_fraction = 1.0;
 #endif
     label_type background_label = -1;
@@ -68,7 +68,9 @@ public:
     offset_type feature_offset_y_range_low = 3;
     offset_type feature_offset_y_range_high = 15;
     scalar_type threshold_range_low = -300.0;
-    scalar_type threshold_range_high = +300;};
+    scalar_type threshold_range_high = +300;
+    bool adaptive_threshold_range = true;
+};
 
 template <typename TPixel = pixel_type>
 class Image
@@ -757,6 +759,31 @@ public:
 
     ~ImageWeakLearner() {}
 
+    void compute_adaptive_threshold_range(TSampleIterator first_sample, TSampleIterator last_sample, const ImageFeature& feature, scalar_type* threshold_range_low, scalar_type* threshold_range_high) const
+    {
+        scalar_type min_value = std::numeric_limits<scalar_type>::max();
+        scalar_type max_value = std::numeric_limits<scalar_type>::min();
+        for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
+        {
+            scalar_type value = feature.compute_pixel_difference(*sample_it);
+            if (value < min_value)
+            {
+                min_value = value;
+            }
+            if (value > max_value)
+            {
+                max_value = value;
+            }
+        }
+        if (min_value >= max_value)
+        {
+            min_value = 0;
+            max_value = 0;
+        }
+        *threshold_range_low = min_value;
+        *threshold_range_high = max_value;
+    }
+
     virtual SplitPointCandidatesT sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const
     {
         SplitPointCandidatesT split_points;
@@ -782,7 +809,6 @@ public:
 
         scalar_type threshold_range_low = parameters_.threshold_range_low;
         scalar_type threshold_range_high = parameters_.threshold_range_high;
-        std::uniform_real_distribution<scalar_type> threshold_distribution(threshold_range_low, threshold_range_high);
 
         for (size_type i_f=0; i_f < parameters_.num_of_features; i_f++)
         {
@@ -791,6 +817,12 @@ public:
             offset_type offset_x2 = offsets_x[offset_x_distribution(rnd_engine)];
             offset_type offset_y2 = offsets_y[offset_y_distribution(rnd_engine)];
             ImageFeature feature(offset_x1, offset_y1, offset_x2, offset_y2);
+            // Optional: Compute adaptive threshold range
+            if (parameters_.adaptive_threshold_range)
+            {
+                compute_adaptive_threshold_range(first_sample, last_sample, feature, &threshold_range_low, &threshold_range_high);
+            }
+            std::uniform_real_distribution<scalar_type> threshold_distribution(threshold_range_low, threshold_range_high);
             std::vector<ImageThreshold> thresholds;
             for (size_type i_t=0; i_t < parameters_.num_of_thresholds; i_t++)
             {
@@ -802,6 +834,35 @@ public:
         return split_points;
     }
 
+    void _compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, SplitStatistics<StatisticsT>& split_statistics, size_type statistics_index_offset, const ImageFeature& feature, const std::vector<ImageThreshold>& thresholds) const
+    {
+        for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
+        {
+            scalar_type value = feature.compute_pixel_difference(*sample_it);
+            size_type statistics_index = statistics_index_offset;
+            for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+            {
+                if (threshold_it->left_direction(value))
+                {
+                    split_statistics.get_left_statistics(statistics_index).lazy_accumulate(*sample_it);
+                }
+                else
+                {
+                    split_statistics.get_right_statistics(statistics_index).lazy_accumulate(*sample_it);
+                }
+                ++statistics_index;
+            }
+        }
+
+        for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
+        {
+            size_type statistics_index = statistics_index_offset;
+            split_statistics.get_left_statistics(statistics_index).finish_lazy_accumulation();
+            split_statistics.get_right_statistics(statistics_index).finish_lazy_accumulation();
+            ++statistics_index;
+        }
+    }
+
     virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
@@ -810,35 +871,14 @@ public:
         {
             const ImageFeature& feature = std::get<0>(*it);
             const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
-            for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
-            {
-                scalar_type value = feature.compute_pixel_difference(*sample_it);
-                size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
-                for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
-                {
-                    if (threshold_it->left_direction(value))
-                    {
-                        split_statistics.get_left_statistics(statistics_index).lazy_accumulate(*sample_it);
-                    }
-                    else
-                    {
-                        split_statistics.get_right_statistics(statistics_index).lazy_accumulate(*sample_it);
-                    }
-                    ++statistics_index;
-                }
-            }
-
-            for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
-            {
-                size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
-                split_statistics.get_left_statistics(statistics_index).finish_lazy_accumulation();
-                split_statistics.get_right_statistics(statistics_index).finish_lazy_accumulation();
-            }
+            
+            size_type statistics_index_offset = (it - split_points.cbegin()) * thresholds.size();
+            _compute_split_statistics(first_sample, last_sample, split_statistics, statistics_index_offset, feature, thresholds);
         }
 
         return split_statistics;
     }
-
+    
 #if AIT_MULTI_THREADING
     virtual SplitStatistics<StatisticsT> compute_split_statistics_parallel(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points, int num_of_threads) const
     {
@@ -853,39 +893,22 @@ public:
 
         for (int thread_index = 0; thread_index < num_of_threads; ++thread_index)
         {
-            size_type split_point_offset = std::floor(thread_index * split_points.size() / static_cast<double>(num_of_threads));
-            auto thread_lambda = [split_point_offset, &split_statistics, &split_points, &first_sample, &last_sample]()
+            size_type split_point_index_begin = std::floor(thread_index * split_points.size() / static_cast<double>(num_of_threads));
+            size_type split_point_index_end = std::floor((thread_index + 1) * split_points.size() / static_cast<double>(num_of_threads));
+            if (thread_index == num_of_threads - 1)
             {
-                for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin() + split_point_offset;
-                     it != split_points.cend();
-                     ++it)
+                assert(split_point_index_end == split_points.size());
+            }
+            auto thread_lambda = [this, split_point_index_begin, split_point_index_end, &split_statistics, &split_points, &first_sample, &last_sample]()
+            {
+                for (size_type split_point_index = split_point_index_begin; split_point_index < split_point_index_end; ++split_point_index)
                 {
+                    typename SplitPointCandidatesT::const_iterator it = split_points.cbegin() + split_point_index;
                     const ImageFeature& feature = std::get<0>(*it);
                     const std::vector<ImageThreshold>& thresholds = std::get<1>(*it);
-                    for (TSampleIterator sample_it = first_sample; sample_it != last_sample; sample_it++)
-                    {
-                        scalar_type value = feature.compute_pixel_difference(*sample_it);
-                        size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
-                        for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
-                        {
-                            if (threshold_it->left_direction(value))
-                            {
-                                split_statistics.get_left_statistics(statistics_index).lazy_accumulate(*sample_it);
-                            }
-                            else
-                            {
-                                split_statistics.get_right_statistics(statistics_index).lazy_accumulate(*sample_it);
-                            }
-                            ++statistics_index;
-                        }
-                    }
-                    
-                    for (auto threshold_it = thresholds.cbegin(); threshold_it != thresholds.cend(); ++threshold_it)
-                    {
-                        size_type statistics_index = (it - split_points.cbegin()) * thresholds.size();
-                        split_statistics.get_left_statistics(statistics_index).finish_lazy_accumulation();
-                        split_statistics.get_right_statistics(statistics_index).finish_lazy_accumulation();
-                    }
+
+                    size_type statistics_index_offset = (it - split_points.cbegin()) * thresholds.size();
+                    _compute_split_statistics(first_sample, last_sample, split_statistics, statistics_index_offset, feature, thresholds);
                 }
             };
             std::thread thread(thread_lambda);
