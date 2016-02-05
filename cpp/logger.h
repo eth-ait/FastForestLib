@@ -89,10 +89,17 @@ public:
     explicit Logger()
     {}
     
+    LogStream warning(bool new_line = true)
+    {
+        LogStream stream(std::cout, new_line);
+        stream << "WARNING> " << prefix_;
+        return stream;
+    }
+    
     LogStream info(bool new_line = true)
     {
         LogStream stream(std::cout, new_line);
-        stream << prefix_;
+        stream << "INFO> " << prefix_;
         return stream;
     }
     
@@ -103,14 +110,14 @@ public:
 #else
         LogStream stream;
 #endif
-        stream << prefix_;
+        stream << "DEBUG> " << prefix_;
         return stream;
     }
 
     LogStream error(bool new_line = true)
     {
         LogStream stream(std::cerr, new_line);
-        stream << prefix_;
+        stream << "ERROR> " << prefix_;
         return stream;
     }
 
@@ -126,6 +133,13 @@ inline Logger& logger()
     static Logger logger_;
     return logger_;
 }
+    
+inline Logger::LogStream log_warning(bool new_line = true)
+{
+    Logger& lg = logger();
+    return lg.warning(new_line);
+}
+    
 
 inline Logger::LogStream log_info(bool new_line = true)
 {
