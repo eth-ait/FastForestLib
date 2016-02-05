@@ -39,7 +39,7 @@ public:
             return HistogramStatistics(num_of_classes_);
         }
     };
-    
+
     /// @brief Create an empty histogram.
     HistogramStatistics()
     : histogram_(0, 0), num_of_samples_(0)

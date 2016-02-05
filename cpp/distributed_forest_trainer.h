@@ -89,7 +89,7 @@ protected:
     void exchange_split_statistics_batch(TreeT& tree, TreeNodeMap<SplitStatistics<StatisticsT>>& map, int root = 0) const
     {
         std::vector<TreeNodeMap<SplitStatistics<StatisticsT>>> maps(comm_.size(), TreeNodeMap<SplitStatistics<StatisticsT>>(tree));
-        gather(comm_, map,& maps[0], root);
+        gather(comm_, map, &maps[0], root);
         if (comm_.rank() == root)
         {
             log_debug() << "First split_statistics size: " << map.cbegin()->get_left_statistics(0).num_of_samples();

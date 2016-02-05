@@ -357,9 +357,14 @@ protected:
         for (auto it = samples_start; it != samples_end; ++it)
         {
             const typename TreeT::NodeIterator node_it = tree.evaluate(*it);
-            SamplePointerT sample_ptr = &(*it);
-            node_to_sample_map[node_it].push_back(sample_ptr);
-        }        return node_to_sample_map;
+            // Some nodes might already be children of leaf-nodes so sample evaluating will terminate before
+            if (node_it >= tl.begin())
+            {
+                SamplePointerT sample_ptr = &(*it);
+                node_to_sample_map[node_it].push_back(sample_ptr);
+            }
+        }
+        return node_to_sample_map;
     }
 
 public:
@@ -374,6 +379,8 @@ public:
     {
         return training_parameters_;
     }
+
+#include <cmath>
 
     virtual void train_tree_level(TreeT& tree, size_type current_level, SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
     {
@@ -443,7 +450,7 @@ public:
     }
 
 };
-    
+
 }
 
 namespace boost {

@@ -54,17 +54,21 @@ int main(int argc, const char* argv[]) {
         prefix_stream << world.rank() << "> ";
         ait::logger().set_prefix(prefix_stream.str());
         ait::log_info() << "Rank " << world.rank() << " of " << world.size() << ".";
-        
+
         MPI::COMM_WORLD.Set_errhandler ( MPI::ERRORS_THROW_EXCEPTIONS );
 
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Distributed RF trainer", ' ', "0.3");
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
-        TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string", cmd);
-        TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string", cmd);
         TCLAP::SwitchArg hide_confusion_matrix_switch("c", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Label of background pixels to be ignored", false, -1, "int", cmd);
+#if AIT_MULTI_THREADING
+        TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, 1, "int", cmd);
+#endif
+        TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string");
+        TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string");
+        cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
         cmd.parse(argc, argv);
 
         const int num_of_classes = num_of_classes_arg.getValue();
@@ -112,6 +116,12 @@ int main(int argc, const char* argv[]) {
             weak_learner_parameters.background_label = background_label_arg.getValue();
         }
         ForestTrainerT::ParametersT training_parameters;
+#if AIT_MULTI_THREADING
+        if (num_of_threads_arg.isSet())
+        {
+            training_parameters.num_of_threads = num_of_threads_arg.getValue();
+        }
+#endif
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(world, iwl, training_parameters);
         SampleProviderT sample_provider(image_list, weak_learner_parameters);
@@ -151,9 +161,8 @@ int main(int argc, const char* argv[]) {
                     ait::log_info(false) << " Done." << std::endl;
                 }
             }
-            
             // Optionally: Serialize forest to binary file.
-            if (binary_forest_file_arg.isSet())
+            else if (binary_forest_file_arg.isSet())
             {
                 {
                     ait::log_info(false) << "Writing binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
@@ -162,6 +171,10 @@ int main(int argc, const char* argv[]) {
                     oarchive(cereal::make_nvp("forest", forest));
                     ait::log_info(false) << " Done." << std::endl;
                 }
+            }
+            else
+            {
+                throw("This should never happen. Either a JSON or a binary forest file have to be specified!");
             }
 
             // Optionally: Compute some stats and print them.
@@ -222,6 +235,7 @@ int main(int argc, const char* argv[]) {
                 ait::log_info() << "Confusion matrix:" << std::endl << matrix;
                 auto norm_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples_start, samples_end);
                 ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
+                ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_matrix.diagonal();
             }
         }
     }
