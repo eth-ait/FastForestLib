@@ -26,5 +26,10 @@ struct TrainingParameters
     int num_of_threads = -1;
 #endif
 };
+    
+struct LevelTrainingParameters : public TrainingParameters
+{
+    int level_part_size = 512;
+};
 
 }
