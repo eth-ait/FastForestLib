@@ -270,9 +270,9 @@ protected:
         template <typename Archive>
         void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
         {
-#if AIT_PROFILE
+#if AIT_PROFILE || AIT_PROFILE_DISTRIBUTED
             auto start_time = std::chrono::high_resolution_clock::now();
-            log_profile(false) << "Serializing tree node map ...";
+            log_profile(false) << "Serializing tree node map with boost ...";
 #endif
             archive & map_;
 #if AIT_PROFILE
@@ -286,9 +286,9 @@ protected:
         template <typename Archive>
         void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
         {
-#if AIT_PROFILE
+#if AIT_PROFILE || AIT_PROFILE_DISTRIBUTED
             auto start_time = std::chrono::high_resolution_clock::now();
-            log_profile(false) << "Serializing tree node map ...";
+            log_profile(false) << "Serializing tree node map with Cereal ...";
 #endif
             archive(cereal::make_nvp("map", map_));
 #if AIT_PROFILE
@@ -479,10 +479,8 @@ public:
             {
                 node_it_next = tl.cend();
             }
-
-            log_info() << "  part " << part << ", # nodes: " << (node_it_next - node_it);
+            log_info() << "  Part " << part << ", # nodes: " << (node_it_next - node_it);
             train_tree_level_part(tree, current_level, node_it, node_it_next, samples_start, samples_end, rnd_engine);
-
             node_it = node_it_next;
         }
     }
@@ -491,12 +489,20 @@ public:
     {
         TreeT tree(training_parameters_.tree_depth);
         tree.get_root_iterator().set_leaf();
-        log_info() << "Training tree, # samples " << (samples_end - samples_start);
+        log_info() << "Training tree, # samples: " << (samples_end - samples_start);
         for (size_type current_level = 1; current_level <= training_parameters_.tree_depth; current_level++)
         {
             typename TreeT::TreeLevel tl(tree, current_level);
-            log_info() << "current_level: " << current_level << ", # nodes: " << (tl.cend() - tl.cbegin());
+            log_info() << "Training level " << current_level
+                << ", # nodes: " << (tl.cend() - tl.cbegin())
+                << ", # samples: " << (samples_end - samples_start);
+#if AIT_PROFILE
+            auto start_time = std::chrono::high_resolution_clock::now();
+#endif
             train_tree_level(tree, current_level, samples_start, samples_end, rnd_engine);
+#if AIT_PROFILE
+            log_profile() << "Training level " << current_level << " took " << compute_elapsed_seconds(start_time) << " s";
+#endif
         }
         return tree;
     }

@@ -27,6 +27,11 @@ if(NOT DEFINED WITH_MULTITHREADING)
     set(WITH_MULTITHREADING TRUE CACHE BOOL "With multi-threading")
 endif()
 
+# Set default option for profiling output
+if(NOT DEFINED WITH_PROFILING)
+    set(WITH_PROFILING FALSE CACHE BOOL "With profiling output")
+endif()
+
 # Put some variables into the cache
 if(${WITH_MATLAB})
 	set(MATLAB_LIB_DIR "" CACHE PATH "Matlab library path")
@@ -112,9 +117,7 @@ set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT
 #set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING=1)
 
 # Set AIT_MULTI_THREADING macro if multi-threading is enabled
-if(${WITH_MULTITHREADING})
-    set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_MULTI_THREADING=1)
-endif()
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<BOOL:WITH_MULTITHREADING>:AIT_MULTI_THREADING=1>)
 
 # Executable target: depth_forest_trainer
 add_executable(depth_forest_trainer depth_trainer.cpp ${headers} depth_forest_trainer.h)
@@ -167,6 +170,13 @@ target_compile_features(forest_predictor PRIVATE cxx_auto_type cxx_variadic_temp
 if(${UNIX})
 	target_link_libraries(forest_predictor ${X11_LIBRARIES})
 endif()
+
+# SET AIT_PROFILE or AIT_PROFILE_DISTRIBUTED macro for cpp files if profiling output is enabled
+target_compile_definitions(depth_forest_trainer_mat PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1)
+target_compile_definitions(depth_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1)
+target_compile_definitions(level_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1)
+target_compile_definitions(forest_predictor PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1)
+target_compile_definitions(dist_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE_DISTRIBUTED=1)
 
 # C++11 support (should be done through target_compile_features)
 #set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")

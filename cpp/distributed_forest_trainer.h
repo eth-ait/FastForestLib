@@ -63,7 +63,7 @@ protected:
 
     void broadcast_tree(TreeT& tree, int root = 0) const
     {
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         auto start_time = std::chrono::high_resolution_clock::now();
         if (comm_.rank() == root)
         {
@@ -80,7 +80,7 @@ protected:
             broadcast(comm_, bcast_tree, root);
             tree = std::move(bcast_tree);
         }
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == root)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -101,7 +101,7 @@ protected:
     
     void exchange_split_statistics_batch(TreeT& tree, TreeNodeMap<SplitStatistics<StatisticsT>>& map, int root = 0) const
     {
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         auto start_time = std::chrono::high_resolution_clock::now();
         if (comm_.rank() == root)
         {
@@ -110,7 +110,7 @@ protected:
 #endif
         std::vector<TreeNodeMap<SplitStatistics<StatisticsT>>> maps(comm_.size(), TreeNodeMap<SplitStatistics<StatisticsT>>(tree));
         gather(comm_, map, &maps[0], root);
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == root)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -140,7 +140,7 @@ protected:
             }
             log_debug() << "After accumulation: " << map.cbegin()->get_left_statistics(0).num_of_samples();
         }
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == root)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -149,7 +149,7 @@ protected:
         }
 #endif
         broadcast_tree_node_map(tree, map, root);
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == root)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -159,7 +159,7 @@ protected:
 
     virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, const TreeNodeMap<SplitPointCandidatesT>& split_points_batch) const override
     {
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         auto start_time = std::chrono::high_resolution_clock::now();
         if (comm_.rank() == 0)
         {
@@ -167,7 +167,7 @@ protected:
         }
 #endif
         TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = BaseT::compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == 0)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -179,7 +179,7 @@ protected:
 
     virtual TreeNodeMap<SplitPointCandidatesT> sample_split_points_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, RandomEngineT& rnd_engine) const override
     {
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         auto start_time = std::chrono::high_resolution_clock::now();
         if (comm_.rank() == 0)
         {
@@ -191,7 +191,7 @@ protected:
         {
             split_points_batch = std::move(BaseT::sample_split_points_batch(tree, node_to_sample_map, rnd_engine));
         }
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == 0)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -200,7 +200,7 @@ protected:
         }
 #endif
         broadcast_tree_node_map(tree, split_points_batch);
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == 0)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -211,7 +211,7 @@ protected:
     
     void exchange_statistics_batch(TreeT& tree, TreeNodeMap<StatisticsT>& map, int root = 0) const
     {
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         auto start_time = std::chrono::high_resolution_clock::now();
         if (comm_.rank() == root)
         {
@@ -241,7 +241,7 @@ protected:
                 }
             }
         }
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == root)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -250,7 +250,7 @@ protected:
         }
 #endif
         broadcast_tree_node_map(tree, map, root);
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == root)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -276,7 +276,7 @@ protected:
 
     virtual TreeNodeMap<StatisticsT> compute_statistics_batch(TreeT &tree, TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map) const override
     {
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         auto start_time = std::chrono::high_resolution_clock::now();
         if (comm_.rank() == 0)
         {
@@ -284,7 +284,7 @@ protected:
         }
 #endif
         TreeNodeMap<StatisticsT> statistics_batch = BaseT::compute_statistics_batch(tree, node_to_sample_map);
-#if AIT_PROFILE
+#if AIT_PROFILE_DISTRIBUTED
         if (comm_.rank() == 0)
         {
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
@@ -296,8 +296,17 @@ protected:
 
     virtual void train_tree_level(TreeT &tree, size_type current_level, TSampleIterator samples_start, TSampleIterator samples_end, RandomEngineT &rnd_engine) const override
     {
+#if AIT_PROFILE_DISTRIBUTED
+        auto start_time = std::chrono::high_resolution_clock::now();
+#endif
         BaseT::train_tree_level(tree, current_level, samples_start, samples_end, rnd_engine);
         broadcast_tree(tree);
+#if AIT_PROFILE_DISTRIBUTED
+        if (comm_.rank() == 0)
+        {
+            log_profile() << "Training level " << current_level << " took " << compute_elapsed_seconds(start_time) << " s";
+        }
+#endif
     }
 
 private:
