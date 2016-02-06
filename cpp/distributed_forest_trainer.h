@@ -63,6 +63,13 @@ protected:
 
     void broadcast_tree(TreeT& tree, int root = 0) const
     {
+#if AIT_PROFILE
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (comm_.rank() == root)
+        {
+            log_profile(false) << "Broadcasting tree ...";
+        }
+#endif
         if (comm_.rank() == root)
         {
             broadcast(comm_, tree, root);
@@ -73,6 +80,12 @@ protected:
             broadcast(comm_, bcast_tree, root);
             tree = std::move(bcast_tree);
         }
+#if AIT_PROFILE
+        if (comm_.rank() == root)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+        }
+#endif
     }
 
     template <typename ValueType>
@@ -88,8 +101,23 @@ protected:
     
     void exchange_split_statistics_batch(TreeT& tree, TreeNodeMap<SplitStatistics<StatisticsT>>& map, int root = 0) const
     {
+#if AIT_PROFILE
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (comm_.rank() == root)
+        {
+            log_profile(false) << "Exchanging split statistics batch ...";
+        }
+#endif
         std::vector<TreeNodeMap<SplitStatistics<StatisticsT>>> maps(comm_.size(), TreeNodeMap<SplitStatistics<StatisticsT>>(tree));
         gather(comm_, map, &maps[0], root);
+#if AIT_PROFILE
+        if (comm_.rank() == root)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+            start_time = std::chrono::high_resolution_clock::now();
+            log_profile(false) << "Accumulating statistics ...";
+        }
+#endif
         if (comm_.rank() == root)
         {
             log_debug() << "First split_statistics size: " << map.cbegin()->get_left_statistics(0).num_of_samples();
@@ -112,29 +140,84 @@ protected:
             }
             log_debug() << "After accumulation: " << map.cbegin()->get_left_statistics(0).num_of_samples();
         }
+#if AIT_PROFILE
+        if (comm_.rank() == root)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+            start_time = std::chrono::high_resolution_clock::now();
+            log_profile(false) << "Broadcasting tree node map ...";
+        }
+#endif
         broadcast_tree_node_map(tree, map, root);
+#if AIT_PROFILE
+        if (comm_.rank() == root)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+        }
+#endif
     }
 
     virtual TreeNodeMap<SplitStatistics<StatisticsT>> compute_split_statistics_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, const TreeNodeMap<SplitPointCandidatesT>& split_points_batch) const override
     {
+#if AIT_PROFILE
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (comm_.rank() == 0)
+        {
+            log_profile(false) << "Computing split statistics batch ...";
+        }
+#endif
         TreeNodeMap<SplitStatistics<StatisticsT>> split_statistics_batch = BaseT::compute_split_statistics_batch(tree, node_to_sample_map, split_points_batch);
+#if AIT_PROFILE
+        if (comm_.rank() == 0)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+        }
+#endif
         exchange_split_statistics_batch(tree, split_statistics_batch);
         return split_statistics_batch;
     }
 
     virtual TreeNodeMap<SplitPointCandidatesT> sample_split_points_batch(TreeT& tree, const TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map, RandomEngineT& rnd_engine) const override
     {
+#if AIT_PROFILE
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (comm_.rank() == 0)
+        {
+            log_profile(false) << "Sampling split points batch ...";
+        }
+#endif
         TreeNodeMap<SplitPointCandidatesT> split_points_batch(tree);
         if (comm_.rank() == 0)
         {
             split_points_batch = std::move(BaseT::sample_split_points_batch(tree, node_to_sample_map, rnd_engine));
         }
+#if AIT_PROFILE
+        if (comm_.rank() == 0)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+            start_time = std::chrono::high_resolution_clock::now();
+            log_profile(false) << "Broadcasting split points batch ...";
+        }
+#endif
         broadcast_tree_node_map(tree, split_points_batch);
+#if AIT_PROFILE
+        if (comm_.rank() == 0)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+        }
+#endif
         return split_points_batch;
     }
     
     void exchange_statistics_batch(TreeT& tree, TreeNodeMap<StatisticsT>& map, int root = 0) const
     {
+#if AIT_PROFILE
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (comm_.rank() == root)
+        {
+            log_profile(false) << "Accumulating statistics batch ...";
+        }
+#endif
         std::vector<TreeNodeMap<StatisticsT>> maps(comm_.size(), TreeNodeMap<StatisticsT>(tree));
         gather(comm_, map, &maps[0], root);
         if (comm_.rank() == root)
@@ -158,7 +241,21 @@ protected:
                 }
             }
         }
+#if AIT_PROFILE
+        if (comm_.rank() == root)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+            start_time = std::chrono::high_resolution_clock::now();
+            log_profile(false) << "Broadcasting statistics batch ...";
+        }
+#endif
         broadcast_tree_node_map(tree, map, root);
+#if AIT_PROFILE
+        if (comm_.rank() == root)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+        }
+#endif
         // For debugging only:
 //        if (comm_.rank() == root)
 //        {
@@ -175,12 +272,24 @@ protected:
 //                logger << "}";
 //            }
 //        }
-
     }
 
     virtual TreeNodeMap<StatisticsT> compute_statistics_batch(TreeT &tree, TreeNodeMap<std::vector<SamplePointerT>> &node_to_sample_map) const override
     {
+#if AIT_PROFILE
+        auto start_time = std::chrono::high_resolution_clock::now();
+        if (comm_.rank() == 0)
+        {
+            log_profile(false) << "Computing statistics batch ...";
+        }
+#endif
         TreeNodeMap<StatisticsT> statistics_batch = BaseT::compute_statistics_batch(tree, node_to_sample_map);
+#if AIT_PROFILE
+        if (comm_.rank() == 0)
+        {
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+        }
+#endif
         exchange_statistics_batch(tree, statistics_batch);
         return statistics_batch;
     }

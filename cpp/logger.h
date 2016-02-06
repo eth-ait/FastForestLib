@@ -20,17 +20,18 @@ public:
     {
         std::ostream* sout_;
         bool new_line_;
+        bool flush_;
         bool closed_;
         bool allocated_;
         
     public:
         explicit LogStream()
-        : sout_(new std::ofstream()), new_line_(false), closed_(true), allocated_(true)
+        : sout_(new std::ofstream()), new_line_(false), flush_(false), closed_(true), allocated_(true)
         {
         }
 
-        explicit LogStream(std::ostream& sout, bool new_line = true)
-        : sout_(&sout), new_line_(new_line), closed_(false), allocated_(false)
+        explicit LogStream(std::ostream& sout, bool new_line = true, bool flush = true)
+        : sout_(&sout), new_line_(new_line), flush_(flush), closed_(false), allocated_(false)
         {
         }
 
@@ -81,7 +82,10 @@ public:
             {
                 (*sout_) << std::endl;
             }
-            flush();
+            if (flush_)
+            {
+                flush();
+            }
             closed_ = true;
         }
     };
@@ -89,24 +93,35 @@ public:
     explicit Logger()
     {}
     
-    LogStream warning(bool new_line = true)
+    LogStream warning(bool new_line = true, bool flush = true)
     {
-        LogStream stream(std::cout, new_line);
+        LogStream stream(std::cout, new_line, flush);
         stream << "WARNING> " << prefix_;
         return stream;
     }
     
-    LogStream info(bool new_line = true)
+    LogStream info(bool new_line = true, bool flush = true)
     {
-        LogStream stream(std::cout, new_line);
+        LogStream stream(std::cout, new_line, flush);
         stream << "INFO> " << prefix_;
         return stream;
     }
-    
-    LogStream debug(bool new_line = true)
+
+    LogStream profile(bool new_line = true, bool flush = true)
     {
-#ifdef AIT_DEBUG
-        LogStream stream(std::cout, new_line);
+#if AIT_PROFILE
+        LogStream stream(std::cout, new_line, flush);
+#else
+        LogStream stream;
+#endif
+        stream << "PROFILE> " << prefix_;
+        return stream;
+    }
+
+    LogStream debug(bool new_line = true, bool flush = true)
+    {
+#if AIT_DEBUG
+        LogStream stream(std::cout, new_line, flush);
 #else
         LogStream stream;
 #endif
@@ -114,9 +129,9 @@ public:
         return stream;
     }
 
-    LogStream error(bool new_line = true)
+    LogStream error(bool new_line = true, bool flush = true)
     {
-        LogStream stream(std::cerr, new_line);
+        LogStream stream(std::cerr, new_line, flush);
         stream << "ERROR> " << prefix_;
         return stream;
     }
@@ -134,29 +149,35 @@ inline Logger& logger()
     return logger_;
 }
     
-inline Logger::LogStream log_warning(bool new_line = true)
+inline Logger::LogStream log_warning(bool new_line = true, bool flush = true)
 {
     Logger& lg = logger();
-    return lg.warning(new_line);
+    return lg.warning(new_line, flush);
 }
     
 
-inline Logger::LogStream log_info(bool new_line = true)
+inline Logger::LogStream log_info(bool new_line = true, bool flush = true)
 {
     Logger& lg = logger();
-    return lg.info(new_line);
+    return lg.info(new_line, flush);
 }
 
-inline Logger::LogStream log_debug(bool new_line = true)
+inline Logger::LogStream log_profile(bool new_line = true, bool flush = true)
 {
     Logger& lg = logger();
-    return lg.debug(new_line);
+    return lg.profile(new_line, flush);
+}
+
+inline Logger::LogStream log_debug(bool new_line = true, bool flush = true)
+{
+    Logger& lg = logger();
+    return lg.debug(new_line, flush);
 }
     
-inline Logger::LogStream log_error(bool new_line = true)
+inline Logger::LogStream log_error(bool new_line = true, bool flush = true)
 {
     Logger& lg = logger();
-    return lg.error(new_line);
+    return lg.error(new_line, flush);
 }
 
 }

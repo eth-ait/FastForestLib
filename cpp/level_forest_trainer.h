@@ -270,7 +270,14 @@ protected:
         template <typename Archive>
         void serialize(Archive& archive, const unsigned int version, typename enable_if_boost_archive<Archive>::type* = nullptr)
         {
+#if AIT_PROFILE
+            auto start_time = std::chrono::high_resolution_clock::now();
+            log_profile(false) << "Serializing tree node map ...";
+#endif
             archive & map_;
+#if AIT_PROFILE
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+#endif
         }
 #endif
 
@@ -279,7 +286,14 @@ protected:
         template <typename Archive>
         void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
         {
+#if AIT_PROFILE
+            auto start_time = std::chrono::high_resolution_clock::now();
+            log_profile(false) << "Serializing tree node map ...";
+#endif
             archive(cereal::make_nvp("map", map_));
+#if AIT_PROFILE
+            ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
+#endif
         }
 
     };
