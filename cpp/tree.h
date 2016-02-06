@@ -170,7 +170,7 @@ public:
         size_type level_;
 
     public:
-        using iterator = NodeIterator;;
+        using iterator = NodeIterator;
         using const_iterator = ConstNodeIterator;
 
         TreeLevel(Tree& tree, size_type level)

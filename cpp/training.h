@@ -29,7 +29,7 @@ struct TrainingParameters
     
 struct LevelTrainingParameters : public TrainingParameters
 {
-    int level_part_size = 512;
+    int level_part_size = 128;
 };
 
 }
