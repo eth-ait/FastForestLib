@@ -14,11 +14,13 @@ namespace ait
 struct TrainingParameters
 {
 #if AIT_TESTING
-    int num_of_trees = 3;
-    int tree_depth = 12;
+//    int num_of_trees = 3;
+//    int tree_depth = 12;
+    int num_of_trees = 1;
+    int tree_depth = 2;
 #else
-    int num_of_trees = 3;
-    int tree_depth = 12;
+    int num_of_trees = 1;
+    int tree_depth = 2;
 #endif
     int minimum_num_of_samples = 100;
     double minimum_information_gain = 0.0;
@@ -32,6 +34,8 @@ struct LevelTrainingParameters : public TrainingParameters
     int level_part_size = 128;
     std::string temporary_json_forest_file_prefix;
     std::string temporary_binary_forest_file_prefix;
+    std::string temporary_json_tree_file_prefix;
+    std::string temporary_binary_tree_file_prefix;
 };
 
 // TODO: Is this ever needed?
