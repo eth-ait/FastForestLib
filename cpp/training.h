@@ -26,10 +26,17 @@ struct TrainingParameters
     int num_of_threads = -1;
 #endif
 };
-    
+
 struct LevelTrainingParameters : public TrainingParameters
 {
     int level_part_size = 128;
+    std::string temporary_json_forest_file_prefix;
+    std::string temporary_binary_forest_file_prefix;
+};
+
+// TODO: Is this ever needed?
+struct DistributedTrainingParameters : public LevelTrainingParameters
+{
 };
 
 }

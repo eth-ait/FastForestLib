@@ -35,11 +35,6 @@ class DistributedForestTrainer : public LevelForestTrainer<TWeakLearner, TSample
     using BaseT = LevelForestTrainer<TWeakLearner, TSampleIterator>;
 
 public:
-    struct DistributedTrainingParameters : public BaseT::ParametersT
-    {
-        // TODO: Add distributed training parameters?
-    };
-
     using ParametersT = DistributedTrainingParameters;
     
     using SamplePointerT = typename BaseT::SamplePointerT;

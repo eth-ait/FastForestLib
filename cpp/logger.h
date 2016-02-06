@@ -109,7 +109,7 @@ public:
 
     LogStream profile(bool new_line = true, bool flush = true)
     {
-#if AIT_PROFILE
+#if AIT_PROFILE || AIT_PROFILE_DISTRIBUTED
         LogStream stream(std::cout, new_line, flush);
 #else
         LogStream stream;

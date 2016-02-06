@@ -50,6 +50,7 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
         TCLAP::SwitchArg hide_confusion_matrix_switch("c", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Label of background pixels to be ignored", false, -1, "int", cmd);
+        TCLAP::SwitchArg save_regularly_switch("", "save-regularly", "Whether forest and trees should be saved regularly", cmd, false);
 #if AIT_MULTI_THREADING
         TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, -1, "int", cmd);
 #endif
@@ -59,6 +60,7 @@ int main(int argc, const char* argv[]) {
         cmd.parse(argc, argv);
 
         const int num_of_classes = num_of_classes_arg.getValue();
+        const bool save_regularly = save_regularly_switch.getValue();
         const bool print_confusion_matrix = !hide_confusion_matrix_switch.getValue();
         const std::string image_list_file = image_list_file_arg.getValue();
 
@@ -115,6 +117,17 @@ int main(int argc, const char* argv[]) {
             training_parameters.num_of_threads = num_of_threads_arg.getValue();
         }
 #endif
+        if (save_regularly)
+        {
+            if (json_forest_file_arg.isSet())
+            {
+                training_parameters.temporary_json_forest_file_prefix = json_forest_file_arg.getValue();
+            }
+            else if (binary_forest_file_arg.isSet())
+            {
+                training_parameters.temporary_binary_forest_file_prefix = binary_forest_file_arg.getValue();
+            }
+        }
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);
         SampleProviderT sample_provider(image_list, weak_learner_parameters);

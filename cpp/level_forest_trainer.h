@@ -51,6 +51,8 @@ public:
 protected:
     const WeakLearnerT weak_learner_;
     const ParametersT training_parameters_;
+    std::string temporary_json_tree_file_prefix_;
+    std::string temporary_binary_tree_file_prefix_;
     
     void output_spaces(std::ostream& stream, int num_of_spaces) const
     {
@@ -275,7 +277,7 @@ protected:
             log_profile(false) << "Serializing tree node map with boost ...";
 #endif
             archive & map_;
-#if AIT_PROFILE
+#if AIT_PROFILE || AIT_PROFILE_DISTRIBUTED
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
 #endif
         }
@@ -291,7 +293,7 @@ protected:
             log_profile(false) << "Serializing tree node map with Cereal ...";
 #endif
             archive(cereal::make_nvp("map", map_));
-#if AIT_PROFILE
+#if AIT_PROFILE || AIT_PROFILE_DISTRIBUTED
             ait::log_profile() << "Finished in " << compute_elapsed_milliseconds(start_time) << " ms";
 #endif
         }
@@ -503,6 +505,31 @@ public:
 #if AIT_PROFILE
             log_profile() << "Training level " << current_level << " took " << compute_elapsed_seconds(start_time) << " s";
 #endif
+            
+            // Optionally: Serialize temporary tree to JSON file.
+            if (!temporary_json_tree_file_prefix_.empty())
+            {
+                std::ostringstream ostr;
+                ostr << temporary_json_tree_file_prefix_ << "_" << current_level;
+                std::string tree_file = ostr.str();
+                ait::log_info(false) << "Writing temporary json tree file " << tree_file << "... " << std::flush;
+                std::ofstream ofile(tree_file);
+                cereal::JSONOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", tree));
+                ait::log_info(false) << " Done." << std::endl;
+            }
+            // Optionally: Serialize temporary tree to binary file.
+            if (!temporary_binary_tree_file_prefix_.empty())
+            {
+                std::ostringstream ostr;
+                ostr << temporary_binary_tree_file_prefix_ << "_" << current_level;
+                std::string tree_file = ostr.str();
+                ait::log_info(false) << "Writing temporary binary tree file " << tree_file << "... " << std::flush;
+                std::ofstream ofile(tree_file, std::ios_base::binary);
+                cereal::BinaryOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", tree));
+                ait::log_info(false) << " Done." << std::endl;
+            }
         }
         return tree;
     }
@@ -512,14 +539,62 @@ public:
         RandomEngineT rnd_engine;
         return train_tree(samples_start, samples_end, rnd_engine);
     }
-    
-    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
+
+    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine)
     {
         ForestT forest;
         for (int i=0; i < training_parameters_.num_of_trees; i++)
         {
+            // Optionally: Serialize temporary forest to JSON file.
+            if (!training_parameters_.temporary_json_forest_file_prefix.empty())
+            {
+                std::ostringstream ostr;
+                ostr << training_parameters_.temporary_json_forest_file_prefix << "_" << i;
+                temporary_json_tree_file_prefix_ = ostr.str();
+            }
+            else
+            {
+                temporary_json_tree_file_prefix_ = "";
+            }
+            // Optionally: Serialize temporary forest to binary file.
+            if (!training_parameters_.temporary_binary_forest_file_prefix.empty())
+            {
+                std::ostringstream ostr;
+                ostr << training_parameters_.temporary_binary_forest_file_prefix << "_" << i;
+                temporary_binary_tree_file_prefix_ = ostr.str();
+            }
+            else
+            {
+                temporary_binary_tree_file_prefix_ = "";
+            }
+
             TreeT tree = train_tree(samples_start, samples_end, rnd_engine);
             forest.add_tree(std::move(tree));
+
+            // Optionally: Serialize temporary forest to JSON file.
+            if (!training_parameters_.temporary_json_forest_file_prefix.empty())
+            {
+                std::ostringstream ostr;
+                ostr << training_parameters_.temporary_json_forest_file_prefix << "_" << i;
+                std::string forest_file = ostr.str();
+                ait::log_info(false) << "Writing temporary json forest file " << forest_file << "... " << std::flush;
+                std::ofstream ofile(forest_file);
+                cereal::JSONOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", forest));
+                ait::log_info(false) << " Done." << std::endl;
+            }
+            // Optionally: Serialize temporary forest to binary file.
+            if (!training_parameters_.temporary_binary_forest_file_prefix.empty())
+            {
+                std::ostringstream ostr;
+                ostr << training_parameters_.temporary_json_forest_file_prefix << "_" << i;
+                std::string forest_file = ostr.str();
+                ait::log_info(false) << "Writing temporary binary forest file " << forest_file << "... " << std::flush;
+                std::ofstream ofile(forest_file, std::ios_base::binary);
+                cereal::BinaryOutputArchive oarchive(ofile);
+                oarchive(cereal::make_nvp("forest", forest));
+                ait::log_info(false) << " Done." << std::endl;
+            }
         }
         return forest;
     }
