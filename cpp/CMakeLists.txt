@@ -172,11 +172,15 @@ if(${UNIX})
 endif()
 
 # SET AIT_PROFILE or AIT_PROFILE_DISTRIBUTED macro for cpp files if profiling output is enabled
-target_compile_definitions(depth_forest_trainer_mat PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
+if(${WITH_MATLAB})
+    target_compile_definitions(depth_forest_trainer_mat PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
+endif()
 target_compile_definitions(depth_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
 target_compile_definitions(level_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
 target_compile_definitions(forest_predictor PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
-target_compile_definitions(dist_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE_DISTRIBUTED=1>)
+if(${WITH_MPI})
+    target_compile_definitions(dist_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE_DISTRIBUTED=1>)
+endif()
 
 # C++11 support (should be done through target_compile_features)
 #set(CMAKE_CXX_FLAGS "-std=c++0x ${CMAKE_CXX_FLAGS}")
