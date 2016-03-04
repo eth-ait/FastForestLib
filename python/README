@@ -21,3 +21,5 @@ The data is given as a Matlab .MAT file with two fields: data, labels (default n
 Both fields contains a 3-dimensional array of size WxHxN,
 where N is the number of images, W is the width and H is the height of the images.
 The arrays should be of type double.
+Labels should be from 0 to (C-1), where C is the number of classes. Negative labels are considered as background pixels and will be ignored.
+
