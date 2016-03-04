@@ -6,7 +6,7 @@ Cython==0.23.4
 
 To compile the Cython extension you have to run:
 python setup.py build_ext --inplace
-To add OpenMP support add the --enable-openmp flag.
+To add OpenMP support add the --enable-openmp flag. Make sure to remove the build/ folder and c_image_weak_learner.so otherwise it won't recompile.
 
 A new forest can be trained by running:
 python main.py <matlab data file> <forest file> [configuration file]
