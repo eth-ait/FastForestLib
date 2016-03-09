@@ -2,7 +2,7 @@ from __future__ import division
 
 from forest import Forest
 from tree import ArrayTree
-from training_context import TrainingContext
+#from training_context import TrainingContext
 
 
 class TrainingParameters(object):

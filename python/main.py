@@ -4,15 +4,13 @@ import numpy as np
 import imp
 
 from tree import level_order_traverse
-from forest_trainer import RandomForestTrainer, TrainingParameters
+from forest_trainer import RandomForestTrainer
 from image_data import ImageDataReader
-# from image_training_context import ImageDataReader, SparseImageTrainingContext
 import c_image_weak_learner as image_weak_learner
+#import image_weak_learner
 
 
 def run(matlab_file, forest_file, config, profiler=None):
-    # training_parameters = TrainingParameters(maximum_depth=15, num_of_features=50, num_of_thresholds=50,
-    #                                          num_of_trees=1, minimum_num_of_samples=100)
     if 'num_of_samples_per_image' not in config.training_data_parameters \
             or config.training_data_parameters['num_of_samples_per_image'] <= 0:
         training_data = ImageDataReader.read_from_matlab_file_with_all_samples(matlab_file,

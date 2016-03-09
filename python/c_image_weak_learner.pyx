@@ -400,8 +400,7 @@ cdef class FeatureEvaluator:
     cdef inline double compute_feature_value_with_offsets(self, np.int64_t sample_index,
                                                           np.int64_t offset_x1, np.int64_t offset_y1,
                                                           np.int64_t offset_x2, np.int64_t offset_y2) nogil:
-        cdef np.int64_t image_index, local_index
-        image_index = sample_index // (self._image_stride)
+        cdef np.int64_t local_index
         local_index = sample_index % (self._image_stride)
         #cdef int local_x, local_y
         #local_x = local_index // self._imageHeight
