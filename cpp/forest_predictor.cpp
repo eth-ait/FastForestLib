@@ -95,7 +95,7 @@ int main(int argc, const char* argv[]) {
                 ait::log_info(false) << "Reading json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
                 std::ifstream ifile(json_forest_file_arg.getValue());
                 cereal::JSONInputArchive iarchive(ifile);
-//                iarchive(cereal::make_nvp("forest", forest));
+                iarchive(cereal::make_nvp("forest", forest));
                 ait::log_info(false) << " Done." << std::endl;
             }
         }
