@@ -291,7 +291,7 @@ public:
                 for (int y = 0; y < image_height_; ++y)
                 {
                     SampleT sample(image_ptr, x, y);
-                    if (sample.get_label() >= parameters_.background_label)
+                    if (sample.get_label() < parameters_.background_label)
                     {
                         non_background_samples.push_back(std::move(sample));
                     }
@@ -303,7 +303,8 @@ public:
                 std::uniform_int_distribution<> index_dist(0, non_background_samples.size() - 1 - i);
                 int index = index_dist(rnd_engine);
                 std::swap(non_background_samples[index], non_background_samples.back());
-                samples_.push_back(std::move(non_background_samples.back()));			}
+                samples_.push_back(std::move(non_background_samples.back()));
+            }
 		}
 		else
 		{
@@ -313,7 +314,7 @@ public:
 				{
 					SampleT sample(image_ptr, x, y);
                     label_type label = sample.get_label();
-					if (label >= parameters_.background_label)
+					if (label < parameters_.background_label)
 					{
 						samples_.push_back(std::move(sample));
 					}
@@ -868,7 +869,7 @@ public:
         }
     }
 
-    __attribute__((noinline)) virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
         SplitStatistics<StatisticsT> split_statistics(split_points.total_size(), this->statistics_factory_);

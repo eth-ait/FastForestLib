@@ -136,7 +136,7 @@ int main(int argc, const char* argv[]) {
         {
             background_label = num_of_classes;
         }
-        weak_learner_parameters.background_label = background_label;
+        parameters.background_label = background_label;
         SampleProviderT sample_provider(image_list, parameters);
         sample_provider.clear_samples();
         for (int i = 0; i < image_list.size(); ++i)

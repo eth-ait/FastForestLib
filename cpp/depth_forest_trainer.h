@@ -54,8 +54,10 @@ public:
     
     void train_tree_recursive(NodeIterator tree_iter, SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine, int current_depth = 1) const
     {
-        output_spaces(log_info(false), current_depth - 1);
-        log_info() << "depth: " << current_depth << ", samples: " << (samples_end - samples_start);
+        {
+            output_spaces(log_info(false), current_depth - 1);
+            log_info() << "depth: " << current_depth << ", samples: " << (samples_end - samples_start);
+        }
 
         // Assign statistics to node
         StatisticsT statistics = weak_learner_.compute_statistics(samples_start, samples_end);
@@ -104,7 +106,7 @@ public:
         {
             tree_iter.set_leaf();
             output_spaces(log_info(false), current_depth - 1);
-            log_info() << "Too little information gain. Stopping." ;
+            log_info() << "Too little information gain. Stopping. best_information_gain=" << best_information_gain;
             return;
         }
 

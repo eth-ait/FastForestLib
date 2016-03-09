@@ -108,7 +108,7 @@ protected:
         scalar_type current_entropy = current_statistics.entropy();
         scalar_type left_entropy = left_statistics.entropy();
         scalar_type right_entropy = right_statistics.entropy();
-        // We use a static cast here because current_statistics.NumOfSamples() usually returns an integer.
+        // We use a static cast here because current_statistics.num_of_samples() usually returns an integer.
         scalar_type information_gain = current_entropy
         - (left_statistics.num_of_samples() * left_entropy + right_statistics.num_of_samples() * right_entropy) / static_cast<scalar_type>(current_statistics.num_of_samples());
         return information_gain;
