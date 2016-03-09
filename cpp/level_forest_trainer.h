@@ -51,8 +51,6 @@ public:
 protected:
     const WeakLearnerT weak_learner_;
     const ParametersT training_parameters_;
-    std::string temporary_json_tree_file_prefix_;
-    std::string temporary_binary_tree_file_prefix_;
     
     void output_spaces(std::ostream& stream, int num_of_spaces) const
     {
@@ -540,10 +538,10 @@ public:
 #endif
             
             // Optionally: Serialize temporary tree to JSON file.
-            if (!temporary_json_tree_file_prefix_.empty())
+            if (!training_parameters_.temporary_json_tree_file_prefix.empty())
             {
                 std::ostringstream ostr;
-                ostr << temporary_json_tree_file_prefix_ << "_" << current_level;
+                ostr << training_parameters_.temporary_json_tree_file_prefix << "_" << current_level;
                 std::string tree_file = ostr.str();
                 ait::log_info(false) << "Writing temporary json tree file " << tree_file << "... " << std::flush;
                 std::ofstream ofile(tree_file);
@@ -552,10 +550,10 @@ public:
                 ait::log_info(false) << " Done." << std::endl;
             }
             // Optionally: Serialize temporary tree to binary file.
-            if (!temporary_binary_tree_file_prefix_.empty())
+            if (!training_parameters_.temporary_json_tree_file_prefix.empty())
             {
                 std::ostringstream ostr;
-                ostr << temporary_binary_tree_file_prefix_ << "_" << current_level;
+                ostr << training_parameters_.temporary_json_tree_file_prefix << "_" << current_level;
                 std::string tree_file = ostr.str();
                 ait::log_info(false) << "Writing temporary binary tree file " << tree_file << "... " << std::flush;
                 std::ofstream ofile(tree_file, std::ios_base::binary);
@@ -573,34 +571,11 @@ public:
         return train_tree(samples_start, samples_end, rnd_engine);
     }
 
-    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine)
+    ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
     {
         ForestT forest;
         for (int i=0; i < training_parameters_.num_of_trees; i++)
         {
-            // Optionally: Serialize temporary forest to JSON file.
-            if (!training_parameters_.temporary_json_forest_file_prefix.empty())
-            {
-                std::ostringstream ostr;
-                ostr << training_parameters_.temporary_json_forest_file_prefix << "_" << i;
-                temporary_json_tree_file_prefix_ = ostr.str();
-            }
-            else
-            {
-                temporary_json_tree_file_prefix_ = "";
-            }
-            // Optionally: Serialize temporary forest to binary file.
-            if (!training_parameters_.temporary_binary_forest_file_prefix.empty())
-            {
-                std::ostringstream ostr;
-                ostr << training_parameters_.temporary_binary_forest_file_prefix << "_" << i;
-                temporary_binary_tree_file_prefix_ = ostr.str();
-            }
-            else
-            {
-                temporary_binary_tree_file_prefix_ = "";
-            }
-
             TreeT tree = train_tree(samples_start, samples_end, rnd_engine);
             forest.add_tree(std::move(tree));
 

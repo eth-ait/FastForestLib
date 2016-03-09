@@ -32,6 +32,8 @@ struct LevelTrainingParameters : public TrainingParameters
     int level_part_size = 256;
     std::string temporary_json_forest_file_prefix;
     std::string temporary_binary_forest_file_prefix;
+    std::string temporary_json_tree_file_prefix;
+    std::string temporary_binary_tree_file_prefix;
 };
 
 // TODO: Is this ever needed?

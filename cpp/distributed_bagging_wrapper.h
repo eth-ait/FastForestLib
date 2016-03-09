@@ -58,7 +58,7 @@ public:
         SampleIteratorT samples_start = provider_.get_samples_begin();
         SampleIteratorT samples_end = provider_.get_samples_end();
         // Train tree.
-        return  trainer_.train_tree(samples_start, samples_end);
+        return trainer_.train_tree(samples_start, samples_end);
     }
 
     TreeT train_tree() const

@@ -44,8 +44,10 @@ class ImageParameters
 {
 public:
 #if AIT_TESTING
-    double samples_per_image_fraction = 0.015;
-    double bagging_fraction = 0.1;
+//    double samples_per_image_fraction = 0.015;
+//    double bagging_fraction = 0.1;
+    double samples_per_image_fraction = 0.2;
+    double bagging_fraction = 1.0;
 #else
     double samples_per_image_fraction = 0.1;
     double bagging_fraction = 1.0;
@@ -57,11 +59,13 @@ class ImageWeakLearnerParameters : public ImageParameters
 {
 public:
 #if AIT_TESTING
-    int num_of_thresholds = 10;
-    int num_of_features = 10;
+//    int num_of_thresholds = 10;
+//    int num_of_features = 10;
+    int num_of_thresholds = 100;
+    int num_of_features = 100;
 #else
-    int num_of_thresholds = 200;
-    int num_of_features = 200;
+    int num_of_thresholds = 100;
+    int num_of_features = 100;
 #endif
     offset_type feature_offset_x_range_low = 3;
     offset_type feature_offset_x_range_high = 15;
