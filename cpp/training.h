@@ -18,7 +18,7 @@ struct TrainingParameters
     int tree_depth = 12;
 #else
     int num_of_trees = 1;
-    int tree_depth = 20;
+    int tree_depth = 18;
 #endif
     int minimum_num_of_samples = 100;
     double minimum_information_gain = 0.0;
@@ -29,7 +29,7 @@ struct TrainingParameters
 
 struct LevelTrainingParameters : public TrainingParameters
 {
-    int level_part_size = 128;
+    int level_part_size = 256;
     std::string temporary_json_forest_file_prefix;
     std::string temporary_binary_forest_file_prefix;
 };

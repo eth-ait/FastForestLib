@@ -323,7 +323,14 @@ protected:
             typename WeakLearnerT::SampleIteratorT sample_it_end = make_pointer_iterator_wrapper(map_it->cend());
             // TODO: Move semantics?
 #if AIT_MULTI_THREADING
-            split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics_parallel(sample_it_begin, sample_it_end, split_points, training_parameters_.num_of_threads);
+            if (training_parameters_.num_of_threads == 1)
+            {
+                split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics(sample_it_begin, sample_it_end, split_points);
+            }
+            else
+            {
+            	split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics_parallel(sample_it_begin, sample_it_end, split_points, training_parameters_.num_of_threads);
+            }
 #else
             split_statistics_batch[map_it.node_iterator()] = weak_learner_.compute_split_statistics(sample_it_begin, sample_it_end, split_points);
 #endif
@@ -364,7 +371,7 @@ protected:
         return statistics_batch;
     }
     
-    virtual void update_node_statistics_batch(TreeT& tree, const TreeNodeMap<StatisticsT>& statistics_batch) const
+    virtual void update_node_statistics_batch(const TreeNodeMap<StatisticsT>& statistics_batch) const
     {
         for (auto map_it = statistics_batch.cbegin(); map_it != statistics_batch.cend(); ++map_it)
         {
@@ -397,6 +404,21 @@ protected:
             }
         }
         return node_to_sample_map;
+    }
+    
+    TreeNodeMap<std::vector<SamplePointerT>> get_sample_node_map_part(
+                                                                 TreeT& tree,
+                                                                 TreeNodeMap<std::vector<SamplePointerT>>& node_to_sample_map,
+                                                                 typename TreeT::ConstNodeIterator node_iter_start,
+                                                                 typename TreeT::ConstNodeIterator node_iter_end
+                                                                 ) const
+    {
+        TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map_part(tree);
+        for (auto node_it = node_iter_start; node_it != node_iter_end; ++node_it)
+        {
+            node_to_sample_map_part[node_it] = node_to_sample_map[node_it];
+        }
+        return node_to_sample_map_part;
     }
 
     TreeNodeMap<std::vector<SamplePointerT>> get_sample_node_map(TreeT& tree, typename TreeT::TreeLevel& tl, TSampleIterator samples_start, TSampleIterator samples_end) const
@@ -433,17 +455,18 @@ public:
         return training_parameters_;
     }
     
-    virtual void train_tree_level_part(TreeT& tree,
-                                       size_type current_level,
-                                       typename TreeT::ConstNodeIterator node_iter_start,
-                                       typename TreeT::ConstNodeIterator node_iter_end,
-                                       SampleIteratorT samples_start,
-                                       SampleIteratorT samples_end,
-                                       RandomEngineT& rnd_engine) const
+    virtual void train_tree_level_part(
+    		TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map,
+    		TreeT& tree,
+			size_type current_level,
+			typename TreeT::ConstNodeIterator node_iter_start,
+			typename TreeT::ConstNodeIterator node_iter_end,
+			SampleIteratorT samples_start,
+			SampleIteratorT samples_end,
+			RandomEngineT& rnd_engine) const
     {
-        TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map = get_sample_node_map(tree, node_iter_start, node_iter_end, samples_start, samples_end);
         const TreeNodeMap<StatisticsT>& current_statistics = compute_statistics_batch(tree, node_to_sample_map);
-        update_node_statistics_batch(tree, current_statistics);
+        update_node_statistics_batch(current_statistics);
         if (current_level < training_parameters_.tree_depth)
         {
             TreeNodeMap<SplitPointCandidatesT> split_points_batch = sample_split_points_batch(tree, node_to_sample_map, rnd_engine);
@@ -472,17 +495,27 @@ public:
     virtual void train_tree_level(TreeT& tree, size_type current_level, SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
     {
         typename TreeT::TreeLevel tl(tree, current_level);
+        TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map = get_sample_node_map(tree, tl.cbegin(), tl.cend(), samples_start, samples_end);
         int part = 0;
         for (auto node_it = tl.cbegin(); node_it < tl.cend(); )
         {
-            ++part;
-            auto node_it_next = node_it + training_parameters_.level_part_size;
-            if (node_it_next >= tl.cend())
+            auto node_it_next = node_it;
+            if (training_parameters_.level_part_size > 0)
+            {
+                node_it_next += training_parameters_.level_part_size;
+                if (node_it_next > tl.cend())
+                {
+                    node_it_next = tl.cend();
+                }
+            }
+            else
             {
                 node_it_next = tl.cend();
             }
             log_info() << "  Part " << part << ", # nodes: " << (node_it_next - node_it);
-            train_tree_level_part(tree, current_level, node_it, node_it_next, samples_start, samples_end, rnd_engine);
+            ++part;
+            TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map_part = get_sample_node_map_part(tree, node_to_sample_map, node_it, node_it_next);
+            train_tree_level_part(node_to_sample_map_part, tree, current_level, node_it, node_it_next, samples_start, samples_end, rnd_engine);
             node_it = node_it_next;
         }
     }

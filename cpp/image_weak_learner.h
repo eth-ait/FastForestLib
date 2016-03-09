@@ -47,7 +47,7 @@ public:
     double samples_per_image_fraction = 0.015;
     double bagging_fraction = 0.1;
 #else
-    double samples_per_image_fraction = 0.2;
+    double samples_per_image_fraction = 0.1;
     double bagging_fraction = 1.0;
 #endif
     label_type background_label = -1;
@@ -757,7 +757,7 @@ public:
     : BaseT(statistics_factory), parameters_(parameters)
     {}
 
-    ~ImageWeakLearner() {}
+    virtual ~ImageWeakLearner() {}
 
     void compute_adaptive_threshold_range(TSampleIterator first_sample, TSampleIterator last_sample, const ImageFeature& feature, scalar_type* threshold_range_low, scalar_type* threshold_range_high) const
     {
@@ -863,10 +863,10 @@ public:
         }
     }
 
-    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
+    __attribute__((noinline)) virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
-        SplitStatistics<StatisticsT> split_statistics(split_points.size(), this->statistics_factory_);
+        SplitStatistics<StatisticsT> split_statistics(split_points.total_size(), this->statistics_factory_);
         for (typename SplitPointCandidatesT::const_iterator it = split_points.cbegin(); it != split_points.cend(); ++it)
         {
             const ImageFeature& feature = std::get<0>(*it);

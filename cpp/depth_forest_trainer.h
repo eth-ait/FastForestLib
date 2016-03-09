@@ -82,7 +82,15 @@ public:
 
         // Compute the statistics for all split points
 #if AIT_MULTI_THREADING
-        SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics_parallel(samples_start, samples_end, split_points, training_parameters_.num_of_threads);
+        SplitStatistics<StatisticsT> split_statistics;
+        if (training_parameters_.num_of_threads == 1)
+        {
+            split_statistics = weak_learner_.compute_split_statistics(samples_start, samples_end, split_points);
+        }
+        else
+        {
+        	split_statistics = weak_learner_.compute_split_statistics_parallel(samples_start, samples_end, split_points, training_parameters_.num_of_threads);
+        }
 #else
         SplitStatistics<StatisticsT> split_statistics = weak_learner_.compute_split_statistics(samples_start, samples_end, split_points);
 #endif
@@ -96,7 +104,7 @@ public:
         {
             tree_iter.set_leaf();
             output_spaces(log_info(false), current_depth - 1);
-            log_info() << "Too little information gain. Stopping.";
+            log_info() << "Too little information gain. Stopping." ;
             return;
         }
 
