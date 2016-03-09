@@ -62,7 +62,7 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
         TCLAP::SwitchArg hide_confusion_matrix_switch("c", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
-        TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Label of background pixels to be ignored", false, -1, "int", cmd);
+        TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Lower bound of background labels to be ignored", false, -1, "int", cmd);
 #if AIT_MULTI_THREADING
         TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, 1, "int", cmd);
 #endif
@@ -111,10 +111,16 @@ int main(int argc, const char* argv[]) {
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
         WeakLearnerT::ParametersT weak_learner_parameters;
+        ait::label_type background_label;
         if (background_label_arg.isSet())
         {
-            weak_learner_parameters.background_label = background_label_arg.getValue();
+            background_label = background_label_arg.getValue();
         }
+        else
+        {
+            background_label = num_of_classes;
+        }
+        weak_learner_parameters.background_label = background_label;
         ForestTrainerT::ParametersT training_parameters;
 #if AIT_MULTI_THREADING
         if (num_of_threads_arg.isSet())

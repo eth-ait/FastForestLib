@@ -12,6 +12,7 @@
 #include <iostream>
 #include <random>
 #include <cmath>
+#include <limits>
 #include <algorithm>
 #if AIT_MULTI_THREADING
 #include <thread>
@@ -52,7 +53,7 @@ public:
     double samples_per_image_fraction = 0.1;
     double bagging_fraction = 1.0;
 #endif
-    label_type background_label = -1;
+    label_type background_label = std::numeric_limits<label_type>::max();
 };
 
 class ImageWeakLearnerParameters : public ImageParameters
@@ -290,7 +291,7 @@ public:
                 for (int y = 0; y < image_height_; ++y)
                 {
                     SampleT sample(image_ptr, x, y);
-                    if (sample.get_label() != parameters_.background_label)
+                    if (sample.get_label() >= parameters_.background_label)
                     {
                         non_background_samples.push_back(std::move(sample));
                     }
@@ -312,7 +313,7 @@ public:
 				{
 					SampleT sample(image_ptr, x, y);
                     label_type label = sample.get_label();
-					if (label != parameters_.background_label)
+					if (label >= parameters_.background_label)
 					{
 						samples_.push_back(std::move(sample));
 					}

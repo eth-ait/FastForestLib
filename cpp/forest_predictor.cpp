@@ -43,7 +43,7 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file of the forest to load", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file of the forest to load", false, "forest.bin", "string");
-        TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Label of background pixels to be ignored", false, -1, "int", cmd);
+        TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Lower bound of background labels to be ignored", false, -1, "int", cmd);
         cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
         cmd.parse(argc, argv);
         
@@ -127,10 +127,16 @@ int main(int argc, const char* argv[]) {
         // Compute some stats and print them.
         ait::log_info(false) << "Creating samples for testing ... " << std::flush;
         ParametersT parameters;
+        ait::label_type background_label;
         if (background_label_arg.isSet())
         {
-            parameters.background_label = background_label_arg.getValue();
+            background_label = background_label_arg.getValue();
         }
+        else
+        {
+            background_label = num_of_classes;
+        }
+        weak_learner_parameters.background_label = background_label;
         SampleProviderT sample_provider(image_list, parameters);
         sample_provider.clear_samples();
         for (int i = 0; i < image_list.size(); ++i)
