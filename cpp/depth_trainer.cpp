@@ -1,3 +1,11 @@
+//
+//  depth_trainer.cpp
+//  DistRandomForest
+//
+//  Created by Benjamin Hepp.
+//
+//
+
 #include <sstream>
 #include <fstream>
 #include <vector>

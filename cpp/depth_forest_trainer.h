@@ -1,3 +1,11 @@
+//
+//  depth_forest_trainer.h
+//  DistRandomForest
+//
+//  Created by Benjamin Hepp.
+//
+//
+
 #pragma once
 #include <iostream>
 #include <sstream>

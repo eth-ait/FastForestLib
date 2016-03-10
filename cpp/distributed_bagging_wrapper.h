@@ -8,16 +8,6 @@
 
 #pragma once
 
-//
-//  bagging_wrapper.h
-//  DistRandomForest
-//
-//  Created by Benjamin Hepp on 13/10/15.
-//
-//
-
-#pragma once
-
 #include <algorithm>
 
 #include <boost/mpi/communicator.hpp>
