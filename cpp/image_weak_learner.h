@@ -64,8 +64,8 @@ public:
 //    int num_of_thresholds = 10;
 //    int num_of_features = 10;
 #else
-    int num_of_thresholds = 100;
     int num_of_features = 100;
+    int num_of_thresholds = 100;
 #endif
     // Feature offset ranges to sample from
     offset_type feature_offset_x_range_low = 3;
@@ -74,7 +74,7 @@ public:
     offset_type feature_offset_y_range_high = 15;
     // Range from which to sample thresholds
     scalar_type threshold_range_low = -300.0;
-    scalar_type threshold_range_high = +300;
+    scalar_type threshold_range_high = +300.0;
     // Whether to compute the threshold-range based on the data-range
     bool adaptive_threshold_range = true;
     // For binary images only two thresholds will be generated (-0.5 and +0.5). The other parameters regarding thresholds will be ignored.

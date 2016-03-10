@@ -237,11 +237,38 @@ int main(int argc, const char* argv[]) {
             
             // Compute confusion matrix.
             auto tree_utils = ait::make_tree_utils<SampleIteratorT>(*forest.begin());
-            auto matrix = tree_utils.compute_confusion_matrix(num_of_classes, samples_start, samples_end);
-            ait::log_info() << "Confusion matrix:" << std::endl << matrix;
-            auto norm_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples_start, samples_end);
-            ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
-            ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_matrix.diagonal();
+            auto confusion_matrix = tree_utils.compute_confusion_matrix(num_of_classes, samples_start, samples_end);
+            ait::log_info() << "Confusion matrix:" << std::endl << confusion_matrix;
+            auto norm_confusion_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples_start, samples_end);
+            ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_confusion_matrix;
+            ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal();
+
+            // Computing per-frame confusion matrix
+            ait::log_info() << "Computing per-frame confusion matrix.";
+            Eigen::MatrixXd per_frame_confusion_matrix(num_of_classes, num_of_classes);
+            per_frame_confusion_matrix.setZero();
+            WeakLearnerT::ParametersT full_weak_learner_parameters(weak_learner_parameters);
+            full_weak_learner_parameters.samples_per_image_fraction = 1.0;
+            SampleProviderT full_sample_provider(image_list, full_weak_learner_parameters);
+            for (int i = 0; i < image_list.size(); ++i)
+            {
+                full_sample_provider.clear_samples();
+                full_sample_provider.load_samples_from_image(i, rnd_engine);
+                samples_start = full_sample_provider.get_samples_begin();
+                samples_end = full_sample_provider.get_samples_end();
+                std::vector<ait::size_type> pred_label_counts = tree_utils.compute_predicted_label_histogram(num_of_classes, samples_start, samples_end);
+                std::vector<ait::size_type> true_label_counts = tree_utils.compute_true_label_histogram(num_of_classes, samples_start, samples_end);
+                auto max_pred_element = std::max_element(pred_label_counts.cbegin(), pred_label_counts.cend());
+                int pred_label = max_pred_element - pred_label_counts.cbegin();
+                auto max_true_element = std::max_element(true_label_counts.cbegin(), true_label_counts.cend());
+                int true_label = max_true_element - true_label_counts.cbegin();
+                per_frame_confusion_matrix(true_label, pred_label) += 1;
+            }
+
+            ait::log_info() << "Per-frame confusion matrix:" << std::endl << per_frame_confusion_matrix;
+            auto per_frame_norm_confusion_matrix = tree_utils.normalize_confusion_matrix(per_frame_confusion_matrix);
+            ait::log_info() << "Normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix;
+            ait::log_info() << "Diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal();
         }
     }
     catch (const std::runtime_error& error)

@@ -19,10 +19,10 @@ struct TrainingParameters
     int tree_depth = 12;
 #else
     int num_of_trees = 1;
-    int tree_depth = 20;
+    int tree_depth = 12;
 #endif
     // If a node contains less samples than minimum_num_of_samples it is not split anymore
-    int minimum_num_of_samples = 0;
+    int minimum_num_of_samples = 100;
     // Minimum information gain to achieve before stopping splitting of nodes
     double minimum_information_gain = 0.0;
 #if AIT_MULTI_THREADING

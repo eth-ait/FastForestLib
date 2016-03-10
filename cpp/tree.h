@@ -598,6 +598,44 @@ public:
         }
         return normalized_confusion_matrix;
     }
+    
+    TMatrix normalize_confusion_matrix(const TMatrix& confusion_matrix) const
+    {
+        auto row_sum = confusion_matrix.rowwise().sum();
+        TMatrix normalized_confusion_matrix = confusion_matrix;
+        for (int col=0; col < confusion_matrix.cols(); col++)
+        {
+            for (int row=0; row < confusion_matrix.rows(); row++)
+            {
+                normalized_confusion_matrix(row, col) /= row_sum(row);
+            }
+        }
+        return normalized_confusion_matrix;
+    }
+    
+    std::vector<size_type> compute_predicted_label_histogram(size_type num_of_classes, const TSampleIterator& it_start, const TSampleIterator& it_end) const
+    {
+        std::vector<size_type> label_histogram(num_of_classes, 0);
+        tree_.template evaluate<TSampleIterator>(it_start, it_end, [&label_histogram](const TSampleIterator& it, const typename TreeType::NodeT& node)
+                                                 {
+                                                     const TStatistics& statistics = node.get_statistics();
+                                                     const auto& histogram = statistics.get_histogram();
+                                                     size_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
+                                                     ++label_histogram[predicted_label];
+                                                 });
+        return label_histogram;
+    }
+    
+    std::vector<size_type> compute_true_label_histogram(size_type num_of_classes, const TSampleIterator& it_start, const TSampleIterator& it_end) const
+    {
+        std::vector<size_type> label_histogram(num_of_classes, 0);
+        tree_.template evaluate<TSampleIterator>(it_start, it_end, [&label_histogram](const TSampleIterator& it, const typename TreeType::NodeT& node)
+                                                 {
+                                                     size_type true_label = it->get_label();
+                                                     ++label_histogram[true_label];
+                                                 });
+        return label_histogram;
+    }
 };
 
 template <typename TSampleIterator, typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>

@@ -235,19 +235,4 @@ private:
 
 };
 
-template <typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
-class ForestUtilities
-{
-    using ForestType = Forest<TSplitPoint, TStatistics>;
-    
-    const ForestType& forest_;
-public:
-    ForestUtilities(const ForestType& forest)
-    : forest_(forest)
-    {}
-
-//    MatrixType compute_confusion_matrix() const {
-//    }
-};
-
 }
