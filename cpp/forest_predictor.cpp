@@ -184,14 +184,16 @@ int main(int argc, const char* argv[]) {
             }
         }
         ait::log_info() << "Match: " << match << ", no match: " << no_match;
-        
+
         // Compute confusion matrix.
+
         auto tree_utils = ait::make_forest_utils<SampleIteratorT>(*forest.begin());
         auto matrix = tree_utils.compute_confusion_matrix(num_of_classes, samples_start, samples_end);
         ait::log_info() << "Confusion matrix:" << std::endl << matrix;
         auto norm_matrix = tree_utils.normalize_confusion_matrix(confusion_matrix);
         ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
         ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_matrix.diagonal();
+
 //        auto forest_utils = ait::make_forest_utils<SampleIteratorT>(forest);
 //        auto matrix = forest_utils.compute_confusion_matrix(num_of_classes, samples_start, samples_end);
 //        ait::log_info() << "Confusion matrix:" << std::endl << matrix;

@@ -155,7 +155,7 @@ int main(int argc, const char* argv[]) {
         auto period = std::chrono::high_resolution_clock::period();
         double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
         ait::log_info() << "Done.";
-        ait::log_info() << "Running time: " << elapsed_seconds;
+        ait::log_info() << "Running time: " << elapsed_seconds << " secs -- " << elapsed_seconds/60.0 << " mins.";
         
         // Optionally: Serialize forest to JSON file.
         if (json_forest_file_arg.isSet())
@@ -242,6 +242,7 @@ int main(int argc, const char* argv[]) {
             auto norm_confusion_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples_start, samples_end);
             ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_confusion_matrix;
             ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal();
+            ait::log_info() << "Mean diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal().mean();
 
             // Computing per-frame confusion matrix
             ait::log_info() << "Computing per-frame confusion matrix.";
@@ -269,6 +270,7 @@ int main(int argc, const char* argv[]) {
             auto per_frame_norm_confusion_matrix = tree_utils.normalize_confusion_matrix(per_frame_confusion_matrix);
             ait::log_info() << "Normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix;
             ait::log_info() << "Diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal();
+            ait::log_info() << "Mean of diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal().mean();
         }
     }
     catch (const std::runtime_error& error)

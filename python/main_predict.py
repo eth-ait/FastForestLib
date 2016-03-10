@@ -76,6 +76,9 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
     print("Diagonal of normalized confusion matrix:")
     print norm_confusion_matrix.diagonal()
 
+    print("Mean of diagonal of normalized confusion matrix:")
+    print np.mean(norm_confusion_matrix.diagonal())
+
 
     print("")
     print("Computing per-frame confusion matrix...")
@@ -127,6 +130,9 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
     print("Diagonal of normalized confusion matrix:")
     print norm_confusion_matrix.diagonal()
 
+    print("Mean of diagonal of normalized confusion matrix:")
+    print np.mean(norm_confusion_matrix.diagonal())
+
     # def traverse_tree(node, sample_index):
     #     if node.left_child is None or node.left_child.statistics is None or node.right_child.statistics is None:
     #         return node
@@ -154,7 +160,8 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
     if profiler is not None:
         profiler.disable()
     stop_time = time()
-    print("Testing time: {}".format(stop_time - start_time))
+    print("Testing time (secs): {}".format(stop_time - start_time))
+    print("Testing time (min): {}".format( (stop_time - start_time) / 60.0))
 
     if prediction_output_file is not None:
         print("Writing output file ...")
