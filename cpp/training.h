@@ -19,7 +19,7 @@ struct TrainingParameters
     int tree_depth = 12;
 #else
     int num_of_trees = 1;
-    int tree_depth = 12;
+    int tree_depth = 18;
 #endif
     // If a node contains less samples than minimum_num_of_samples it is not split anymore
     int minimum_num_of_samples = 100;
