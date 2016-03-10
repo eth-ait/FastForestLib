@@ -44,37 +44,40 @@ using label_type = std::int16_t;
 class ImageParameters
 {
 public:
+    // Samples to extract per image and fraction of samples to use for bagging.
 #if AIT_TESTING
-//    double samples_per_image_fraction = 0.015;
-//    double bagging_fraction = 0.1;
-    double samples_per_image_fraction = 0.2;
+    double samples_per_image_fraction = 0.015;
     double bagging_fraction = 1.0;
 #else
     double samples_per_image_fraction = 0.1;
     double bagging_fraction = 1.0;
 #endif
+    // Lower bound of labels for background pixels
     label_type background_label = std::numeric_limits<label_type>::max();
 };
 
 class ImageWeakLearnerParameters : public ImageParameters
 {
 public:
+    // Number of thresholds and features to sample per node
 #if AIT_TESTING
 //    int num_of_thresholds = 10;
 //    int num_of_features = 10;
-    int num_of_thresholds = 100;
-    int num_of_features = 100;
 #else
     int num_of_thresholds = 100;
     int num_of_features = 100;
 #endif
+    // Feature offset ranges to sample from
     offset_type feature_offset_x_range_low = 3;
     offset_type feature_offset_x_range_high = 15;
     offset_type feature_offset_y_range_low = 3;
     offset_type feature_offset_y_range_high = 15;
+    // Range from which to sample thresholds
     scalar_type threshold_range_low = -300.0;
     scalar_type threshold_range_high = +300;
+    // Whether to compute the threshold-range based on the data-range
     bool adaptive_threshold_range = true;
+    // For binary images only two thresholds will be generated (-0.5 and +0.5). The other parameters regarding thresholds will be ignored.
     bool binary_images = true;
 };
 
