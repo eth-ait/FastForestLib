@@ -75,6 +75,7 @@ public:
     scalar_type threshold_range_low = -300.0;
     scalar_type threshold_range_high = +300;
     bool adaptive_threshold_range = true;
+    bool binary_images = true;
 };
 
 template <typename TPixel = pixel_type>
@@ -793,7 +794,7 @@ public:
     virtual SplitPointCandidatesT sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const
     {
         SplitPointCandidatesT split_points;
-
+        
         // TODO: Fix discrete offset distributions
         offset_type offset_x_range_low = parameters_.feature_offset_x_range_low;
         offset_type offset_x_range_high = parameters_.feature_offset_x_range_high;
@@ -803,7 +804,7 @@ public:
             offsets_x.push_back(+offset_x);
         }
         std::uniform_int_distribution<offset_type> offset_x_distribution(0, offsets_x.size() - 1);
-
+        
         offset_type offset_y_range_low = parameters_.feature_offset_y_range_low;
         offset_type offset_y_range_high = parameters_.feature_offset_y_range_high;
         std::vector<offset_type> offsets_y;
@@ -823,20 +824,27 @@ public:
             offset_type offset_x2 = offsets_x[offset_x_distribution(rnd_engine)];
             offset_type offset_y2 = offsets_y[offset_y_distribution(rnd_engine)];
             ImageFeature feature(offset_x1, offset_y1, offset_x2, offset_y2);
-            // Optional: Compute adaptive threshold range
-            if (parameters_.adaptive_threshold_range)
-            {
-                compute_adaptive_threshold_range(first_sample, last_sample, feature, &threshold_range_low, &threshold_range_high);
-            }
-            std::uniform_real_distribution<scalar_type> threshold_distribution(threshold_range_low, threshold_range_high);
             std::vector<ImageThreshold> thresholds;
-            for (size_type i_t=0; i_t < parameters_.num_of_thresholds; i_t++)
-            {
-                scalar_type threshold = threshold_distribution(rnd_engine);
-                thresholds.push_back(ImageThreshold(threshold));
+            if (parameters_.binary_images) {
+                // Using -0.5 and +0.5 instead of 0 and +1 makes the thresholds independent on whether comparison is done by (x < threshold) or (x <= threshold)
+                thresholds.push_back(ImageThreshold(-0.5));
+                thresholds.push_back(ImageThreshold(+0.5));
+            } else {
+                // Optional: Compute adaptive threshold range
+                if (parameters_.adaptive_threshold_range)
+                {
+                    compute_adaptive_threshold_range(first_sample, last_sample, feature, &threshold_range_low, &threshold_range_high);
+                }
+                std::uniform_real_distribution<scalar_type> threshold_distribution(threshold_range_low, threshold_range_high);
+                for (size_type i_t=0; i_t < parameters_.num_of_thresholds; i_t++)
+                {
+                    scalar_type threshold = threshold_distribution(rnd_engine);
+                    thresholds.push_back(ImageThreshold(threshold));
+                }
             }
             split_points.add_feature_and_thresholds(feature, thresholds);
         }
+
         return split_points;
     }
 
