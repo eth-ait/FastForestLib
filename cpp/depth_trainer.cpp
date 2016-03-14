@@ -159,7 +159,7 @@ int main(int argc, const char* argv[]) {
         auto period = std::chrono::high_resolution_clock::period();
         double elapsed_seconds = duration.count() * period.num / static_cast<double>(period.den);
         ait::log_info() << "Done.";
-        ait::log_info() << "Running time: " << elapsed_seconds;
+        ait::log_info() << "Running time: " << elapsed_seconds << " secs -- " << elapsed_seconds/60.0 << " mins.";
         
         // Optionally: Serialize forest to JSON file.
         if (json_forest_file_arg.isSet()) {
@@ -235,7 +235,8 @@ int main(int argc, const char* argv[]) {
             auto norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(confusion_matrix);
             ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_confusion_matrix;
             ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal();
-            
+            ait::log_info() << "Mean diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal().mean();
+
             // Computing per-frame confusion matrix
             ait::log_info() << "Computing per-frame confusion matrix.";
             using ConfusionMatrixType = typename decltype(forest_utils)::MatrixType;

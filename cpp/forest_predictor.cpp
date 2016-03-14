@@ -186,7 +186,7 @@ int main(int argc, const char* argv[]) {
             }
         }
         ait::log_info() << "Match: " << match << ", no match: " << no_match;
-        
+
 //        // Compute single-tree confusion matrix.
 //        auto tree_utils = ait::make_tree_utils(*forest.begin());
 //        auto single_tree_confusion_matrix = tree_utils.compute_confusion_matrix(samples_start, samples_end);

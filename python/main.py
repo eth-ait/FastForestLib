@@ -31,7 +31,8 @@ def run(matlab_file, forest_file, config, profiler=None):
     if profiler is not None:
         profiler.disable()
     stop_time = time()
-    print("Training time: {}".format(stop_time - start_time))
+    print("Training time (secs): {}".format(stop_time - start_time))
+    print("Training time (mins): {}".format( (stop_time - start_time)/60.0 ))
 
     def convert_tree_to_matrix(tree):
         split_point1 = tree.root.split_point
