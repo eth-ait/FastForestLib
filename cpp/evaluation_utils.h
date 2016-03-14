@@ -115,13 +115,15 @@ public:
 	template <typename TSampleIterator>
 	TStatistics compute_summed_statistics(const TSampleIterator& samples_start, const TSampleIterator& samples_end) const
 	{
-		TStatistics summed_statistics(num_of_classes_);
+        TStatistics summed_statistics(num_of_classes_);
         for (TSampleIterator sample_it = samples_start; sample_it != samples_end; ++sample_it) {
-			const TStatistics& node_statistics = compute_statistics(*sample_it);
-			assert(num_of_classes_ == node_statistics.num_of_bins());
-			summed_statistics.accumulate(node_statistics);
-		}
-		return summed_statistics;
+            const TStatistics& node_statistics = compute_statistics(*sample_it);
+            assert(num_of_classes_ == node_statistics.num_of_bins());
+            summed_statistics.lazy_accumulate(node_statistics.get_max_bin());
+//            summed_statistics.accumulate(node_statistics);
+        }
+        summed_statistics.finish_lazy_accumulation();
+        return summed_statistics;
 	}
 
 	template <typename TSampleIterator>
@@ -145,46 +147,28 @@ public:
 	TMatrix compute_confusion_matrix(const TSampleIterator& samples_start, const TSampleIterator& samples_end) const
 	{
 		TMatrix confusion_matrix(num_of_classes_, num_of_classes_);
-		confusion_matrix.setZero();
-		for (auto sample_it = samples_start; sample_it != samples_end; ++sample_it) {
-			size_type true_label = sample_it->get_label();
-			const TStatistics& node_statistics = compute_statistics(*sample_it);
-			size_type predicted_label = node_statistics.get_max_bin();
-			++confusion_matrix(true_label, predicted_label);
-		}
-		return confusion_matrix;
-	}
-    
-	template <typename TSampleIterator>
-	TMatrix compute_confusion_matrix(const std::vector<std::tuple<TSampleIterator, TSampleIterator>>& sample_iterator_pairs) const
-	{
-		TMatrix confusion_matrix(num_of_classes_, num_of_classes_);
-		confusion_matrix.setZero();
-		for (auto iterator_pair_it = sample_iterator_pairs.cbegin(); iterator_pair_it != sample_iterator_pairs.cend(); ++iterator_pair_it) {
-			TSampleIterator samples_start = std::get<0>(*iterator_pair_it);
-			TSampleIterator samples_end = std::get<1>(*iterator_pair_it);
-            TStatistics true_statistics = EvaluationUtils::compute_true_statistics<TStatistics>(num_of_classes_, samples_start, samples_end);
-			const TStatistics& predicted_statistics = compute_summed_statistics(samples_start, samples_end);
-            EvaluationUtils::update_confusion_matrix(confusion_matrix, true_statistics, predicted_statistics);
+        confusion_matrix.setZero();
+        for (TSampleIterator sample_it = samples_start; sample_it != samples_end; ++sample_it) {
+            update_confusion_matrix(confusion_matrix, *sample_it);
 		}
 		return confusion_matrix;
 	}
 
 	template <typename TTMatrix, typename TSample>
-	TTMatrix& update_confusion_matrix(TTMatrix& confusion_matrix, size_type true_label, const TSample& sample)
-	{
+	TTMatrix& update_confusion_matrix(TTMatrix& confusion_matrix, const TSample& sample) const
+    {
+        size_type true_label = sample.get_label();
 		const TStatistics& predicted_statistics = compute_statistics(sample);
-        EvaluationUtils::update_confusion_matrix(confusion_matrix, true_label, predicted_statistics);
-		return confusion_matrix;
+        return EvaluationUtils::update_confusion_matrix(confusion_matrix, true_label, predicted_statistics);
 	}
 
 	template <typename TTMatrix, typename TSampleIterator>
-	TTMatrix& update_confusion_matrix(TTMatrix& confusion_matrix, size_type true_label, const TSampleIterator& samples_start, const TSampleIterator& samples_end)
-	{
+	TTMatrix& update_confusion_matrix(TTMatrix& confusion_matrix, const TSampleIterator& samples_start, const TSampleIterator& samples_end) const
+    {
+        TStatistics true_statistics = EvaluationUtils::compute_true_statistics<TStatistics>(num_of_classes_, samples_start, samples_end);
         const TStatistics& predicted_statistics = compute_summed_statistics(samples_start, samples_end);
-        EvaluationUtils::update_confusion_matrix(confusion_matrix, true_label, predicted_statistics);
-		return confusion_matrix;
-	}
+        return EvaluationUtils::update_confusion_matrix(confusion_matrix, true_statistics, predicted_statistics);
+    }
 };
 
 template <typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
@@ -221,9 +205,11 @@ public:
 		TStatistics summed_statistics(num_of_classes_);
 		for (auto tree_utils_it = tree_utils_vector_.cbegin(); tree_utils_it != tree_utils_vector_.cend(); ++tree_utils_it) {
 			const TStatistics& tree_statistics = tree_utils_it->compute_statistics(sample);
-			assert(num_of_classes_ == tree_statistics.num_of_bins());
+            assert(num_of_classes_ == tree_statistics.num_of_bins());
+//            summed_statistics.lazy_accumulate(tree_statistics.get_max_bin());
 			summed_statistics.accumulate(tree_statistics);
-		}
+        }
+//        summed_statistics.finish_lazy_accumulation();
 		return summed_statistics;
 	}
 
@@ -250,9 +236,11 @@ public:
 		TStatistics summed_statistics(num_of_classes_);
 		for (auto tree_utils_it = tree_utils_vector_.cbegin(); tree_utils_it != tree_utils_vector_.cend(); ++tree_utils_it) {
 			const TStatistics& tree_statistics = tree_utils_it->compute_summed_statistics(samples_start, samples_end);
-			assert(num_of_classes_ == tree_statistics.num_of_bins());
+            assert(num_of_classes_ == tree_statistics.num_of_bins());
+//            summed_statistics.lazy_accumulate(tree_statistics.get_max_bin());
 			summed_statistics.accumulate(tree_statistics);
-		}
+        }
+//        summed_statistics.finish_lazy_accumulation();
 		return summed_statistics;
 	}
 
