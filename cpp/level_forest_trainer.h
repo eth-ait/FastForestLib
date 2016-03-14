@@ -494,7 +494,7 @@ public:
     {
         typename TreeT::TreeLevel tl(tree, current_level);
         TreeNodeMap<std::vector<SamplePointerT>> node_to_sample_map = get_sample_node_map(tree, tl.cbegin(), tl.cend(), samples_start, samples_end);
-        int part = 0;
+        size_type part = 0;
         for (auto node_it = tl.cbegin(); node_it < tl.cend(); )
         {
             auto node_it_next = node_it;
@@ -574,7 +574,7 @@ public:
     ForestT train_forest(SampleIteratorT samples_start, SampleIteratorT samples_end, RandomEngineT& rnd_engine) const
     {
         ForestT forest;
-        for (int i=0; i < training_parameters_.num_of_trees; i++)
+        for (size_type i=0; i < training_parameters_.num_of_trees; i++)
         {
             TreeT tree = train_tree(samples_start, samples_end, rnd_engine);
             forest.add_tree(std::move(tree));

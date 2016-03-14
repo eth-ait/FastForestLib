@@ -135,7 +135,7 @@ public:
 
 #if AIT_MULTI_THREADING
     // Has to be implemented by a base class
-    virtual SplitStatistics<StatisticsT> compute_split_statistics_parallel(SampleIteratorT first_sample, SampleIteratorT last_sample, const SplitPointCandidatesT& split_points, int num_of_threads) const = 0;
+    virtual SplitStatistics<StatisticsT> compute_split_statistics_parallel(SampleIteratorT first_sample, SampleIteratorT last_sample, const SplitPointCandidatesT& split_points, int_type num_of_threads) const = 0;
 #endif
 
     StatisticsT compute_statistics(SampleIteratorT first_sample, SampleIteratorT last_sample) const

@@ -25,10 +25,11 @@
 #include "image_weak_learner.h"
 #include "eigen_matrix_io.h"
 #include "matlab_file_io.h"
+#include "evaluation_utils.h"
 
 using ImageT = ait::Image<>;
 using SampleT = ait::ImageSample<>;
-using StatisticsT = ait::HistogramStatistics<SampleT>;
+using StatisticsT = ait::HistogramStatistics;
 using RandomEngineT = std::mt19937_64;
 
 using SampleContainerT = std::vector<SampleT>;
@@ -204,11 +205,12 @@ int main(int argc, const char* argv[]) {
             ait::log_info() << "Match: " << match << ", no match: " << no_match;
             
             // Compute confusion matrix.
-            auto tree_utils = ait::make_tree_utils<ConstSampleIteratorT>(*forest.begin());
-            auto matrix = tree_utils.compute_confusion_matrix(num_of_classes, samples.cbegin(), samples.cend());
+            auto forest_utils = ait::make_forest_utils(forest);
+            auto matrix = forest_utils.compute_confusion_matrix(samples.cbegin(), samples.cend());
             ait::log_info() << "Confusion matrix:" << std::endl << matrix;
-            auto norm_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples.cbegin(), samples.cend());
+            auto norm_matrix = ait::EvaluationUtils::normalize_confusion_matrix(matrix);
             ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
+            ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_matrix.diagonal();
         }
     }
     catch (const std::runtime_error& error)

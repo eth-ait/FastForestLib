@@ -22,11 +22,12 @@
 #include "bagging_wrapper.h"
 #include "image_weak_learner.h"
 #include "csv_utils.h"
+#include "evaluation_utils.h"
 
 using PixelT = ait::pixel_type;
 using ImageT = ait::Image<PixelT>;
 using SampleT = ait::ImageSample<PixelT>;
-using StatisticsT = ait::HistogramStatistics<SampleT>;
+using StatisticsT = ait::HistogramStatistics;
 using SplitPointT = ait::ImageSplitPoint<PixelT>;
 using RandomEngineT = std::mt19937_64;
 
@@ -186,18 +187,45 @@ int main(int argc, const char* argv[]) {
         ait::log_info() << "Match: " << match << ", no match: " << no_match;
         
         // Compute confusion matrix.
-        auto tree_utils = ait::make_forest_utils<SampleIteratorT>(*forest.begin());
-        auto matrix = tree_utils.compute_confusion_matrix(num_of_classes, samples_start, samples_end);
-        ait::log_info() << "Confusion matrix:" << std::endl << matrix;
-        auto norm_matrix = tree_utils.normalize_confusion_matrix(confusion_matrix);
-        ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
-        ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_matrix.diagonal();
-//        auto forest_utils = ait::make_forest_utils<SampleIteratorT>(forest);
-//        auto matrix = forest_utils.compute_confusion_matrix(num_of_classes, samples_start, samples_end);
-//        ait::log_info() << "Confusion matrix:" << std::endl << matrix;
-//        auto norm_matrix = forest_utils.normalize_confusion_matrix(confusion_matrix);
-//        ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_matrix;
-//        ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_matrix.diagonal();
+        auto tree_utils = ait::make_tree_utils(*forest.begin());
+        auto single_tree_confusion_matrix = tree_utils.compute_confusion_matrix(samples_start, samples_end);
+        ait::log_info() << "Single-tree confusion matrix:" << std::endl << single_tree_confusion_matrix;
+        auto single_tree_norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(single_tree_confusion_matrix);
+        ait::log_info() << "Single-tree normalized confusion matrix:" << std::endl << single_tree_norm_confusion_matrix;
+        ait::log_info() << "Single-tree diagonal of normalized confusion matrix:" << std::endl << single_tree_norm_confusion_matrix.diagonal();
+
+        // Compute confusion matrix.
+		auto forest_utils = ait::make_forest_utils(forest);
+		auto confusion_matrix = forest_utils.compute_confusion_matrix(samples_start, samples_end);
+        ait::log_info() << "Confusion matrix:" << std::endl << confusion_matrix;
+        auto norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(confusion_matrix);
+        ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_confusion_matrix;
+        ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal();
+        ait::log_info() << "Mean of diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal().mean();
+
+        // Computing per-frame confusion matrix
+        ait::log_info() << "Computing per-frame confusion matrix.";
+        using ConfusionMatrixType = typename decltype(forest_utils)::MatrixType;
+        ConfusionMatrixType per_frame_confusion_matrix(num_of_classes, num_of_classes);
+        per_frame_confusion_matrix.setZero();
+        // TODO: This should be configurable by input file
+        ParametersT full_parameters(parameters);
+        // Modify parameters to retrieve all pixels per sample
+        full_parameters.samples_per_image_fraction = 1.0;
+        SampleProviderT full_sample_provider(image_list, full_parameters);
+        for (int i = 0; i < image_list.size(); ++i)
+        {
+            full_sample_provider.clear_samples();
+            full_sample_provider.load_samples_from_image(i, rnd_engine);
+            samples_start = full_sample_provider.get_samples_begin();
+            samples_end = full_sample_provider.get_samples_end();
+            forest_utils.update_confusion_matrix(per_frame_confusion_matrix, samples_start, samples_end);
+        }
+        ait::log_info() << "Per-frame confusion matrix:" << std::endl << per_frame_confusion_matrix;
+        ConfusionMatrixType per_frame_norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(per_frame_confusion_matrix);
+        ait::log_info() << "Normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix;
+        ait::log_info() << "Diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal();
+        ait::log_info() << "Mean of diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal().mean();
     }
     catch (const TCLAP::ArgException &e)
     {
@@ -206,4 +234,3 @@ int main(int argc, const char* argv[]) {
     
     return 0;
 }
-

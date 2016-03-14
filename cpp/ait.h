@@ -22,6 +22,7 @@ namespace ait
 //typedef std::int64_t size_type;
 //using size_type = EIGEN_DEFAULT_DENSE_INDEX_TYPE;
 using size_type = std::ptrdiff_t;
+using int_type = std::int64_t;
 using scalar_type = double;
 
 }

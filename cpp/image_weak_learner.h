@@ -41,9 +41,8 @@ using pixel_type = std::int16_t;
 using offset_type = std::int16_t;
 using label_type = std::int16_t;
 
-class ImageParameters
+struct ImageParameters
 {
-public:
     // Samples to extract per image and fraction of samples to use for bagging.
 #if AIT_TESTING
     double samples_per_image_fraction = 0.015;
@@ -52,33 +51,66 @@ public:
     double samples_per_image_fraction = 0.1;
     double bagging_fraction = 1.0;
 #endif
+
     // Lower bound of labels for background pixels
     label_type background_label = std::numeric_limits<label_type>::max();
+    
+private:
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive(cereal::make_nvp("samples_per_image_fraction", samples_per_image_fraction));
+        archive(cereal::make_nvp("bagging_fraction", bagging_fraction));
+        archive(cereal::make_nvp("background_label", background_label));
+    }
 };
 
-class ImageWeakLearnerParameters : public ImageParameters
+struct ImageWeakLearnerParameters : public ImageParameters
 {
-public:
     // Number of thresholds and features to sample per node
 #if AIT_TESTING
-//    int num_of_thresholds = 10;
-//    int num_of_features = 10;
+    int_type num_of_thresholds = 10;
+    int_type num_of_features = 10;
 #else
-    int num_of_features = 100;
-    int num_of_thresholds = 100;
+    int_type num_of_thresholds = 200;
+    int_type num_of_features = 200;
 #endif
+
     // Feature offset ranges to sample from
     offset_type feature_offset_x_range_low = 3;
     offset_type feature_offset_x_range_high = 15;
     offset_type feature_offset_y_range_low = 3;
     offset_type feature_offset_y_range_high = 15;
+
     // Range from which to sample thresholds
     scalar_type threshold_range_low = -300.0;
-    scalar_type threshold_range_high = +300.0;
+    scalar_type threshold_range_high = +300;
+
     // Whether to compute the threshold-range based on the data-range
     bool adaptive_threshold_range = true;
+
     // For binary images only two thresholds will be generated (-0.5 and +0.5). The other parameters regarding thresholds will be ignored.
     bool binary_images = true;
+
+private:
+    friend class cereal::access;
+    
+    template <typename Archive>
+    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
+    {
+        archive(cereal::make_nvp("num_of_thresholds", num_of_thresholds));
+        archive(cereal::make_nvp("num_of_features", num_of_features));
+        archive(cereal::make_nvp("feature_offset_x_range_low", feature_offset_x_range_low));
+        archive(cereal::make_nvp("feature_offset_x_range_high", feature_offset_x_range_high));
+        archive(cereal::make_nvp("feature_offset_y_range_low", feature_offset_y_range_low));
+        archive(cereal::make_nvp("feature_offset_y_range_high", feature_offset_y_range_high));
+        archive(cereal::make_nvp("threshold_range_low", num_of_thresholds));
+        archive(cereal::make_nvp("threshold_range_high", num_of_features));
+        archive(cereal::make_nvp("adaptive_threshold_range", num_of_thresholds));
+        archive(cereal::make_nvp("binary_images", num_of_features));
+    }
 };
 
 template <typename TPixel = pixel_type>
@@ -140,10 +172,10 @@ public:
     {
         cimg_library::CImg<TPixel> data_image(data_filename.c_str());
         cimg_library::CImg<TPixel> label_image(label_filename.c_str());
-        int width = data_image.width();
-        int height = data_image.height();
-        int depth = data_image.depth();
-        int spectrum = data_image.spectrum();
+        int_type width = data_image.width();
+        int_type height = data_image.height();
+        int_type depth = data_image.depth();
+        int_type spectrum = data_image.spectrum();
         assert(width == label_image.width());
         assert(height == label_image.height());
         assert(depth == label_image.depth());
@@ -164,9 +196,9 @@ public:
         }
         DataMatrixType data(width, height);
         LabelMatrixType label(width, height);
-        for (int w = 0; w < width; ++w)
+        for (int_type w = 0; w < width; ++w)
         {
-            for (int h = 0; h < height; ++h)
+            for (int_type h = 0; h < height; ++h)
             {
                 data(w, h) = data_image(w, h, 0, 0, 0, 0);
                 label(w, h) = label_image(w, h, 0, 0, 0, 0);
@@ -245,17 +277,17 @@ public:
 
     std::vector<SampleBagBatchT> compute_sample_bag_batches(size_type num_of_batches, TRandomEngine& rnd_engine) const
 	{
-        int num_of_images_per_bag = std::round(parameters_.bagging_fraction * image_list_.size());
+        int_type num_of_images_per_bag = std::round(parameters_.bagging_fraction * image_list_.size());
         std::vector<size_type> image_indices(num_of_images_per_bag);
-        std::uniform_int_distribution<> image_dist(0, image_list_.size() - 1);
-        for (int i = 0; i < num_of_images_per_bag; i++)
+        std::uniform_int_distribution<int_type> image_dist(0, image_list_.size() - 1);
+		for (size_type i = 0; i < num_of_images_per_bag; i++)
         {
-            int image_index = image_dist(rnd_engine);
+			int_type image_index = image_dist(rnd_engine);
 			image_indices[i] = image_index;
         }
         std::sort(image_indices.begin(), image_indices.end());
         std::vector<SampleBagBatchT> split_sample_bag(num_of_batches);
-        for (int i = 0; i < num_of_batches; i++)
+		for (size_type i = 0; i < num_of_batches; i++)
         {
             size_type index_start = compute_batch_start_index(i, num_of_batches, num_of_images_per_bag);
             size_type index_end = compute_batch_start_index(i + 1, num_of_batches, num_of_images_per_bag);
@@ -288,11 +320,11 @@ public:
 		const ImageT* image_ptr = &image_map_.at(image_index);
 		if (parameters_.samples_per_image_fraction < 1.0)
 		{
-			int num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width_ * image_height_);
+			size_type num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width_ * image_height_);
             std::vector<SampleT> non_background_samples;
-            for (int x = 0; x < image_width_; ++x)
+			for (size_type x = 0; x < image_width_; ++x)
             {
-                for (int y = 0; y < image_height_; ++y)
+				for (size_type y = 0; y < image_height_; ++y)
                 {
                     SampleT sample(image_ptr, x, y);
                     if (sample.get_label() < parameters_.background_label)
@@ -301,20 +333,20 @@ public:
                     }
                 }
             }
-            int num_of_samples = std::min(num_of_samples_per_image, static_cast<int>(non_background_samples.size()));
-            for (int i = 0; i < num_of_samples; ++i)
+			size_type num_of_samples = std::min(num_of_samples_per_image, static_cast<size_type>(non_background_samples.size()));
+			for (size_type i = 0; i < num_of_samples; ++i)
             {
-                std::uniform_int_distribution<> index_dist(0, non_background_samples.size() - 1 - i);
-                int index = index_dist(rnd_engine);
+                std::uniform_int_distribution<int_type> index_dist(0, non_background_samples.size() - 1 - i);
+				int_type index = index_dist(rnd_engine);
                 std::swap(non_background_samples[index], non_background_samples.back());
                 samples_.push_back(std::move(non_background_samples.back()));
             }
 		}
 		else
 		{
-			for (int x = 0; x < image_width_; ++x)
+			for (size_type x = 0; x < image_width_; ++x)
 			{
-				for (int y = 0; y < image_height_; ++y)
+				for (size_type y = 0; y < image_height_; ++y)
 				{
 					SampleT sample(image_ptr, x, y);
                     label_type label = sample.get_label();
@@ -794,7 +826,7 @@ public:
         *threshold_range_high = max_value;
     }
 
-    virtual SplitPointCandidatesT sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const
+    virtual SplitPointCandidatesT sample_split_points(TSampleIterator first_sample, TSampleIterator last_sample, TRandomEngine& rnd_engine) const override
     {
         SplitPointCandidatesT split_points;
         
@@ -880,7 +912,7 @@ public:
         }
     }
 
-    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const
+    virtual SplitStatistics<StatisticsT> compute_split_statistics(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points) const override
     {
         // we create statistics for all features and thresholds here so that we can easily parallelize the loop below
         SplitStatistics<StatisticsT> split_statistics(split_points.total_size(), this->statistics_factory_);
@@ -897,7 +929,7 @@ public:
     }
     
 #if AIT_MULTI_THREADING
-    virtual SplitStatistics<StatisticsT> compute_split_statistics_parallel(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points, int num_of_threads) const
+    virtual SplitStatistics<StatisticsT> compute_split_statistics_parallel(TSampleIterator first_sample, TSampleIterator last_sample, const SplitPointCandidatesT& split_points, int_type num_of_threads) const override
     {
         if (num_of_threads <= 0)
         {

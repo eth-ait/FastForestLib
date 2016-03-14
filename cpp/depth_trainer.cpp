@@ -24,11 +24,12 @@
 #include "histogram_statistics.h"
 #include "image_weak_learner.h"
 #include "csv_utils.h"
+#include "evaluation_utils.h"
 
 
 using ImageT = ait::Image<>;
 using SampleT = ait::ImageSample<>;
-using StatisticsT = ait::HistogramStatistics<SampleT>;
+using StatisticsT = ait::HistogramStatistics;
 using RandomEngineT = std::mt19937_64;
 
 using SampleProviderT = ait::ImageSampleProvider<RandomEngineT>;
@@ -50,10 +51,11 @@ int main(int argc, const char* argv[]) {
         TCLAP::CmdLine cmd("Depth RF trainer", ' ', "0.3");
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
-        TCLAP::SwitchArg print_confusion_matrix_switch("c", "conf-matrix", "Print confusion matrix", cmd, true);
+        TCLAP::SwitchArg print_confusion_matrix_switch("m", "conf-matrix", "Print confusion matrix", cmd, true);
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Lower bound of background labels to be ignored", false, -1, "int", cmd);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string");
+        TCLAP::ValueArg<std::string> config_file_arg("c", "config", "YAML file with training parameters", false, "", "string", cmd);
 #if AIT_MULTI_THREADING
         TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, -1, "int", cmd);
 #endif
@@ -63,20 +65,34 @@ int main(int argc, const char* argv[]) {
         const int num_of_classes = num_of_classes_arg.getValue();
         bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
         const std::string image_list_file = image_list_file_arg.getValue();
-        
+
+        // Initialize training and weak-learner parameters to defaults or load from file
+        ForestTrainerT::ParametersT training_parameters;
+        WeakLearnerT::ParametersT weak_learner_parameters;
+        if (config_file_arg.isSet()) {
+            ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
+            std::ifstream ifile_config(config_file_arg.getValue());
+            cereal::JSONInputArchive iarchive(ifile_config);
+            iarchive(cereal::make_nvp("training_parameters", training_parameters));
+            iarchive(cereal::make_nvp("weak_learner_parameters", weak_learner_parameters));
+            ait::log_info(false) << " Done." << std::endl;
+        }
+#if AIT_MULTI_THREADING
+        if (num_of_threads_arg.isSet()) {
+            training_parameters.num_of_threads = num_of_threads_arg.getValue();
+        }
+#endif
+
         // Read image file list
         ait::log_info(false) << "Reading image list ... " << std::flush;
         std::vector<std::tuple<std::string, std::string>> image_list;
         std::ifstream ifile(image_list_file);
-        if (!ifile.good())
-        {
+        if (!ifile.good()) {
             throw std::runtime_error("Unable to open image list file");
         }
         ait::CSVReader<std::string> csv_reader(ifile);
-        for (auto it = csv_reader.begin(); it != csv_reader.end(); ++it)
-        {
-            if (it->size() != 2)
-            {
+        for (auto it = csv_reader.begin(); it != csv_reader.end(); ++it) {
+            if (it->size() != 2) {
                 cmd.getOutput()->usage(cmd);
                 ait::log_error() << "Image list file should contain two columns with the data and label filenames.";
                 exit(-1);
@@ -86,13 +102,11 @@ int main(int argc, const char* argv[]) {
             
             boost::filesystem::path data_path = boost::filesystem::path(data_filename);
             boost::filesystem::path label_path = boost::filesystem::path(label_filename);
-            if (!data_path.is_absolute())
-            {
+            if (!data_path.is_absolute()) {
                 data_path = boost::filesystem::path(image_list_file).parent_path();
                 data_path /= data_filename;
             }
-            if (!label_path.is_absolute())
-            {
+            if (!label_path.is_absolute()) {
                 label_path = boost::filesystem::path(image_list_file).parent_path();
                 label_path /= label_filename;
             }
@@ -102,27 +116,18 @@ int main(int argc, const char* argv[]) {
         ait::log_info(false) << " Done." << std::endl;
         
         // TODO: Ensure that label images do not contain values > num_of_classes except for background pixels. Other approach: Test samples directly below.
-
-        // Create weak learner and trainer.
-        StatisticsT::Factory statistics_factory(num_of_classes);
-        WeakLearnerT::ParametersT weak_learner_parameters;
+        
+        // Set lower bound for background pixel lables
         ait::label_type background_label;
-        if (background_label_arg.isSet())
-        {
+        if (background_label_arg.isSet()) {
             background_label = background_label_arg.getValue();
-        }
-        else
-        {
+        } else {
             background_label = num_of_classes;
         }
         weak_learner_parameters.background_label = background_label;
-        ForestTrainerT::ParametersT training_parameters;
-#if AIT_MULTI_THREADING
-        if (num_of_threads_arg.isSet())
-        {
-            training_parameters.num_of_threads = num_of_threads_arg.getValue();
-        }
-#endif
+
+        // Create weak learner and trainer.
+        StatisticsT::Factory statistics_factory(num_of_classes);
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);
         SampleProviderT sample_provider(image_list, weak_learner_parameters);
@@ -142,8 +147,7 @@ int main(int argc, const char* argv[]) {
         //		ForestTrainerT::ForestT forest = bagging_wrapper.train_forest(rnd_engine);
         // TODO: Testing all samples for comparison with depth_trainer
         sample_provider.clear_samples();
-        for (int i = 0; i < image_list.size(); ++i)
-        {
+        for (int i = 0; i < image_list.size(); ++i) {
             sample_provider.load_samples_from_image(i, rnd_engine);
         }
         SampleIteratorT samples_start = sample_provider.get_samples_begin();
@@ -158,8 +162,7 @@ int main(int argc, const char* argv[]) {
         ait::log_info() << "Running time: " << elapsed_seconds;
         
         // Optionally: Serialize forest to JSON file.
-        if (json_forest_file_arg.isSet())
-        {
+        if (json_forest_file_arg.isSet()) {
             {
                 ait::log_info(false) << "Writing json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
                 std::ofstream ofile(json_forest_file_arg.getValue());
@@ -167,10 +170,8 @@ int main(int argc, const char* argv[]) {
                 oarchive(cereal::make_nvp("forest", forest));
                 ait::log_info(false) << " Done." << std::endl;
             }
-        }
         // Optionally: Serialize forest to binary file.
-        else if (binary_forest_file_arg.isSet())
-        {
+        } else if (binary_forest_file_arg.isSet()) {
             {
                 ait::log_info(false) << "Writing binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
                 std::ofstream ofile(binary_forest_file_arg.getValue(), std::ios_base::binary);
@@ -178,19 +179,15 @@ int main(int argc, const char* argv[]) {
                 oarchive(cereal::make_nvp("forest", forest));
                 ait::log_info(false) << " Done." << std::endl;
             }
-        }
-        else
-        {
+        } else {
             throw("This should never happen. Either a JSON or a binary forest file have to be specified!");
         }
 
         // Optionally: Compute some stats and print them.
-        if (print_confusion_matrix)
-        {
+        if (print_confusion_matrix) {
             ait::log_info(false) << "Creating samples for testing ... " << std::flush;
             sample_provider.clear_samples();
-            for (int i = 0; i < image_list.size(); ++i)
-            {
+            for (int i = 0; i < image_list.size(); ++i) {
                 sample_provider.load_samples_from_image(i, rnd_engine);
             }
             SampleIteratorT samples_start = sample_provider.get_samples_begin();
@@ -198,16 +195,13 @@ int main(int argc, const char* argv[]) {
             ait::log_info(false) << " Done." << std::endl;
             
             std::vector<ait::size_type> sample_counts(num_of_classes, 0);
-            for (auto sample_it = samples_start; sample_it != samples_end; sample_it++)
-            {
+            for (auto sample_it = samples_start; sample_it != samples_end; sample_it++) {
                 ++sample_counts[sample_it->get_label()];
             }
             auto logger = ait::log_info(true);
             logger << "Sample counts>> ";
-            for (int c = 0; c < num_of_classes; ++c)
-            {
-                if (c > 0)
-                {
+            for (int c = 0; c < num_of_classes; ++c) {
+                if (c > 0) {
                     logger << ", ";
                 }
                 logger << "class " << c << ": " << sample_counts[c];
@@ -219,63 +213,57 @@ int main(int argc, const char* argv[]) {
             // Compute number of prediction matches based on a majority vote among the forest.
             int match = 0;
             int no_match = 0;
-            for (auto tree_it = forest.cbegin(); tree_it != forest.cend(); ++tree_it)
-            {
-                for (auto sample_it = samples_start; sample_it != samples_end; sample_it++)
-                {
+            for (auto tree_it = forest.cbegin(); tree_it != forest.cend(); ++tree_it) {
+                for (auto sample_it = samples_start; sample_it != samples_end; sample_it++) {
                     const auto &node_it = tree_it->cbegin() + (forest_leaf_indices[tree_it - forest.cbegin()][sample_it - samples_start]);
                     const auto &statistics = node_it->get_statistics();
                     auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
                     auto label = max_it - statistics.get_histogram().cbegin();
-                    if (label == sample_it->get_label())
+                    if (label == sample_it->get_label()) {
                         match++;
-                    else
+                    } else {
                         no_match++;
+                    }
                 }
             }
             ait::log_info() << "Match: " << match << ", no match: " << no_match;
             
             // Compute confusion matrix.
-            auto tree_utils = ait::make_tree_utils<SampleIteratorT>(*forest.begin());
-            auto confusion_matrix = tree_utils.compute_confusion_matrix(num_of_classes, samples_start, samples_end);
+            auto forest_utils = ait::make_forest_utils(forest);
+            auto confusion_matrix = forest_utils.compute_confusion_matrix(samples_start, samples_end);
             ait::log_info() << "Confusion matrix:" << std::endl << confusion_matrix;
-            auto norm_confusion_matrix = tree_utils.compute_normalized_confusion_matrix(num_of_classes, samples_start, samples_end);
+            auto norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(confusion_matrix);
             ait::log_info() << "Normalized confusion matrix:" << std::endl << norm_confusion_matrix;
             ait::log_info() << "Diagonal of normalized confusion matrix:" << std::endl << norm_confusion_matrix.diagonal();
-
+            
             // Computing per-frame confusion matrix
             ait::log_info() << "Computing per-frame confusion matrix.";
-            Eigen::MatrixXd per_frame_confusion_matrix(num_of_classes, num_of_classes);
+            using ConfusionMatrixType = typename decltype(forest_utils)::MatrixType;
+            ConfusionMatrixType per_frame_confusion_matrix(num_of_classes, num_of_classes);
             per_frame_confusion_matrix.setZero();
-            WeakLearnerT::ParametersT full_weak_learner_parameters(weak_learner_parameters);
-            full_weak_learner_parameters.samples_per_image_fraction = 1.0;
-            SampleProviderT full_sample_provider(image_list, full_weak_learner_parameters);
-            for (int i = 0; i < image_list.size(); ++i)
-            {
+            WeakLearnerT::ParametersT full_parameters(weak_learner_parameters);
+            // Modify parameters to retrieve all pixels per sample
+            full_parameters.samples_per_image_fraction = 1.0;
+            SampleProviderT full_sample_provider(image_list, full_parameters);
+            for (int i = 0; i < image_list.size(); ++i) {
                 full_sample_provider.clear_samples();
                 full_sample_provider.load_samples_from_image(i, rnd_engine);
                 samples_start = full_sample_provider.get_samples_begin();
                 samples_end = full_sample_provider.get_samples_end();
-                std::vector<ait::size_type> pred_label_counts = tree_utils.compute_predicted_label_histogram(num_of_classes, samples_start, samples_end);
-                std::vector<ait::size_type> true_label_counts = tree_utils.compute_true_label_histogram(num_of_classes, samples_start, samples_end);
-                auto max_pred_element = std::max_element(pred_label_counts.cbegin(), pred_label_counts.cend());
-                int pred_label = max_pred_element - pred_label_counts.cbegin();
-                auto max_true_element = std::max_element(true_label_counts.cbegin(), true_label_counts.cend());
-                int true_label = max_true_element - true_label_counts.cbegin();
-                per_frame_confusion_matrix(true_label, pred_label) += 1;
+                forest_utils.update_confusion_matrix(per_frame_confusion_matrix, samples_start, samples_end);
             }
-
             ait::log_info() << "Per-frame confusion matrix:" << std::endl << per_frame_confusion_matrix;
-            auto per_frame_norm_confusion_matrix = tree_utils.normalize_confusion_matrix(per_frame_confusion_matrix);
+            ConfusionMatrixType per_frame_norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(per_frame_confusion_matrix);
             ait::log_info() << "Normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix;
             ait::log_info() << "Diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal();
+            ait::log_info() << "Mean of diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal().mean();
         }
-    }
-    catch (const std::runtime_error& error)
-    {
+
+    } catch (const std::runtime_error& error) {
         std::cerr << "Runtime exception occured" << std::endl;
         std::cerr << error.what() << std::endl;
     }
     
     return 0;
 }
+

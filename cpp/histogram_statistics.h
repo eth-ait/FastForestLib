@@ -18,7 +18,6 @@ namespace ait
 {
 
 /// @brief A histogram over the classes of samples.
-template <typename TSample>
 class HistogramStatistics
 {
 public:
@@ -39,6 +38,8 @@ public:
             return HistogramStatistics(num_of_classes_);
         }
     };
+    
+	using HistogramType = std::vector<size_type>;
 
     /// @brief Create an empty histogram.
     HistogramStatistics()
@@ -57,11 +58,16 @@ public:
     num_of_samples_(std::accumulate(histogram.cbegin(), histogram.cend(), 0))
     {}
 
+    void lazy_accumulate(size_type label) {
+        assert(label < histogram_.size());
+        histogram_[label]++;
+    }
+
+	template <typename TSample>
     void lazy_accumulate(const TSample& sample)
     {
         size_type label = sample.get_label();
-        assert(label < histogram_.size());
-        histogram_[label]++;
+        lazy_accumulate(label);
     }
 
     void finish_lazy_accumulation()
@@ -69,12 +75,17 @@ public:
         compute_num_of_samples();
     }
 
-    void accumulate(const TSample& sample)
-    {
-        size_type label = sample.get_label();
+    void accumulate(size_type label) {
         assert(label < histogram_.size());
         histogram_[label]++;
         num_of_samples_++;
+    }
+
+	template <typename TSample>
+    void accumulate(const TSample& sample)
+    {
+        size_type label = sample.get_label();
+        accumulate(label);
     }
     
     void accumulate(const HistogramStatistics& statistics)
@@ -84,7 +95,7 @@ public:
         {
             histogram_[i] += statistics.histogram_[i];
         }
-        finish_lazy_accumulation();
+		num_of_samples_ += statistics.num_of_samples();
     }
 
     template <typename T>
@@ -117,6 +128,12 @@ public:
         return num_of_samples_;
     }
 
+	/// @brief Return the number of bins in the histogram
+	size_type num_of_bins() const
+	{
+		return histogram_.size();
+	}
+
     /// @brief Return the vector of counts per class.
     const std::vector<size_type>& get_histogram() const
     {
@@ -136,7 +153,12 @@ public:
         }
         return entropy;
     }
-    
+
+	/// @return: Return bin with maximum number of samples
+	size_type get_max_bin() const {
+		size_type max_bin = std::max_element(histogram_.cbegin(), histogram_.cend()) - histogram_.cbegin();
+		return max_bin;
+	}
 private:
     void compute_num_of_samples()
     {
@@ -163,7 +185,7 @@ private:
         archive(cereal::make_nvp("num_of_samples", num_of_samples_));
     }
 
-    std::vector<size_type> histogram_;
+    HistogramType histogram_;
     size_type num_of_samples_;
 };
 

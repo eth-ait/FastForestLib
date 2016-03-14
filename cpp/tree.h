@@ -379,7 +379,7 @@ public:
     ConstNodeIterator evaluate(const TSample& sample, size_type max_depth = std::numeric_limits<size_type>::max()) const
     {
         size_type current_depth = 1;
-        ConstNodeIterator node_iter = get_root_iterator()();
+        ConstNodeIterator node_iter = get_root_iterator();
         while (!node_iter.is_leaf() && current_depth < max_depth)
         {
             Direction direction = node_iter->get_split_point().evaluate(sample);
@@ -424,7 +424,7 @@ public:
     void evaluate_parallel(const std::vector<TSample>& samples, std::function<void(const TSample& , ConstNodeIterator&)>& func) const
     {
         //#pragma omp parallel for
-        for (int i = 0; i < samples.size(); i++)
+        for (size_type i = 0; i < samples.size(); i++)
         {
             ConstNodeIterator node_iter = evaluate_to_iterator(samples[i]);
             func(samples[i], node_iter);
@@ -527,121 +527,5 @@ private:
     size_type depth_;
     std::vector<NodeEntry> node_entries_;
 };
-
-template <typename TSampleIterator, typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
-class TreeUtilities
-{
-    using TreeType = Tree<TSplitPoint, TStatistics>;
-
-    const TreeType& tree_;
-
-public:
-    TreeUtilities(const TreeType& tree)
-    : tree_(tree)
-    {}
-    
-//    TMatrix compute_confusion_matrix(size_type num_of_classes, const std::vector<TSample>& samples) const
-//    {
-//        TMatrix confusion_matrix(num_of_classes, num_of_classes);
-//        confusion_matrix.setZero();
-//        /*tree_.template evaluate<TSample>(samples, [&confusion_matrix] (const TSample& sample, const typename TreeType::NodeType& node) {
-//                            typename TSample::label_type true_label = sample.GetLabel();
-//                            const TStatistics& statistics = node.GetStatistics();
-//                            const auto& histogram = statistics.GetHistogram();
-//                            typename TSample::label_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
-//                            confusion_matrix(true_label, predicted_label)++;
-//        });*/
-//        tree_.template evaluate_parallel<TSample>(samples, [&confusion_matrix](const TSample& sample, const typename TreeType::NodeType& node)
-//        {
-//            size_type true_label = sample.get_label();
-//            const TStatistics& statistics = node.get_statistics();
-//            const auto& histogram = statistics.get_histogram();
-//            size_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
-//            confusion_matrix(true_label, predicted_label)++;
-//        });
-//        return confusion_matrix;
-//    }
-
-    TMatrix compute_confusion_matrix(size_type num_of_classes, const TSampleIterator& it_start, const TSampleIterator& it_end) const
-    {
-        TMatrix confusion_matrix(num_of_classes, num_of_classes);
-        confusion_matrix.setZero();
-        /*tree_.template evaluate<TSample>(samples, [&confusion_matrix] (const TSample& sample, const typename TreeType::NodeType& node) {
-         typename TSample::label_type true_label = sample.GetLabel();
-         const TStatistics& statistics = node.GetStatistics();
-         const auto& histogram = statistics.GetHistogram();
-         typename TSample::label_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
-         confusion_matrix(true_label, predicted_label)++;
-         });*/
-        tree_.template evaluate<TSampleIterator>(it_start, it_end, [&confusion_matrix](const TSampleIterator& it, const typename TreeType::NodeT& node)
-                                                  {
-                                                      size_type true_label = it->get_label();
-                                                      const TStatistics& statistics = node.get_statistics();
-                                                      const auto& histogram = statistics.get_histogram();
-                                                      size_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
-                                                      confusion_matrix(true_label, predicted_label)++;
-                                                  });
-        return confusion_matrix;
-    }
-
-    TMatrix compute_normalized_confusion_matrix(size_type num_of_classes, const TSampleIterator& it_start, const TSampleIterator& it_end) const
-    {
-        TMatrix confusion_matrix = compute_confusion_matrix(num_of_classes, it_start, it_end);
-        auto row_sum = confusion_matrix.rowwise().sum();
-        TMatrix normalized_confusion_matrix = confusion_matrix;
-        for (int col=0; col < confusion_matrix.cols(); col++)
-        {
-            for (int row=0; row < confusion_matrix.rows(); row++)
-            {
-                normalized_confusion_matrix(row, col) /= row_sum(row);
-            }
-        }
-        return normalized_confusion_matrix;
-    }
-    
-    TMatrix normalize_confusion_matrix(const TMatrix& confusion_matrix) const
-    {
-        auto row_sum = confusion_matrix.rowwise().sum();
-        TMatrix normalized_confusion_matrix = confusion_matrix;
-        for (int col=0; col < confusion_matrix.cols(); col++)
-        {
-            for (int row=0; row < confusion_matrix.rows(); row++)
-            {
-                normalized_confusion_matrix(row, col) /= row_sum(row);
-            }
-        }
-        return normalized_confusion_matrix;
-    }
-    
-    std::vector<size_type> compute_predicted_label_histogram(size_type num_of_classes, const TSampleIterator& it_start, const TSampleIterator& it_end) const
-    {
-        std::vector<size_type> label_histogram(num_of_classes, 0);
-        tree_.template evaluate<TSampleIterator>(it_start, it_end, [&label_histogram](const TSampleIterator& it, const typename TreeType::NodeT& node)
-                                                 {
-                                                     const TStatistics& statistics = node.get_statistics();
-                                                     const auto& histogram = statistics.get_histogram();
-                                                     size_type predicted_label = std::max_element(histogram.cbegin(), histogram.cend()) - histogram.cbegin();
-                                                     ++label_histogram[predicted_label];
-                                                 });
-        return label_histogram;
-    }
-    
-    std::vector<size_type> compute_true_label_histogram(size_type num_of_classes, const TSampleIterator& it_start, const TSampleIterator& it_end) const
-    {
-        std::vector<size_type> label_histogram(num_of_classes, 0);
-        tree_.template evaluate<TSampleIterator>(it_start, it_end, [&label_histogram](const TSampleIterator& it, const typename TreeType::NodeT& node)
-                                                 {
-                                                     size_type true_label = it->get_label();
-                                                     ++label_histogram[true_label];
-                                                 });
-        return label_histogram;
-    }
-};
-
-template <typename TSampleIterator, typename TSplitPoint, typename TStatistics, typename TMatrix = Eigen::MatrixXd>
-TreeUtilities<TSampleIterator, TSplitPoint, TStatistics, TMatrix> make_tree_utils(const Tree<TSplitPoint, TStatistics>& tree)
-{
-    return TreeUtilities<TSampleIterator, TSplitPoint, TStatistics, TMatrix>(tree);
-}
 
 }

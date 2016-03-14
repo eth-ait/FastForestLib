@@ -44,7 +44,7 @@ public:
     ForestT train_forest(RandomEngineT& rnd_engine) const
     {
         ForestT forest;
-        for (int i=0; i < trainer_.get_parameters().num_of_trees; i++)
+        for (size_type i=0; i < trainer_.get_parameters().num_of_trees; i++)
         {
             TreeT tree = train_tree(rnd_engine);
             forest.add_tree(std::move(tree));
