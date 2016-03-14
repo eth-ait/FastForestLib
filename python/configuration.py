@@ -12,10 +12,10 @@ training_data_parameters = {
 testing_data_parameters = {}
 
 training_parameters = TrainingParameters(
-    maximum_depth=12,
+    maximum_depth=18,
     num_of_features=200,
     num_of_thresholds=200,
-    num_of_trees=3,
+    num_of_trees=1,
     minimum_num_of_samples=100
 )
 
