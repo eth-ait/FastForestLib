@@ -79,10 +79,8 @@ public:
     {
         auto row_sum = confusion_matrix.rowwise().sum();
         TMatrix normalized_confusion_matrix = confusion_matrix;
-        for (int col=0; col < confusion_matrix.cols(); col++)
-        {
-            for (int row=0; row < confusion_matrix.rows(); row++)
-            {
+        for (int col=0; col < confusion_matrix.cols(); col++) {
+            for (int row=0; row < confusion_matrix.rows(); row++) {
                 normalized_confusion_matrix(row, col) /= row_sum(row);
             }
         }
@@ -311,33 +309,6 @@ public:
             summed_statistics.finish_lazy_accumulation();
         }
 		return summed_statistics;
-
-//        std::vector<TStatistics> summed_statistics_vector;
-//        for (TSampleIterator sample_it = samples_start; sample_it != samples_end; ++sample_it) {
-//            TStatistics summed_statistics(num_of_classes_);
-//            for (auto tree_utils_it = tree_utils_vector_.cbegin(); tree_utils_it != tree_utils_vector_.cend(); ++tree_utils_it) {
-//                const TStatistics& node_statistics = tree_utils_it->compute_statistics(*sample_it);
-//                assert(num_of_classes_ == node_statistics.num_of_bins());
-//                if (accumulate_tree_histograms_) {
-//                    summed_statistics.accumulate(node_statistics);
-//                } else {
-//                    summed_statistics.lazy_accumulate(node_statistics.get_max_bin());
-//                }
-//            }
-//            summed_statistics_vector.push_back(std::move(summed_statistics));
-//        }
-//        if (!accumulate_tree_histograms_) {
-//            for (auto it = summed_statistics_vector.begin(); it != summed_statistics_vector.end(); ++it) {
-//                it->finish_lazy_accumulation();
-//            }
-//        }
-//
-//        TStatistics overall_summed_statistics(num_of_classes_);
-//        for (auto it = summed_statistics_vector.begin(); it != summed_statistics_vector.end(); ++it) {
-//            overall_summed_statistics.lazy_accumulate(it->get_max_bin());
-//        }
-//        overall_summed_statistics.finish_lazy_accumulation();
-//        return overall_summed_statistics;
 	}
 
 	template <typename TSampleIterator>

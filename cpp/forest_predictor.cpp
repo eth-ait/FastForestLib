@@ -145,10 +145,8 @@ int main(int argc, const char* argv[]) {
         }
         auto logger = ait::log_info(true);
         logger << "Sample counts>> ";
-        for (int c = 0; c < num_of_classes; ++c)
-        {
-            if (c > 0)
-            {
+        for (int c = 0; c < num_of_classes; ++c) {
+            if (c > 0) {
                 logger << ", ";
             }
             logger << "class " << c << ": " << sample_counts[c];
@@ -160,18 +158,17 @@ int main(int argc, const char* argv[]) {
         // Compute number of prediction matches based on a majority vote among the forest.
         int match = 0;
         int no_match = 0;
-        for (auto tree_it = forest.cbegin(); tree_it != forest.cend(); ++tree_it)
-        {
-            for (auto sample_it = samples_start; sample_it != samples_end; sample_it++)
-            {
+        for (auto tree_it = forest.cbegin(); tree_it != forest.cend(); ++tree_it) {
+            for (auto sample_it = samples_start; sample_it != samples_end; sample_it++) {
                 const auto &node_it = tree_it->cbegin() + (forest_leaf_indices[tree_it - forest.cbegin()][sample_it - samples_start]);
                 const auto &statistics = node_it->get_statistics();
                 auto max_it = std::max_element(statistics.get_histogram().cbegin(), statistics.get_histogram().cend());
                 auto label = max_it - statistics.get_histogram().cbegin();
-                if (label == sample_it->get_label())
+                if (label == sample_it->get_label()) {
                     match++;
-                else
+                } else {
                     no_match++;
+                }
             }
         }
         ait::log_info() << "Match: " << match << ", no match: " << no_match;
