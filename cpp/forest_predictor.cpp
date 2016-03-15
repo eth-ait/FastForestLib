@@ -56,15 +56,12 @@ int main(int argc, const char* argv[]) {
         ait::log_info(false) << "Reading image list ... " << std::flush;
         std::vector<std::tuple<std::string, std::string>> image_list;
         std::ifstream ifile(image_list_file);
-        if (!ifile.good())
-        {
+        if (!ifile.good()) {
             throw std::runtime_error("Unable to open image list file");
         }
         ait::CSVReader<std::string> csv_reader(ifile);
-        for (auto it = csv_reader.begin(); it != csv_reader.end(); ++it)
-        {
-            if (it->size() != 2)
-            {
+        for (auto it = csv_reader.begin(); it != csv_reader.end(); ++it) {
+            if (it->size() != 2) {
                 cmd.getOutput()->usage(cmd);
                 ait::log_error() << "Image list file should contain two columns with the data and label filenames.";
                 exit(-1);
@@ -74,13 +71,11 @@ int main(int argc, const char* argv[]) {
             
             boost::filesystem::path data_path = boost::filesystem::path(data_filename);
             boost::filesystem::path label_path = boost::filesystem::path(label_filename);
-            if (!data_path.is_absolute())
-            {
+            if (!data_path.is_absolute()) {
                 data_path = boost::filesystem::path(image_list_file).parent_path();
                 data_path /= data_filename;
             }
-            if (!label_path.is_absolute())
-            {
+            if (!label_path.is_absolute()) {
                 label_path = boost::filesystem::path(image_list_file).parent_path();
                 label_path /= label_filename;
             }
@@ -90,9 +85,8 @@ int main(int argc, const char* argv[]) {
         ait::log_info(false) << " Done." << std::endl;
 
         ForestT forest;
-        // Read forest from JSON file.
-        if (json_forest_file_arg.isSet())
-        {
+        if (json_forest_file_arg.isSet()) {
+            // Read forest from JSON file.
             {
                 ait::log_info(false) << "Reading json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
                 std::ifstream ifile(json_forest_file_arg.getValue());
@@ -100,10 +94,8 @@ int main(int argc, const char* argv[]) {
                 iarchive(cereal::make_nvp("forest", forest));
                 ait::log_info(false) << " Done." << std::endl;
             }
-        }
-        // Read forest from binary file.
-        else if (binary_forest_file_arg.isSet())
-        {
+        } else if (binary_forest_file_arg.isSet()) {
+            // Read forest from binary file.
             {
                 ait::log_info(false) << "Reading binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
                 std::ifstream ifile(binary_forest_file_arg.getValue(), std::ios_base::binary);
@@ -111,9 +103,7 @@ int main(int argc, const char* argv[]) {
                 iarchive(cereal::make_nvp("forest", forest));
                 ait::log_info(false) << " Done." << std::endl;
             }
-        }
-        else
-        {
+        } else {
             throw("This should never happen. Either a JSON or a binary forest file have to be specified!");
         }
 
@@ -130,19 +120,18 @@ int main(int argc, const char* argv[]) {
         ait::log_info(false) << "Creating samples for testing ... " << std::flush;
         ParametersT parameters;
         ait::label_type background_label;
-        if (background_label_arg.isSet())
-        {
+        if (background_label_arg.isSet()) {
             background_label = background_label_arg.getValue();
-        }
-        else
-        {
+        } else {
             background_label = num_of_classes;
         }
         parameters.background_label = background_label;
+        // Modify parameters to retrieve all pixels per sample
+        // TODO: This should be specifyable in a configuration file
+        parameters.samples_per_image_fraction = 1.0;
         SampleProviderT sample_provider(image_list, parameters);
         sample_provider.clear_samples();
-        for (int i = 0; i < image_list.size(); ++i)
-        {
+        for (int i = 0; i < image_list.size(); ++i) {
             sample_provider.load_samples_from_image(i, rnd_engine);
         }
         SampleIteratorT samples_start = sample_provider.get_samples_begin();
@@ -194,9 +183,12 @@ int main(int argc, const char* argv[]) {
 //        auto single_tree_norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(single_tree_confusion_matrix);
 //        ait::log_info() << "Single-tree normalized confusion matrix:" << std::endl << single_tree_norm_confusion_matrix;
 //        ait::log_info() << "Single-tree diagonal of normalized confusion matrix:" << std::endl << single_tree_norm_confusion_matrix.diagonal();
-
+        
         // Compute confusion matrix.
         auto forest_utils = ait::make_forest_utils(forest);
+        forest_utils.set_accumulate_sample_histograms(false);
+        forest_utils.set_accumulate_tree_histograms(true);
+        forest_utils.unset_max_evaluation_depth();
         auto confusion_matrix = forest_utils.compute_confusion_matrix(samples_start, samples_end);
         ait::log_info() << "Confusion matrix:" << std::endl << confusion_matrix;
         auto norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(confusion_matrix);
@@ -251,9 +243,8 @@ int main(int argc, const char* argv[]) {
         ait::log_info() << "Normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix;
         ait::log_info() << "Diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal();
         ait::log_info() << "Mean of diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal().mean();
-    }
-    catch (const TCLAP::ArgException &e)
-    {
+
+    } catch (const TCLAP::ArgException &e) {
         ait::log_error() << "Error parsing command line: " << e.error() << " for arg " << e.argId();
     }
     

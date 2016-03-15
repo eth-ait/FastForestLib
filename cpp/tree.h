@@ -221,7 +221,7 @@ public:
 
     /// @brief Create a tree.
     /// @param depth The depth of the tree. A depth of 1 corresponds to a tree
-    ///              with a single node.
+    ///              with a single root node.
     Tree(size_type depth)
     : depth_(depth)
     {
@@ -383,12 +383,9 @@ public:
         while (!node_iter.is_leaf() && current_depth < max_depth)
         {
             Direction direction = node_iter->get_split_point().evaluate(sample);
-            if (direction == Direction::LEFT)
-            {
+            if (direction == Direction::LEFT) {
                 node_iter.goto_left_child();
-            }
-            else
-            {
+            } else {
                 node_iter.goto_right_child();
             }
             ++current_depth;
@@ -407,12 +404,9 @@ public:
         while (!node_iter.is_leaf() && current_depth < max_depth)
         {
             Direction direction = node_iter->get_split_point().evaluate(sample);
-            if (direction == Direction::LEFT)
-            {
+            if (direction == Direction::LEFT) {
                 node_iter.goto_left_child();
-            }
-            else
-            {
+            } else {
                 node_iter.goto_right_child();
             }
             ++current_depth;

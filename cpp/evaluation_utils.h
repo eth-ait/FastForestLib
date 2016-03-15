@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "io_utils.h"
+
 namespace ait {
 
 class EvaluationUtils {
@@ -53,7 +55,7 @@ public:
 	template <typename TMatrix, typename TStatistics>
 	static TMatrix& update_confusion_matrix(TMatrix& confusion_matrix, size_type true_label, const TStatistics& predicted_statistics)
 	{
-		size_type predicted_label = predicted_statistics.get_max_bin();
+        size_type predicted_label = predicted_statistics.get_max_bin();
 		return update_confusion_matrix(confusion_matrix, true_label, predicted_label);
 	}
 
@@ -95,20 +97,39 @@ class TreeUtilities
 
 	const TreeType& tree_;
     size_type num_of_classes_;
+    bool accumulate_sample_histograms_;
+    size_type max_evaluation_depth_;
 
 public:
 	using MatrixType = TMatrix;
 
 	TreeUtilities(const TreeType& tree)
-		: tree_(tree)
+		: tree_(tree), accumulate_sample_histograms_(false)
     {
         num_of_classes_ = tree_.get_root_iterator()->get_statistics().num_of_bins();
+        unset_max_evaluation_depth();
     }
 
+    void set_max_evaluation_depth(size_type max_evaluation_depth) {
+        max_evaluation_depth_ = max_evaluation_depth;
+    }
+    
+    void unset_max_evaluation_depth() {
+        max_evaluation_depth_ = std::numeric_limits<size_type>::max();
+    }
+    
+    void set_accumulate_sample_histograms(bool accumulate_sample_histograms = true) {
+        accumulate_sample_histograms_ = accumulate_sample_histograms;
+    }
+    
+    void unset_accumulate_sample_histograms() {
+        accumulate_sample_histograms_ = false;
+    }
+    
 	template <typename TSample>
 	const TStatistics& compute_statistics(const TSample& sample) const
 	{
-		typename TreeType::ConstNodeIterator node_it = tree_.evaluate(sample);
+		typename TreeType::ConstNodeIterator node_it = tree_.evaluate(sample, max_evaluation_depth_);
 		return node_it->get_statistics();
 	}
 
@@ -119,10 +140,15 @@ public:
         for (TSampleIterator sample_it = samples_start; sample_it != samples_end; ++sample_it) {
             const TStatistics& node_statistics = compute_statistics(*sample_it);
             assert(num_of_classes_ == node_statistics.num_of_bins());
-            summed_statistics.lazy_accumulate(node_statistics.get_max_bin());
-//            summed_statistics.accumulate(node_statistics);
+            if (accumulate_sample_histograms_) {
+                summed_statistics.accumulate(node_statistics);
+            } else {
+                summed_statistics.lazy_accumulate(node_statistics.get_max_bin());
+            }
         }
-        summed_statistics.finish_lazy_accumulation();
+        if (!accumulate_sample_histograms_) {
+            summed_statistics.finish_lazy_accumulation();
+        }
         return summed_statistics;
 	}
 
@@ -185,12 +211,13 @@ class ForestUtilities
 	const ForestType& forest_;
 	std::vector<TreeUtilities<TSplitPoint, TStatistics, TMatrix>> tree_utils_vector_;
     size_type num_of_classes_;
+    bool accumulate_tree_histograms_;
 
 public:
 	using MatrixType = TMatrix;
 
 	ForestUtilities(const ForestType& forest)
-		: forest_(forest)
+        : forest_(forest), accumulate_tree_histograms_(true)
     {
         num_of_classes_ = forest_.cbegin()->get_root_iterator()->get_statistics().num_of_bins();
 		for (auto tree_it = forest_.cbegin(); tree_it != forest_.cend(); ++tree_it) {
@@ -199,6 +226,38 @@ public:
 		}
 	}
 
+    void set_max_evaluation_depth(size_type max_evaluation_depth) {
+        for (auto tree_utils_it = tree_utils_vector_.begin(); tree_utils_it != tree_utils_vector_.end(); ++tree_utils_it) {
+            tree_utils_it->set_max_evaluation_depth(max_evaluation_depth);
+        }
+    }
+    
+    void unset_max_evaluation_depth() {
+        for (auto tree_utils_it = tree_utils_vector_.begin(); tree_utils_it != tree_utils_vector_.end(); ++tree_utils_it) {
+            tree_utils_it->unset_max_evaluation_depth();
+        }
+    }
+
+    void set_accumulate_tree_histograms(bool accumulate_tree_histograms = true) {
+        accumulate_tree_histograms_ = accumulate_tree_histograms;
+    }
+
+    void unset_accumulate_tree_histograms() {
+        accumulate_tree_histograms_ = false;
+    }
+
+    void set_accumulate_sample_histograms(bool accumulate_sample_histograms = true) {
+        for (auto tree_utils_it = tree_utils_vector_.begin(); tree_utils_it != tree_utils_vector_.end(); ++tree_utils_it) {
+            tree_utils_it->set_accumulate_sample_histograms(accumulate_sample_histograms);
+        }
+    }
+    
+    void unset_accumulate_sample_histograms() {
+        for (auto tree_utils_it = tree_utils_vector_.begin(); tree_utils_it != tree_utils_vector_.end(); ++tree_utils_it) {
+            tree_utils_it->set_accumulate_sample_histograms(false);
+        }
+    }
+
 	template <typename TSample>
 	TStatistics compute_summed_statistics(const TSample& sample) const
 	{
@@ -206,10 +265,15 @@ public:
 		for (auto tree_utils_it = tree_utils_vector_.cbegin(); tree_utils_it != tree_utils_vector_.cend(); ++tree_utils_it) {
 			const TStatistics& tree_statistics = tree_utils_it->compute_statistics(sample);
             assert(num_of_classes_ == tree_statistics.num_of_bins());
-//            summed_statistics.lazy_accumulate(tree_statistics.get_max_bin());
-			summed_statistics.accumulate(tree_statistics);
+            if (accumulate_tree_histograms_) {
+                summed_statistics.accumulate(tree_statistics);
+            } else {
+                summed_statistics.lazy_accumulate(tree_statistics.get_max_bin());
+            }
         }
-//        summed_statistics.finish_lazy_accumulation();
+        if (!accumulate_tree_histograms_) {
+            summed_statistics.finish_lazy_accumulation();
+        }
 		return summed_statistics;
 	}
 
@@ -237,11 +301,43 @@ public:
 		for (auto tree_utils_it = tree_utils_vector_.cbegin(); tree_utils_it != tree_utils_vector_.cend(); ++tree_utils_it) {
 			const TStatistics& tree_statistics = tree_utils_it->compute_summed_statistics(samples_start, samples_end);
             assert(num_of_classes_ == tree_statistics.num_of_bins());
-//            summed_statistics.lazy_accumulate(tree_statistics.get_max_bin());
-			summed_statistics.accumulate(tree_statistics);
+            if (accumulate_tree_histograms_) {
+                summed_statistics.accumulate(tree_statistics);
+            } else {
+                summed_statistics.lazy_accumulate(tree_statistics.get_max_bin());
+            }
         }
-//        summed_statistics.finish_lazy_accumulation();
+        if (!accumulate_tree_histograms_) {
+            summed_statistics.finish_lazy_accumulation();
+        }
 		return summed_statistics;
+
+//        std::vector<TStatistics> summed_statistics_vector;
+//        for (TSampleIterator sample_it = samples_start; sample_it != samples_end; ++sample_it) {
+//            TStatistics summed_statistics(num_of_classes_);
+//            for (auto tree_utils_it = tree_utils_vector_.cbegin(); tree_utils_it != tree_utils_vector_.cend(); ++tree_utils_it) {
+//                const TStatistics& node_statistics = tree_utils_it->compute_statistics(*sample_it);
+//                assert(num_of_classes_ == node_statistics.num_of_bins());
+//                if (accumulate_tree_histograms_) {
+//                    summed_statistics.accumulate(node_statistics);
+//                } else {
+//                    summed_statistics.lazy_accumulate(node_statistics.get_max_bin());
+//                }
+//            }
+//            summed_statistics_vector.push_back(std::move(summed_statistics));
+//        }
+//        if (!accumulate_tree_histograms_) {
+//            for (auto it = summed_statistics_vector.begin(); it != summed_statistics_vector.end(); ++it) {
+//                it->finish_lazy_accumulation();
+//            }
+//        }
+//
+//        TStatistics overall_summed_statistics(num_of_classes_);
+//        for (auto it = summed_statistics_vector.begin(); it != summed_statistics_vector.end(); ++it) {
+//            overall_summed_statistics.lazy_accumulate(it->get_max_bin());
+//        }
+//        overall_summed_statistics.finish_lazy_accumulation();
+//        return overall_summed_statistics;
 	}
 
 	template <typename TSampleIterator>

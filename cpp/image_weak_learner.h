@@ -14,6 +14,7 @@
 #include <cmath>
 #include <limits>
 #include <algorithm>
+#include <map>
 #if AIT_MULTI_THREADING
 #include <thread>
 #endif
@@ -74,14 +75,14 @@ struct ImageWeakLearnerParameters : public ImageParameters
     int_type num_of_thresholds = 10;
     int_type num_of_features = 10;
 #else
-    int_type num_of_thresholds = 200;
-    int_type num_of_features = 200;
+    int_type num_of_features = 400;
+    int_type num_of_thresholds = 100;
 #endif
 
     // Feature offset ranges to sample from
-    offset_type feature_offset_x_range_low = 3;
+    offset_type feature_offset_x_range_low = 0;
     offset_type feature_offset_x_range_high = 15;
-    offset_type feature_offset_y_range_low = 3;
+    offset_type feature_offset_y_range_low = 0;
     offset_type feature_offset_y_range_high = 15;
 
     // Range from which to sample thresholds
@@ -646,10 +647,11 @@ private:
         offset_type x = sample.get_x();
         offset_type y = sample.get_y();
         PixelT pixel_value;
-        if (x + offset_x < 0 || x + offset_x >= image.width() || y + offset_y < 0 || y + offset_y >= image.height())
+        if (x + offset_x < 0 || x + offset_x >= image.width() || y + offset_y < 0 || y + offset_y >= image.height()) {
             pixel_value = 0;
-        else
+        } else {
             pixel_value = image.get_data_matrix()(x + offset_x, y + offset_y);
+        }
         return pixel_value;
     }
     

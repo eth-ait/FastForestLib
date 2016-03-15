@@ -102,7 +102,7 @@ endif()
 
 # Specify source files to use
 set(headers ait.h image_weak_learner.h training.h weak_learner.h
-	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h
+	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h io_utils.h
 	iterator_utils.h mpl_utils.h logger.h csv_utils.h serialization_utils.h evaluation_utils.h
 	bagging_wrapper.h)
 #file(GLOB headers
@@ -137,6 +137,13 @@ if(${WITH_MATLAB})
 	if(${UNIX})
 		target_link_libraries(depth_forest_trainer_mat ${X11_LIBRARIES})
 	endif()
+endif()
+
+# Executable target: forest_converter
+if(${WITH_MATLAB})
+    add_executable(forest_converter forest_converter.cpp ${headers})
+    target_link_libraries(forest_converter ${MATLAB_LIBRARIES})
+    target_compile_features(forest_converter PRIVATE cxx_auto_type cxx_variadic_templates)
 endif()
 
 # Executable target: level_forest_trainer
@@ -174,6 +181,7 @@ endif()
 # SET AIT_PROFILE or AIT_PROFILE_DISTRIBUTED macro for cpp files if profiling output is enabled
 if(${WITH_MATLAB})
     target_compile_definitions(depth_forest_trainer_mat PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
+    target_compile_definitions(forest_converter PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
 endif()
 target_compile_definitions(depth_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
 target_compile_definitions(level_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)

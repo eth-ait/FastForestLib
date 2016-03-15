@@ -13,6 +13,7 @@
 #include <numeric>
 
 #include "ait.h"
+#include "mpl_utils.h"
 
 namespace ait
 {

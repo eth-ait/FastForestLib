@@ -15,6 +15,7 @@
 
 #include <vector>
 #include <map>
+#include <cstdio>
 
 #include <mat.h>
 
@@ -92,6 +93,112 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filena
         throw std::runtime_error("Error closing file '" + filename + "'.");
 
     return images;
+}
+    
+template <typename TMatrix>
+void write_arrays_to_matlab_file(const std::string& filename, const std::string& name, const std::vector<TMatrix>& arrays)
+{
+    /*
+     * Open file to get directory
+     */
+    MATFile* pmat = matOpen(filename.c_str(), "w");
+    if (pmat == nullptr) {
+        throw std::runtime_error("Error opening file '" + filename + "'.");
+    }
+    
+    /* In order to use matGetNextXXX correctly, reopen file to read in headers. */
+    if (matClose(pmat) != 0) {
+        throw std::runtime_error("Error closing file '" + filename + "'.");
+    }
+    
+    pmat = matOpen(filename.c_str(), "w");
+    if (pmat == nullptr) {
+        throw std::runtime_error("Error opening file '" + filename + "'.");
+    }
+
+    mxArray* cell_pa = mxCreateCellMatrix(1, arrays.size());
+    if (cell_pa == nullptr) {
+        throw std::runtime_error("Unable to create MATLAB cell array.");
+    }
+
+    for (auto it = arrays.cbegin(); it != arrays.cend(); ++it) {
+        const TMatrix& array = *it;
+        mxArray* array_pa = mxCreateDoubleMatrix(array.rows(), array.cols(), mxREAL);
+        if (array_pa == nullptr) {
+            throw std::runtime_error("Unable to create MATLAB matrix.");
+        }
+        double* array_ptr = mxGetPr(array_pa);
+        for (int i = 0; i < array.rows(); ++i) {
+            for (int j = 0; j < array.cols(); ++j) {
+                array_ptr[i + j * array.rows()] = array(i, j);
+            }
+        }
+        mxSetCell(cell_pa, it - arrays.cbegin(), array_pa);
+    }
+
+    if (matPutVariable(pmat, name.c_str(), cell_pa) != 0) {
+        throw std::runtime_error("Unable to add cell array to .MAT file '" + filename + "'.'");
+    }
+
+    if (matClose(pmat) != 0) {
+        throw std::runtime_error("Error closing file '" + filename + "'.");
+    }
+    
+    // Also deallocates all the matrices
+    mxDestroyArray(cell_pa);
+}
+
+template <typename TMatrix>
+void write_arrays_to_matlab_file(const std::string& filename, const std::map<std::string, TMatrix>& array_map)
+{
+    /*
+     * Open file to get directory
+     */
+    MATFile* pmat = matOpen(filename.c_str(), "w");
+    if (pmat == nullptr) {
+        throw std::runtime_error("Error opening file '" + filename + "'.");
+    }
+    
+    /* In order to use matGetNextXXX correctly, reopen file to read in headers. */
+    if (matClose(pmat) != 0) {
+        throw std::runtime_error("Error closing file '" + filename + "'.");
+    }
+
+    pmat = matOpen(filename.c_str(), "r");
+    if (pmat == nullptr) {
+        throw std::runtime_error("Error opening file '" + filename + "'.");
+    }
+
+    for (auto it = array_map.cbegin(); it != array_map.cend(); ++it) {
+        const std::string& name = it->first;
+        const TMatrix& array = it->second;
+        mxArray* array_pa = mxCreateDoubleMatrix(array.rows(), array.cols(), mxREAL);
+        if (array_pa == nullptr) {
+            throw std::runtime_error("Unable to create MATLAB matrix.");
+        }
+        double* array_ptr = mxGetPr(array_pa);
+        for (int i = 0; i < array.rows(); ++i) {
+            for (int j = 0; j < array.cols(); ++j) {
+                array_ptr[i * array.cols() + j] = array(i, j);
+            }
+        }
+        if (matPutVariable(pmat, name.c_str(), array_pa)) {
+            throw std::runtime_error("Unable to add array to .MAT file '" + filename + "'.'");
+        }
+        mxDestroyArray(array_pa);
+    }
+
+    if (matClose(pmat) != 0) {
+        throw std::runtime_error("Error closing file '" + filename + "'.");
+    }
+}
+    
+template <typename TMatrix>
+void write_array_to_matlab_file(const std::string& filename, const std::string& name, const TMatrix& array)
+{
+    std::map<std::string, TMatrix> array_map;
+    array_map[name] = array;
+    write_arrays_to_matlab_file(filename, array_map);
 }
 
 }
