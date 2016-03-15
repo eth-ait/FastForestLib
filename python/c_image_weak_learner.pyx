@@ -175,22 +175,24 @@ cdef class WeakLearnerContext:
         #cdef int offset1, offset2
         cdef int offset_x1, offset_y1, offset_x2, offset_y2
         #for i in xrange(offsets.shape[0]):
-        with nogil, parallel():
-            for i in prange(offsets.shape[0]):
-                offset_x1 = offsets[i, 0]
-                offset_y1 = offsets[i, 1]
-                offset_x2 = offsets[i, 2]
-                offset_y2 = offsets[i, 3]
-                for k in xrange(sample_indices.shape[0]):
-                    sample_index = sample_indices[k]
-                    v = self._feature_evaluator.compute_feature_value_with_offsets(sample_index, offset_x1, offset_y1, offset_x2, offset_y2)
-                    l = self._get_label(sample_index)
-                    for j in xrange(thresholds.shape[1]):
-                        threshold = thresholds[i, j]
-                        if v < threshold:
-                            split_statistics._leftChildStatistics[i, j, l] += 1
-                        else:
-                            split_statistics._rightChildStatistics[i, j, l] += 1
+        # TODO
+        #with nogil, parallel():
+            #for i in prange(offsets.shape[0]):
+        for i in xrange(offsets.shape[0]):
+            offset_x1 = offsets[i, 0]
+            offset_y1 = offsets[i, 1]
+            offset_x2 = offsets[i, 2]
+            offset_y2 = offsets[i, 3]
+            for k in xrange(sample_indices.shape[0]):
+                sample_index = sample_indices[k]
+                v = self._feature_evaluator.compute_feature_value_with_offsets(sample_index, offset_x1, offset_y1, offset_x2, offset_y2)
+                l = self._get_label(sample_index)
+                for j in xrange(thresholds.shape[1]):
+                    threshold = thresholds[i, j]
+                    if v < threshold:
+                        split_statistics._leftChildStatistics[i, j, l] += 1
+                    else:
+                        split_statistics._rightChildStatistics[i, j, l] += 1
         return split_statistics
 
     # TODO: compute information gain for all features and thresholds instead and let ForestTrainer do the selection?
@@ -386,38 +388,70 @@ cdef class FeatureEvaluator:
         self._image_stride = image_width * image_height
         self._flat_data = flat_data
 
+    # TODO
+    #@cython.cdivision(True)
+    #@cython.profile(False)
+    #cdef inline double compute_feature_value(self, np.int64_t sample_index, np.int64_t[::1] offsets) nogil:
     @cython.cdivision(True)
     @cython.profile(False)
-    cdef inline double compute_feature_value(self, np.int64_t sample_index, np.int64_t[::1] offsets) nogil:
+    cdef inline double compute_feature_value(self, np.int64_t sample_index, np.int64_t[::1] offsets):
         cdef np.int64_t offset_x1 = offsets[0]
         cdef np.int64_t offset_y1 = offsets[1]
         cdef np.int64_t offset_x2 = offsets[2]
         cdef np.int64_t offset_y2 = offsets[3]
         return self.compute_feature_value_with_offsets(sample_index, offset_x1, offset_y1, offset_x2, offset_y2)
 
+    # TODO
+    #@cython.cdivision(True)
+    #@cython.profile(False)
+    #cdef inline double compute_feature_value_with_offsets(self, np.int64_t sample_index,
+    #                                                      np.int64_t offset_x1, np.int64_t offset_y1,
+    #                                                      np.int64_t offset_x2, np.int64_t offset_y2) nogil:
     @cython.cdivision(True)
     @cython.profile(False)
     cdef inline double compute_feature_value_with_offsets(self, np.int64_t sample_index,
                                                           np.int64_t offset_x1, np.int64_t offset_y1,
-                                                          np.int64_t offset_x2, np.int64_t offset_y2) nogil:
+                                                          np.int64_t offset_x2, np.int64_t offset_y2):
         cdef np.int64_t local_index
         local_index = sample_index % (self._image_stride)
-        #cdef int local_x, local_y
-        #local_x = local_index // self._imageHeight
-        #local_y = local_index % self._imageHeight
+        cdef int local_x, local_y
+        local_x = local_index // self._image_height
+        local_y = local_index % self._image_height
+
+        cdef int x1, y1, x2, y2
+        x1 = local_x + offset_x1
+        y1 = local_y + offset_y1
+        x2 = local_x + offset_x2
+        y2 = local_y + offset_y2
 
         cdef np.int64_t offset1 = offset_x1 * self._image_height + offset_y1
         cdef np.int64_t offset2 = offset_x2 * self._image_height + offset_y2
 
         cdef np.float64_t pixel1, pixel2
-        if local_index + offset1 >= 0 and local_index + offset1 < self._image_stride:
-            pixel1 = self._flat_data[sample_index + offset1]
-        else:
+        #if local_index + offset1 >= 0 and local_index + offset1 < self._image_stride:
+        #    pixel1 = self._flat_data[sample_index + offset1]
+        #    print("pixel1 at [" + str((sample_index + offset1) % 64) + "," + str((sample_index + offset1) / 64) + "] [" + str(sample_index + offset1) + "]: " + str(pixel1))
+        #else:
+        #    pixel1 = 0.0
+        #    print("pixel1 out of bounds: " + str(pixel1))
+        #if local_index + offset2 >= 0 and local_index + offset2 < self._image_stride:
+        #    pixel2 = self._flat_data[sample_index + offset2]
+        #    print("pixel2 at [" + str((sample_index + offset2) % 64) + "," + str((sample_index + offset2) / 64) + "] [" + str(sample_index + offset2) + "]: " + str(pixel2))
+        #else:
+        #    pixel2 = 0.0
+        #    print("pixel2 out of bounds: " + str(pixel2))
+        if x1 < 0 or x1 >= self._image_width or y1 < 0 or y1 >= self._image_height:
             pixel1 = 0.0
-        if local_index + offset2 >= 0 and local_index + offset2 < self._image_stride:
-            pixel2 = self._flat_data[sample_index + offset2]
+            #print("pixel1 out of bounds: " + str(pixel1))
         else:
+            pixel1 = self._flat_data[sample_index + offset1]
+            #print("pixel1 at [" + str((sample_index + offset1) % 64) + "," + str((sample_index + offset1) / 64) + "] [" + str(sample_index + offset1) + "]: " + str(pixel1))
+        if x2 < 0 or x2 >= self._image_width or y2 < 0 or y2 >= self._image_height:
             pixel2 = 0.0
+            #print("pixel2 out of bounds: " + str(pixel2))
+        else:
+            pixel2 = self._flat_data[sample_index + offset2]
+            #print("pixel2 at [" + str((sample_index + offset2) % 64) + "," + str((sample_index + offset2) / 64) + "] [" + str(sample_index + offset2) + "]: " + str(pixel2))
 
         return pixel1 - pixel2
 
@@ -429,8 +463,10 @@ cdef class Predictor:
         import scipy.io
         m_dict = scipy.io.loadmat(forest_file)
         tree_matrices = []
-        for tree_matrix in m_dict['forest']:
-            tree_matrices.append(np.ascontiguousarray(tree_matrix[0], dtype=np.float64))
+        forest = m_dict['forest']
+        for i in xrange(forest.shape[0]):
+            for j in xrange(forest.shape[1]):
+                tree_matrices.append(np.ascontiguousarray(forest[i, j], dtype=np.float64))
         return Predictor(tree_matrices)
 
     cdef _tree_matrices
@@ -455,11 +491,20 @@ cdef class Predictor:
             offset_x2 = <np.int64_t>offsets[2]
             offset_y2 = <np.int64_t>offsets[3]
             threshold = tree_matrix[node_index, 4]
+            #print('node_index: ' + str(node_index))
+            #print('threshold: ' + str(threshold))
+            #print('offset_x1: ' + str(offset_x1))
+            #print('offset_y1: ' + str(offset_y1))
+            #print('offset_x2: ' + str(offset_x2))
+            #print('offset_y2: ' + str(offset_y2))
             value = evaluator.compute_feature_value_with_offsets(sample_index, offset_x1, offset_y1, offset_x2, offset_y2)
+            #print("pixel_difference: " + str(value))
             #value = SparseImageFeatureEvaluator.compute_image_feature_value(sample_index, image, offsets)
             if value < threshold:
+                #print("left")
                 child_node_index = 2 * node_index + 1
             else:
+                #print("right")
                 child_node_index = 2 * node_index + 2
             return self._find_node_recursive(child_node_index, tree_matrix, sample_index,
                                              evaluator, stop_node_index)
@@ -516,6 +561,8 @@ cdef class Predictor:
             for k in xrange(num_of_samples):
                 sample_index = sample_indices[k]
                 node_index = self._find_node(tree_matrix, sample_index, evaluator, stop_node_index)
+                #print('node_index: ' + str(node_index))
+                #print('histogram: ' + str(np.array(tree_matrix[node_index, 5:-1])))
                 for j in xrange(num_of_labels):
                     aggregate_histogram[k, j] += <np.int64_t>tree_matrix[node_index, 5 + j]
         return HistogramStatistics.create_from_histogram_array(aggregate_histogram)

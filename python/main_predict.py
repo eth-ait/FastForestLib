@@ -39,6 +39,7 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
         aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image,
                                                                             max_evaluation_depth=max_evaluation_depth)
         predicted_labels = np.argmax(aggregate_statistics.histogram, 1)
+
         # num_of_matches = np.sum(flat_labels[sample_indices] == predicted_labels)
         # gt_label = np.max(flat_labels)
         # for label in xrange(test_data.num_of_labels):
@@ -79,7 +80,6 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
     print("Mean of diagonal of normalized confusion matrix:")
     print np.mean(norm_confusion_matrix.diagonal())
 
-
     print("")
     print("Computing per-frame confusion matrix...")
 
@@ -102,9 +102,9 @@ def run(forest_file, test_data_file, config, prediction_output_file=None, profil
         aggregate_statistics = predictor.predict_image_aggregate_statistics(sample_indices, image,
                                                                             max_evaluation_depth=max_evaluation_depth)
         predicted_labels = np.argmax(aggregate_statistics.histogram, 1)
-        frame_gt_label = np.max(flat_labels[sample_indices])
         predicted_label_hist = np.bincount(predicted_labels, minlength=test_data.num_of_labels)
         frame_label = np.argmax(predicted_label_hist)
+        frame_gt_label = np.max(flat_labels[sample_indices])
         confusion_matrix[frame_gt_label, frame_label] += 1
 
         if prediction_output_file is not None:
