@@ -12,7 +12,7 @@ macro(_xlib_check_path)
   endif()
 
   if(NOT XLIB_OK)
-    message(STATUS "Cereal include path was specified but not xlib.hpp file was found: ${XLIB_INCLUDE_DIR}")
+    message(STATUS "Cereal include path was specified but no xlib.hpp file was found: ${XLIB_INCLUDE_DIR}")
   endif()
 
 endmacro()

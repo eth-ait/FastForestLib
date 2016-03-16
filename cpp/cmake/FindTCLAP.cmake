@@ -12,7 +12,7 @@ macro(_tclap_check_path)
   endif()
 
   if(NOT TCLAP_OK)
-    message(STATUS "TCLAP include path was specified but not CmdLine.h file was found: ${TCLAP_INCLUDE_DIR}")
+    message(STATUS "TCLAP include path was specified but no CmdLine.h file was found: ${TCLAP_INCLUDE_DIR}")
   endif()
 
 endmacro()

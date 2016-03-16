@@ -27,6 +27,7 @@
 #include <cereal/types/tuple.hpp>
 #include <Eigen/Dense>
 #include <CImg.h>
+#include <rapidjson/rapidjson.h>
 
 #include "ait.h"
 #include "logger.h"
@@ -34,46 +35,38 @@
 #include "weak_learner.h"
 #include "histogram_statistics.h"
 #include "bagging_wrapper.h"
-
-namespace ait
-{
+namespace ait {
 
 using pixel_type = std::int16_t;
 using offset_type = std::int16_t;
 using label_type = std::int16_t;
 
-struct ImageParameters
-{
-    // Samples to extract per image and fraction of samples to use for bagging.
+struct ImageSampleParameters {
+        // Samples to extract per image and fraction of samples to use for bagging.
 #if AIT_TESTING
+    double bagging_fraction = 1.0;
     double samples_per_image_fraction = 0.015;
-    double bagging_fraction = 1.0;
 #else
-    double samples_per_image_fraction = 0.1;
     double bagging_fraction = 1.0;
+    double samples_per_image_fraction = 0.1;
 #endif
+        
 
     // Lower bound of labels for background pixels
     label_type background_label = std::numeric_limits<label_type>::max();
     
-private:
-    friend class cereal::access;
-    
-    template <typename Archive>
-    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
-    {
-        archive(cereal::make_nvp("samples_per_image_fraction", samples_per_image_fraction));
-        archive(cereal::make_nvp("bagging_fraction", bagging_fraction));
-        archive(cereal::make_nvp("background_label", background_label));
+    virtual void read_from_config(const rapidjson::Value& config) {
+        samples_per_image_fraction = ConfigurationUtils::get_double_value(config, "samples_per_image_fraction", samples_per_image_fraction);
+        bagging_fraction = ConfigurationUtils::get_double_value(config, "bagging_fraction", bagging_fraction);
+        background_label = ConfigurationUtils::get_value(config, "background_label", background_label);
     }
 };
 
-struct ImageWeakLearnerParameters : public ImageParameters
-{
+struct ImageWeakLearnerParameters : public ImageSampleParameters {
     // Number of thresholds and features to sample per node
 #if AIT_TESTING
-    int_type num_of_thresholds = 10;
     int_type num_of_features = 10;
+    int_type num_of_thresholds = 10;
 #else
     int_type num_of_features = 400;
     int_type num_of_thresholds = 100;
@@ -95,22 +88,17 @@ struct ImageWeakLearnerParameters : public ImageParameters
     // For binary images only two thresholds will be generated (-0.5 and +0.5). The other parameters regarding thresholds will be ignored.
     bool binary_images = true;
 
-private:
-    friend class cereal::access;
-    
-    template <typename Archive>
-    void serialize(Archive& archive, const unsigned int version, typename disable_if_boost_archive<Archive>::type* = nullptr)
-    {
-        archive(cereal::make_nvp("num_of_thresholds", num_of_thresholds));
-        archive(cereal::make_nvp("num_of_features", num_of_features));
-        archive(cereal::make_nvp("feature_offset_x_range_low", feature_offset_x_range_low));
-        archive(cereal::make_nvp("feature_offset_x_range_high", feature_offset_x_range_high));
-        archive(cereal::make_nvp("feature_offset_y_range_low", feature_offset_y_range_low));
-        archive(cereal::make_nvp("feature_offset_y_range_high", feature_offset_y_range_high));
-        archive(cereal::make_nvp("threshold_range_low", num_of_thresholds));
-        archive(cereal::make_nvp("threshold_range_high", num_of_features));
-        archive(cereal::make_nvp("adaptive_threshold_range", num_of_thresholds));
-        archive(cereal::make_nvp("binary_images", num_of_features));
+    virtual void read_from_config(const rapidjson::Value& config) {
+        ImageSampleParameters::read_from_config(config);
+        num_of_features = ConfigurationUtils::get_int_value(config, "num_of_features", num_of_features);
+        feature_offset_x_range_low = ConfigurationUtils::get_value(config, "feature_offset_x_range_low", feature_offset_x_range_low);
+        feature_offset_x_range_high = ConfigurationUtils::get_value(config, "feature_offset_x_range_high", feature_offset_x_range_high);
+        feature_offset_y_range_low = ConfigurationUtils::get_value(config, "feature_offset_y_range_low", feature_offset_y_range_low);
+        feature_offset_y_range_high = ConfigurationUtils::get_value(config, "feature_offset_y_range_high", feature_offset_y_range_high);
+        threshold_range_low = ConfigurationUtils::get_value(config, "threshold_range_low", threshold_range_low);
+        threshold_range_high = ConfigurationUtils::get_value(config, "threshold_range_high", threshold_range_high);
+        adaptive_threshold_range = ConfigurationUtils::get_bool_value(config, "adaptive_threshold_range", adaptive_threshold_range);
+        binary_images = ConfigurationUtils::get_bool_value(config, "binary_images", binary_images);
     }
 };
 
@@ -265,9 +253,9 @@ public:
     using ConstSampleIteratorT = typename std::vector<SampleT>::const_iterator;
     using SampleBagBatchT = std::vector<size_type>;
     using ImageT = Image<TPixel>;
-    using ParametersT = ImageParameters;
+    using ParametersT = ImageSampleParameters;
 
-    explicit ImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ImageParameters& parameters)
+    explicit ImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ParametersT& parameters)
     : image_list_(image_list), parameters_(parameters)
     {
         assert(image_list.size() > 0);
@@ -445,7 +433,7 @@ private:
     size_type image_width_;
     size_type image_height_;
     const std::vector<std::tuple<std::string, std::string>> image_list_;
-    const ImageParameters parameters_;
+    const ImageSampleParameters parameters_;
     std::map<size_type, ImageT> image_map_;
     std::vector<SampleT> samples_;
 };
@@ -479,37 +467,6 @@ struct ImageFeature
             pixel_value = image.get_data_matrix()(x + offset_x, y + offset_y);
         return pixel_value;
     }
-
-    // TODO: remove
-//    bool operator<(const ImageFeature& other) const
-//    {
-//        if (offset_x1 < other.offset_x1)
-//        {
-//            return true;
-//        }
-//        else if (offset_x1 == other.offset_x1)
-//        {
-//            if (offset_y1 < other.offset_y1)
-//            {
-//                return true;
-//            }
-//            else if (offset_y1 == other.offset_y1)
-//            {
-//                if (offset_x2 < other.offset_x2)
-//                {
-//                    return true;
-//                }
-//                else if (offset_x2 == other.offset_x2)
-//                {
-//                    if (offset_y2 < other.offset_y2)
-//                    {
-//                        return true;
-//                    }
-//                }
-//            }
-//        }
-//        return false;
-//    }
 
     offset_type offset_x1;
     offset_type offset_y1;

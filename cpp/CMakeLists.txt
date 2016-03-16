@@ -5,12 +5,15 @@ project("DistRandomForest")
 cmake_policy(SET CMP0004 OLD)
 
 # Add some cmake macros
-set(CMAKE_MODULE_PATH ${DistRandomForest_SOURCE_DIR}/cmake)
+set(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+set(CMAKE_PREFIX_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 # Add default location of TCLAP and CImg headers
 set(TCLAP_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/tclap-1.2.1/include" CACHE PATH "TCLAP include path")
 set(CIMG_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/CImg-1.6.9" CACHE PATH "CImg include path")
-set(CEREAL_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/cereal-1.1.2/include" CACHE PATH "Cereal include path")
+set(Cereal_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/cereal-1.1.2/include" CACHE PATH "Cereal include path")
+# Cereal already provides a version of RapidJSON that conflicts with newer versions (see FindRapidJSON.cmake script)
+#set(RapidJSON_INCLUDE_DIR "${PROJECT_SOURCE_DIR}/contrib/rapidjson/include" CACHE PATH "RapidJSON include path")
 
 # Set default option for MATLAB
 if(NOT DEFINED WITH_MATLAB)
@@ -65,6 +68,7 @@ find_package(Eigen3 3.1.2 REQUIRED)
 find_package(Cereal REQUIRED)
 find_package(TCLAP REQUIRED)
 find_package(CImg REQUIRED)
+find_package(RapidJSON REQUIRED)
 
 # Enable PNG support in CImg
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS cimg_use_png)
@@ -92,7 +96,8 @@ if(${WITH_MATLAB})
 	include_directories(${MATLAB_INCLUDE_DIRS})
 endif()
 include_directories(${TCLAP_INCLUDE_DIR})
-include_directories(${CEREAL_INCLUDE_DIR})
+include_directories(${Cereal_INCLUDE_DIR})
+include_directories(${RapidJSON_INCLUDE_DIR})
 include_directories(${MPI_INCLUDE_PATH})
 include_directories(${CIMG_INCLUDE_DIR})
 include_directories(${PNG_INCLUDE_DIR})
@@ -104,7 +109,7 @@ endif()
 set(headers ait.h image_weak_learner.h training.h weak_learner.h
 	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h io_utils.h
 	iterator_utils.h mpl_utils.h logger.h csv_utils.h serialization_utils.h evaluation_utils.h
-	bagging_wrapper.h)
+	bagging_wrapper.h config_utils.h)
 #file(GLOB headers
 #	"*.h"
 #)

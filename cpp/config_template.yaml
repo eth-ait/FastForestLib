@@ -1,0 +1,23 @@
+{
+    "training_parameters": {
+        "num_of_trees": 3,
+        "tree_depth": 20,
+        "minimum_num_of_samples": 200,
+        "minimum_information_gain": 2.2,
+        "num_of_threads": 3
+    },
+    "weak_learner_parameters": {
+        "bagging_fraction": 1.0,
+        "samples_per_image_fraction": 0.1,
+        "num_of_thresholds": 100,
+        "num_of_features": 400,
+        "feature_offset_x_range_low": 0,
+        "feature_offset_x_range_high": 15,
+        "feature_offset_y_range_low": 0,
+        "feature_offset_y_range_high": 15,
+        "threshold_range_low": -200,
+        "threshold_range_high": 200,
+        "adaptive_threshold_range": true,
+        "binary_images": true
+    }
+}

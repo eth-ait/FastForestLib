@@ -46,12 +46,26 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file of the forest to load", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file of the forest to load", false, "forest.bin", "string");
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Lower bound of background labels to be ignored", false, -1, "int", cmd);
+        TCLAP::ValueArg<std::string> config_file_arg("c", "config", "YAML file with training parameters", false, "", "string", cmd);
         cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
         cmd.parse(argc, argv);
         
         const int num_of_classes = num_of_classes_arg.getValue();
         const std::string image_list_file = image_list_file_arg.getValue();
         
+        // Initialize parameters to defaults or load from file.
+        ParametersT parameters;
+        // Modify parameters to retrieve all pixels per sample. This can be overwritten by config file.
+        parameters.samples_per_image_fraction = 1.0;
+        if (config_file_arg.isSet()) {
+            ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
+            rapidjson::Document config_doc = ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue());
+            if (config_doc.HasMember("testing_parameters")) {
+                parameters.read_from_config(config_doc["testing_parameters"]);
+            }
+            ait::log_info(false) << " Done." << std::endl;
+        }
+
         // Read image file list
         ait::log_info(false) << "Reading image list ... " << std::flush;
         std::vector<std::tuple<std::string, std::string>> image_list;
@@ -116,9 +130,7 @@ int main(int argc, const char* argv[]) {
         RandomEngineT rnd_engine(rnd_device());
 #endif
 
-        // Compute some stats and print them.
-        ait::log_info(false) << "Creating samples for testing ... " << std::flush;
-        ParametersT parameters;
+        // Compute number of classes
         ait::label_type background_label;
         if (background_label_arg.isSet()) {
             background_label = background_label_arg.getValue();
@@ -126,9 +138,9 @@ int main(int argc, const char* argv[]) {
             background_label = num_of_classes;
         }
         parameters.background_label = background_label;
-        // Modify parameters to retrieve all pixels per sample
-        // TODO: This should be specifyable in a configuration file
-        parameters.samples_per_image_fraction = 1.0;
+        
+        // Load samples for per-pixel testing
+        ait::log_info(false) << "Creating samples for testing ... " << std::flush;
         SampleProviderT sample_provider(image_list, parameters);
         sample_provider.clear_samples();
         for (int i = 0; i < image_list.size(); ++i) {
@@ -137,7 +149,8 @@ int main(int argc, const char* argv[]) {
         SampleIteratorT samples_start = sample_provider.get_samples_begin();
         SampleIteratorT samples_end = sample_provider.get_samples_end();
         ait::log_info(false) << " Done." << std::endl;
-
+        
+        // Compute some stats and print them.
         std::vector<ait::size_type> sample_counts(num_of_classes, 0);
         for (auto sample_it = samples_start; sample_it != samples_end; sample_it++)
         {
@@ -199,16 +212,13 @@ int main(int argc, const char* argv[]) {
 //        ConfusionMatrixType per_frame_single_tree_confusion_matrix(num_of_classes, num_of_classes);
 //        per_frame_single_tree_confusion_matrix.setZero();
 //        // TODO: This should be configurable by input file
-//        ParametersT full_parameters(parameters);
-//        // Modify parameters to retrieve all pixels per sample
-//        full_parameters.samples_per_image_fraction = 1.0;
-//        SampleProviderT full_sample_provider(image_list, full_parameters);
+//        SampleProviderT sample_provider(image_list, full_parameters);
 //        for (int i = 0; i < image_list.size(); ++i)
 //        {
-//            full_sample_provider.clear_samples();
-//            full_sample_provider.load_samples_from_image(i, rnd_engine);
-//            samples_start = full_sample_provider.get_samples_begin();
-//            samples_end = full_sample_provider.get_samples_end();
+//            sample_provider.clear_samples();
+//            sample_provider.load_samples_from_image(i, rnd_engine);
+//            samples_start = sample_provider.get_samples_begin();
+//            samples_end = sample_provider.get_samples_end();
 //            tree_utils.update_confusion_matrix(per_frame_single_tree_confusion_matrix, samples_start, samples_end);
 //        }
 //        ait::log_info() << "Single-tree per-frame confusion matrix:" << std::endl << per_frame_single_tree_confusion_matrix;
@@ -222,17 +232,12 @@ int main(int argc, const char* argv[]) {
         ait::log_info() << "Computing per-frame confusion matrix.";
         ConfusionMatrixType per_frame_confusion_matrix(num_of_classes, num_of_classes);
         per_frame_confusion_matrix.setZero();
-        // TODO: This should be configurable by input file
-        ParametersT full_parameters(parameters);
-        // Modify parameters to retrieve all pixels per sample
-        full_parameters.samples_per_image_fraction = 1.0;
-        SampleProviderT full_sample_provider(image_list, full_parameters);
         for (int i = 0; i < image_list.size(); ++i)
         {
-            full_sample_provider.clear_samples();
-            full_sample_provider.load_samples_from_image(i, rnd_engine);
-            samples_start = full_sample_provider.get_samples_begin();
-            samples_end = full_sample_provider.get_samples_end();
+            sample_provider.clear_samples();
+            sample_provider.load_samples_from_image(i, rnd_engine);
+            samples_start = sample_provider.get_samples_begin();
+            samples_end = sample_provider.get_samples_end();
             forest_utils.update_confusion_matrix(per_frame_confusion_matrix, samples_start, samples_end);
         }
         ait::log_info() << "Per-frame confusion matrix:" << std::endl << per_frame_confusion_matrix;

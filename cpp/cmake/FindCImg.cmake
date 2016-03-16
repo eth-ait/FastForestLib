@@ -12,7 +12,7 @@ macro(_cimg_check_path)
   endif()
 
   if(NOT CIMG_OK)
-    message(STATUS "CImg include path was specified but not CImg.h file was found: ${CIMG_INCLUDE_DIR}")
+    message(STATUS "CImg include path was specified but no CImg.h file was found: ${CIMG_INCLUDE_DIR}")
   endif()
 
 endmacro()

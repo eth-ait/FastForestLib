@@ -50,12 +50,28 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string", cmd);
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string", cmd);
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Label of background pixels to be ignored", false, -1, "int", cmd);
-        TCLAP::SwitchArg print_confusion_matrix_switch("c", "conf-matrix", "Print confusion matrix", cmd, true);
+        TCLAP::SwitchArg print_confusion_matrix_switch("m", "conf-matrix", "Print confusion matrix", cmd, true);
+        TCLAP::ValueArg<std::string> config_file_arg("c", "config", "YAML file with training parameters", false, "", "string", cmd);
         cmd.parse(argc, argv);
         
         std::string data_file = data_file_arg.getValue();
         bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
         
+        // Initialize training and weak-learner parameters to defaults or load from file
+        ForestTrainerT::ParametersT training_parameters;
+        WeakLearnerT::ParametersT weak_learner_parameters;
+        if (config_file_arg.isSet()) {
+            ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
+            rapidjson::Document config_doc = ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue());
+            if (config_doc.HasMember("training_parameters")) {
+                training_parameters.read_from_config(config_doc["training_parameters"]);
+            }
+            if (config_doc.HasMember("weak_learner_parameters")) {
+                weak_learner_parameters.read_from_config(config_doc["weak_learner_parameters"]);
+            }
+            ait::log_info(false) << " Done." << std::endl;
+        }
+
         // Read data from file.
         ait::log_info(false) << "Reading images ... " << std::flush;
         std::vector<ImageT> images = ait::load_images_from_matlab_file(data_file, "data", "labels");
@@ -115,8 +131,6 @@ int main(int argc, const char* argv[]) {
         
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
-        WeakLearnerT::ParametersT weak_learner_parameters;
-        ForestTrainerT::ParametersT training_parameters;
         WeakLearnerT iwl(weak_learner_parameters, statistics_factory);
         ForestTrainerT trainer(iwl, training_parameters);
 #ifdef AIT_TESTING

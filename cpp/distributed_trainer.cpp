@@ -62,19 +62,40 @@ int main(int argc, const char* argv[]) {
         TCLAP::CmdLine cmd("Distributed RF trainer", ' ', "0.3");
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
-        TCLAP::SwitchArg hide_confusion_matrix_switch("c", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
+        TCLAP::SwitchArg hide_confusion_matrix_switch("m", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Lower bound of background labels to be ignored", false, -1, "int", cmd);
 #if AIT_MULTI_THREADING
         TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, 1, "int", cmd);
 #endif
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string");
+        TCLAP::ValueArg<std::string> config_file_arg("c", "config", "YAML file with training parameters", false, "", "string", cmd);
         cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
         cmd.parse(argc, argv);
 
         const int num_of_classes = num_of_classes_arg.getValue();
         const bool print_confusion_matrix = !hide_confusion_matrix_switch.getValue();
         const std::string image_list_file = image_list_file_arg.getValue();
+        
+        // Initialize training and weak-learner parameters to defaults or load from file
+        ForestTrainerT::ParametersT training_parameters;
+        WeakLearnerT::ParametersT weak_learner_parameters;
+        if (config_file_arg.isSet()) {
+            ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
+            rapidjson::Document config_doc = ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue());
+            if (config_doc.HasMember("training_parameters")) {
+                training_parameters.read_from_config(config_doc["training_parameters"]);
+            }
+            if (config_doc.HasMember("weak_learner_parameters")) {
+                weak_learner_parameters.read_from_config(config_doc["weak_learner_parameters"]);
+            }
+            ait::log_info(false) << " Done." << std::endl;
+        }
+#if AIT_MULTI_THREADING
+        if (num_of_threads_arg.isSet()) {
+            training_parameters.num_of_threads = num_of_threads_arg.getValue();
+        }
+#endif
 
         // Read image file list
         ait::log_info(false) << "Reading image list ... " << std::flush;
@@ -111,7 +132,6 @@ int main(int argc, const char* argv[]) {
 
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
-        WeakLearnerT::ParametersT weak_learner_parameters;
         ait::label_type background_label;
         if (background_label_arg.isSet())
         {
@@ -122,7 +142,6 @@ int main(int argc, const char* argv[]) {
             background_label = num_of_classes;
         }
         weak_learner_parameters.background_label = background_label;
-        ForestTrainerT::ParametersT training_parameters;
 #if AIT_MULTI_THREADING
         if (num_of_threads_arg.isSet())
         {

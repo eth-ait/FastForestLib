@@ -71,10 +71,13 @@ int main(int argc, const char* argv[]) {
         WeakLearnerT::ParametersT weak_learner_parameters;
         if (config_file_arg.isSet()) {
             ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
-            std::ifstream ifile_config(config_file_arg.getValue());
-            cereal::JSONInputArchive iarchive(ifile_config);
-            iarchive(cereal::make_nvp("training_parameters", training_parameters));
-            iarchive(cereal::make_nvp("weak_learner_parameters", weak_learner_parameters));
+            rapidjson::Document config_doc = ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue());
+            if (config_doc.HasMember("training_parameters")) {
+                training_parameters.read_from_config(config_doc["training_parameters"]);
+            }
+            if (config_doc.HasMember("weak_learner_parameters")) {
+                weak_learner_parameters.read_from_config(config_doc["weak_learner_parameters"]);
+            }
             ait::log_info(false) << " Done." << std::endl;
         }
 #if AIT_MULTI_THREADING
