@@ -20,13 +20,11 @@ namespace ait {
     class ConfigurationUtils {
     public:
         template <size_type read_buffer_size = 65536>
-        static rapidjson::Document read_configuration_file(const std::string& filename) {
+        static void read_configuration_file(const std::string& filename, rapidjson::Document& doc) {
             std::FILE* fp = std::fopen(filename.c_str(), "rb");
             rapidjson::FileStream config_stream(fp);
-            rapidjson::Document doc;
             doc.ParseStream<0>(config_stream);
             std::fclose(fp);
-            return doc;
         }
         
         static bool get_bool_value(const rapidjson::Value& value, const std::string& name, bool default_value) {

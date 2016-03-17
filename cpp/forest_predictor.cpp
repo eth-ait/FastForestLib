@@ -59,7 +59,8 @@ int main(int argc, const char* argv[]) {
         parameters.samples_per_image_fraction = 1.0;
         if (config_file_arg.isSet()) {
             ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
-            rapidjson::Document config_doc = ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue());
+			rapidjson::Document config_doc;
+			ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue(), config_doc);
             if (config_doc.HasMember("testing_parameters")) {
                 parameters.read_from_config(config_doc["testing_parameters"]);
             }
