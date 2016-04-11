@@ -1,13 +1,18 @@
 # FastForestLib
 
 A library for training and evaluating random forests.
+
 The folder _cpp_ contains the C++ implementation (multithreaded and distributed variant).
+
 The folder _utils_ contains some MATLAB and python scripts to convert data and forests between different formats.
+
 The folder _python_ contains an older Python implementation using Cython. The testing code could still be useful for forests trained with the C++ code.
+
 The folder _data_ contains some MATLAB scripts to generate synthetic data and to convert MATLAB data format to CSV data format. Check it out for details on the data formats. To some extend it can also be used for testing the code.
 
 ## Dependencies
-The library uses _boost_, _CImg_ (included), _TCLAP_ (included) and _cereal_ (included). The distributed code requires _boost-mpi_ for communication.
+The library uses _boost_, _CImg_ (included), _TCLAP_ (included) and _cereal_ (included).
+The distributed code requires _boost-mpi_ for communication.
 
 ## Compiling
 ```
