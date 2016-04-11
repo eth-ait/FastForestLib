@@ -35,6 +35,8 @@
 #include "weak_learner.h"
 #include "histogram_statistics.h"
 #include "bagging_wrapper.h"
+#include "config_utils.h"
+
 namespace ait {
 
 using pixel_type = std::int16_t;

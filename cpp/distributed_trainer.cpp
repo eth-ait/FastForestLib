@@ -82,7 +82,8 @@ int main(int argc, const char* argv[]) {
         WeakLearnerT::ParametersT weak_learner_parameters;
         if (config_file_arg.isSet()) {
             ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
-            rapidjson::Document config_doc = ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue());
+            rapidjson::Document config_doc;
+            ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue(), config_doc);
             if (config_doc.HasMember("training_parameters")) {
                 training_parameters.read_from_config(config_doc["training_parameters"]);
             }
