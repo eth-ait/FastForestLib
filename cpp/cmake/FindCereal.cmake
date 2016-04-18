@@ -1,6 +1,6 @@
 # - Try to find cereal lib
 #
-#  Cereal_FOUND - system has cereal lib
+#  Cereal_OK - system has cereal lib
 #  Cereal_INCLUDE_DIR - the cereal include directory
 
 # Copyright (c) 2015, Benjamin Hepp <benjamin.hepp@posteo.de>

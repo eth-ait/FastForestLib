@@ -19,7 +19,7 @@ endmacro()
 
 if(NOT RapidJSON_INCLUDE_DIR)
 
-  if (Cereal_FOUND)
+  if (Cereal_OK)
     set(RapidJSON_INCLUDE_DIR "${Cereal_INCLUDE_DIR}/cereal/external/")
     set(RapidJSON_OK TRUE)
   else()
