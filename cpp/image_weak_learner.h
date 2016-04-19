@@ -159,7 +159,7 @@ public:
         return data_matrix_.cols();
     }
 
-    static Image load_from_files(const std::string& data_filename, const std::string& label_filename)
+    static std::shared_ptr<Image> load_from_files(const std::string& data_filename, const std::string& label_filename)
     {
         cimg_library::CImg<TPixel> data_image(data_filename.c_str());
         cimg_library::CImg<TPixel> label_image(label_filename.c_str());
@@ -195,7 +195,7 @@ public:
                 label(w, h) = label_image(w, h, 0, 0, 0, 0);
             }
         }
-        return Image(data, label);
+        return std::make_shared<Image>(data, label);
     }
 };
 
@@ -246,6 +246,96 @@ private:
     offset_type y_;
 };
 
+template <typename TPixel = pixel_type>
+class ImageProvider
+{
+public:
+    using ImageT = Image<TPixel>;
+    using ImagePtrT = std::shared_ptr<ImageT>;
+
+	ImageProvider(size_type num_of_images)
+		: num_of_images_(num_of_images)
+	{
+	}
+
+	virtual ~ImageProvider()
+	{
+	}
+
+	size_type get_num_of_images() const
+	{
+		return num_of_images_;
+	}
+
+	virtual const ImagePtrT get_image(size_type image_index) = 0;
+
+private:
+	size_type num_of_images_;
+};
+
+template <typename TPixel = pixel_type>
+class MemoryImageProvider : public ImageProvider<TPixel>
+{
+public:
+    using ImageT = typename ImageProvider<TPixel>::ImageT;
+    using ImagePtrT = typename ImageProvider<TPixel>::ImagePtrT;
+
+    explicit MemoryImageProvider(const std::vector<ImagePtrT>& images)
+    : ImageProvider<TPixel>(images.size()), images_(images)
+    {
+        assert(images_.size() > 0);
+    }
+
+    explicit MemoryImageProvider(std::vector<ImagePtrT>&& images)
+    : ImageProvider<TPixel>(images.size()), images_(images)
+    {
+        assert(images_.size() > 0);
+    }
+
+    virtual ~MemoryImageProvider()
+	{
+	}
+
+	virtual const ImagePtrT get_image(size_type image_index) override
+    {
+        assert(image_index < images_.size());
+        return images_[image_index];
+    }
+
+private:
+    const std::vector<ImagePtrT> images_;
+};
+
+template <typename TPixel = pixel_type>
+class FileImageProvider : public ImageProvider<TPixel>
+{
+public:
+    using ImageT = typename ImageProvider<TPixel>::ImageT;
+    using ImagePtrT = typename ImageProvider<TPixel>::ImagePtrT;
+
+    explicit FileImageProvider(const std::vector<std::tuple<std::string, std::string>>& image_list)
+    : ImageProvider<TPixel>(image_list.size()), image_list_(image_list)
+    {
+        assert(image_list.size() > 0);
+    }
+
+    virtual ~FileImageProvider()
+	{
+	}
+
+    virtual const ImagePtrT get_image(size_type image_index) override
+    {
+        assert(image_index < image_list_.size());
+        const std::string& data_path = std::get<0>(image_list_[image_index]);
+        const std::string& label_path = std::get<1>(image_list_[image_index]);
+        const ImagePtrT image_ptr = ImageT::load_from_files(data_path, label_path);
+        return image_ptr;
+    }
+
+private:
+    const std::vector<std::tuple<std::string, std::string>> image_list_;
+};
+
 template <typename TRandomEngine, typename TPixel = pixel_type>
 class ImageSampleProvider
 {
@@ -255,37 +345,42 @@ public:
     using ConstSampleIteratorT = typename std::vector<SampleT>::const_iterator;
     using SampleBagBatchT = std::vector<size_type>;
     using ImageT = Image<TPixel>;
+    using ImagePtrT = std::shared_ptr<ImageT>;
     using ParametersT = ImageSampleParameters;
 
-    explicit ImageSampleProvider(const std::vector<std::tuple<std::string, std::string>>& image_list, const ParametersT& parameters)
-    : image_list_(image_list), parameters_(parameters)
+    explicit ImageSampleProvider(std::shared_ptr<ImageProvider<TPixel>> image_provider, const ParametersT& parameters)
+            : image_provider_(image_provider), parameters_(parameters)
     {
-        assert(image_list.size() > 0);
-        ImageT image = load_image(0);
-        image_width_ = image.width();
-        image_height_ = image.height();
+    }
+
+    virtual ~ImageSampleProvider()
+	{
+	}
+
+    size_type get_num_of_images() const {
+    	return image_provider_->get_num_of_images();
     }
 
     std::vector<SampleBagBatchT> compute_sample_bag_batches(size_type num_of_batches, TRandomEngine& rnd_engine) const
-	{
-        int_type num_of_images_per_bag = std::round(parameters_.bagging_fraction * image_list_.size());
+    {
+        int_type num_of_images_per_bag = std::round(parameters_.bagging_fraction * get_num_of_images());
         std::vector<size_type> image_indices(num_of_images_per_bag);
-        std::uniform_int_distribution<int_type> image_dist(0, image_list_.size() - 1);
-		for (size_type i = 0; i < num_of_images_per_bag; i++)
+        std::uniform_int_distribution<int_type> image_dist(0, get_num_of_images() - 1);
+        for (size_type i = 0; i < num_of_images_per_bag; i++)
         {
-			int_type image_index = image_dist(rnd_engine);
-			image_indices[i] = image_index;
+            int_type image_index = image_dist(rnd_engine);
+            image_indices[i] = image_index;
         }
         std::sort(image_indices.begin(), image_indices.end());
         std::vector<SampleBagBatchT> split_sample_bag(num_of_batches);
-		for (size_type i = 0; i < num_of_batches; i++)
+        for (size_type i = 0; i < num_of_batches; i++)
         {
             size_type index_start = compute_batch_start_index(i, num_of_batches, num_of_images_per_bag);
             size_type index_end = compute_batch_start_index(i + 1, num_of_batches, num_of_images_per_bag);
             auto bag_it_start = image_indices.cbegin() + index_start;
             auto bag_it_end = image_indices.cbegin() + index_end;
             SampleBagBatchT image_indices_batch(bag_it_start, bag_it_end);
-        	split_sample_bag[i] = std::move(image_indices_batch);
+            split_sample_bag[i] = std::move(image_indices_batch);
         }
         return split_sample_bag;
     }
@@ -294,83 +389,87 @@ public:
     {
         log_info(false) << "Loading split sample bag ...";
         clear_samples();
-        std::map<size_type, ImageT> old_image_map(std::move(image_map_));
+        std::map<size_type, const ImagePtrT> old_image_map(std::move(image_map_));
         image_map_.clear();
         for (auto it = split_sample_item.cbegin(); it != split_sample_item.cend(); ++it)
         {
             size_type image_index = *it;
             ensure_image_is_loaded(image_index, old_image_map);
-			load_samples_from_image(image_index, rnd_engine);
+            load_samples_from_image(image_index, rnd_engine);
         }
         log_info(true) << "Done";
     }
 
     void load_samples_from_image(size_type image_index, TRandomEngine& rnd_engine)
     {
-    	ensure_image_is_loaded(image_index);
-		const ImageT* image_ptr = &image_map_.at(image_index);
-		if (parameters_.samples_per_image_fraction < 1.0)
-		{
-			size_type num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width_ * image_height_);
+        ensure_image_is_loaded(image_index);
+        const ImagePtrT image_ptr = image_map_.at(image_index);
+        auto image_width = image_ptr->width();
+        auto image_height = image_ptr->height();
+        if (parameters_.samples_per_image_fraction < 1.0)
+        {
+            size_type num_of_samples_per_image = std::round(parameters_.samples_per_image_fraction * image_width * image_height);
             std::vector<SampleT> non_background_samples;
-			for (size_type x = 0; x < image_width_; ++x)
+            for (size_type x = 0; x < image_width; ++x)
             {
-				for (size_type y = 0; y < image_height_; ++y)
+                for (size_type y = 0; y < image_height; ++y)
                 {
-                    SampleT sample(image_ptr, x, y);
-                    if (sample.get_label() < parameters_.background_label)
+                	// TODO: Make clear that lifetime of the samples is bound to lifetime of images.
+                    SampleT sample(image_ptr.get(), x, y);
+                    if (sample.get_label() != parameters_.background_label)
                     {
                         non_background_samples.push_back(std::move(sample));
                     }
                 }
             }
-			size_type num_of_samples = std::min(num_of_samples_per_image, static_cast<size_type>(non_background_samples.size()));
-			for (size_type i = 0; i < num_of_samples; ++i)
+            size_type num_of_samples = std::min(num_of_samples_per_image, static_cast<size_type>(non_background_samples.size()));
+            for (size_type i = 0; i < num_of_samples; ++i)
             {
                 std::uniform_int_distribution<int_type> index_dist(0, non_background_samples.size() - 1 - i);
-				int_type index = index_dist(rnd_engine);
+                int_type index = index_dist(rnd_engine);
                 std::swap(non_background_samples[index], non_background_samples.back());
                 samples_.push_back(std::move(non_background_samples.back()));
             }
-		}
-		else
-		{
-			for (size_type x = 0; x < image_width_; ++x)
-			{
-				for (size_type y = 0; y < image_height_; ++y)
-				{
-					SampleT sample(image_ptr, x, y);
+        }
+        else
+        {
+            for (size_type x = 0; x < image_width; ++x)
+            {
+                for (size_type y = 0; y < image_height; ++y)
+                {
+                	// TODO: Make clear that lifetime of the samples is bound to lifetime of images.
+                    SampleT sample(image_ptr.get(), x, y);
                     label_type label = sample.get_label();
-					if (label < parameters_.background_label)
-					{
-						samples_.push_back(std::move(sample));
-					}
-				}
-			}
-		}
+                    if (label != parameters_.background_label)
+                    {
+                        samples_.push_back(std::move(sample));
+                    }
+                }
+            }
+        }
     }
 
     void load_sample_bag(TRandomEngine& rnd_engine)
     {
-    	std::vector<SampleBagBatchT> sample_bag_batches = compute_sample_bag_batches(1, rnd_engine);
-		load_sample_batch(sample_bag_batches[0], rnd_engine);
+        std::vector<SampleBagBatchT> sample_bag_batches = compute_sample_bag_batches(1, rnd_engine);
+        load_sample_batch(sample_bag_batches[0], rnd_engine);
     }
 
     void clear_image_cache()
     {
-    	image_map_.clear();
+        image_map_.clear();
     }
 
     void clear_samples()
     {
         samples_.clear();
     }
-    
+
     SampleIteratorT get_samples_begin()
     {
         return samples_.begin();
     }
-    
+
     SampleIteratorT get_samples_end()
     {
         return samples_.end();
@@ -386,45 +485,42 @@ public:
         return samples_.cend();
     }
 
-private:
+protected:
+    void ensure_image_is_loaded(size_type image_index, const std::map<size_type, const ImagePtrT>& old_image_map)
+    {
+        typename std::map<size_type, const ImagePtrT>::const_iterator image_it = image_map_.find(image_index);
+        if (image_it == image_map_.cend())
+        {
+            // Image is not yet in the image map.
+            image_it = old_image_map.find(image_index);
+            if (image_it != old_image_map.cend())
+            {
+                // Image was found in the previously used image map (cached).
+            	const ImagePtrT image_ptr = image_it->second;
+                image_map_.insert(std::pair<size_type, const ImagePtrT>(image_index, image_ptr));
+            }
+            else
+            {
+                // Load image into memory.
+                const ImagePtrT image_ptr = get_image(image_index);
+                image_map_.insert(std::pair<size_type, const ImagePtrT>(image_index, image_ptr));
+            }
+        }
+    }
+
     void ensure_image_is_loaded(size_type image_index)
     {
-		typename std::map<size_type, ImageT>::const_iterator image_it = image_map_.find(image_index);
-		if (image_it == image_map_.cend())
-		{
-			// Load image into memory.
-			ImageT image = load_image(image_index);
-			image_map_[image_index] = std::move(image);
-		}
+        typename std::map<size_type, const ImagePtrT>::const_iterator image_it = image_map_.find(image_index);
+        if (image_it == image_map_.cend())
+        {
+            // Load image into memory.
+        	const ImagePtrT image_ptr = get_image(image_index);
+            image_map_.insert(std::pair<size_type, const ImagePtrT>(image_index, image_ptr));
+        }
     }
 
-    void ensure_image_is_loaded(size_type image_index, const std::map<size_type, ImageT>& old_image_map)
-    {
-		typename std::map<size_type, ImageT>::const_iterator image_it = image_map_.find(image_index);
-		if (image_it == image_map_.cend())
-		{
-			// Image is not yet in the image map.
-			image_it = old_image_map.find(image_index);
-			if (image_it != old_image_map.cend())
-			{
-				// Image was found in the previously used image map (cached).
-				image_map_[image_index] = std::move(image_it->second);
-			}
-			else
-			{
-				// Load image into memory.
-				ImageT image = load_image(image_index);
-				image_map_[image_index] = std::move(image);
-			}
-		}
-    }
-
-    ImageT load_image(size_type image_index) const
-    {
-        const std::string& data_path = std::get<0>(image_list_[image_index]);
-        const std::string& label_path = std::get<1>(image_list_[image_index]);
-        ImageT image = ImageT::load_from_files(data_path, label_path);
-        return image;
+    virtual const ImagePtrT get_image(size_type image_index) {
+    	return image_provider_->get_image(image_index);
     }
 
     size_type compute_batch_start_index(size_type batch_index, size_type num_of_batches, size_type batch_size) const
@@ -432,11 +528,9 @@ private:
         return static_cast<size_type>(batch_index * batch_size / static_cast<double>(num_of_batches));
     }
 
-    size_type image_width_;
-    size_type image_height_;
-    const std::vector<std::tuple<std::string, std::string>> image_list_;
+    std::shared_ptr<ImageProvider<TPixel>> image_provider_;
     const ImageSampleParameters parameters_;
-    std::map<size_type, ImageT> image_map_;
+    std::map<size_type, const ImagePtrT> image_map_;
     std::vector<SampleT> samples_;
 };
 

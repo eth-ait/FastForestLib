@@ -163,9 +163,9 @@ int main(int argc, const char* argv[]) {
 #endif
 
         // Train a forest and time it.
+        ait::log_info() << "Starting training with " << training_parameters.num_of_threads << " threads ...";
         auto start_time = std::chrono::high_resolution_clock::now();
         ForestTrainerT::ForestT forest = bagging_wrapper.train_forest(rnd_engine);
-
         auto stop_time = std::chrono::high_resolution_clock::now();
         auto duration = stop_time - start_time;
         auto period = std::chrono::high_resolution_clock::period();

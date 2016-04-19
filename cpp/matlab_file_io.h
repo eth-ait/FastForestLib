@@ -26,9 +26,10 @@ namespace ait
 {
 
 template <typename data_type = double, typename label_type = std::size_t>
-std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filename, const std::string& data_array_name = "data", const std::string& label_array_name = "label")
+std::vector<std::shared_ptr<ait::Image<>>> load_images_from_matlab_file(const std::string& filename, const std::string& data_array_name = "data", const std::string& label_array_name = "label")
 {
     using ImageType = ait::Image<>;
+    using ImagePtrType = std::shared_ptr<ImageType>;
 
     /*
     * Open file to get directory
@@ -72,7 +73,7 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filena
     const double* data_ptr = mxGetPr(data_pa);
     const double* label_ptr = mxGetPr(label_pa);
 
-    std::vector<ImageType> images;
+    std::vector<ImagePtrType> images;
 
     for (int i = 0; i < num_of_images; i++) {
         typename ImageType::DataMatrixType data_matrix(width, height);
@@ -83,8 +84,7 @@ std::vector<ait::Image<>> load_images_from_matlab_file(const std::string& filena
                 label_matrix(x, y) = static_cast<label_type>(label_ptr[x + y * width + i * width * height]);
             }
         }
-        ImageType image(data_matrix, label_matrix);
-        images.push_back(std::move(image));
+        images.push_back(std::make_shared<ImageType>(data_matrix, label_matrix));
     }
     mxDestroyArray(data_pa);
     mxDestroyArray(label_pa);

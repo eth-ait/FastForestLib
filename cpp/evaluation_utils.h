@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include "forest.h"
+#include "tree.h"
 #include "io_utils.h"
 
 namespace ait {

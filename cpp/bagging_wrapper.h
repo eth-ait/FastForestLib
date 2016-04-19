@@ -8,6 +8,8 @@
 
 #pragma once
 
+#include <memory>
+
 namespace ait
 {
 
@@ -23,15 +25,18 @@ public:
     using TreeT = typename ForestTrainerT::TreeT;
     using RandomEngineT = typename ForestTrainerT::RandomEngineT;
 
-    BaggingWrapper(const ForestTrainerT& trainer, SampleProviderT& provider)
-    : trainer_(trainer), provider_(provider)
+    BaggingWrapper(const ForestTrainerT& trainer, const std::shared_ptr<SampleProviderT>& provider_ptr)
+    : trainer_(trainer), provider_ptr_(provider_ptr)
     {}
 
     TreeT train_tree(RandomEngineT& rnd_engine) const
     {
-        provider_.load_sample_bag(rnd_engine);
-        SampleIteratorT samples_start = provider_.get_samples_begin();
-        SampleIteratorT samples_end = provider_.get_samples_end();
+        ait::log_info(false) << "Creating sample bag ... " << std::flush;
+        provider_ptr_->load_sample_bag(rnd_engine);
+        ait::log_info(false) << " Done." << std::endl;
+        SampleIteratorT samples_start = provider_ptr_->get_samples_begin();
+        SampleIteratorT samples_end = provider_ptr_->get_samples_end();
+        ait::log_info(false) << "Num of samples: " << (samples_end - samples_start) << std::endl;
         return  trainer_.train_tree(samples_start, samples_end);
     }
 
@@ -60,7 +65,7 @@ public:
 
 private:
     const ForestTrainerT& trainer_;
-    SampleProviderT& provider_;
+    const std::shared_ptr<SampleProviderT> provider_ptr_;
 };
 
 
