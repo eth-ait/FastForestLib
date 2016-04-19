@@ -9,6 +9,7 @@
 #pragma once
 
 #include <algorithm>
+#include <memory>
 
 #include <boost/mpi/communicator.hpp>
 #ifdef SERIALIZE_WITH_BOOST
@@ -32,8 +33,8 @@ public:
     using TreeT = typename ForestTrainerT::TreeT;
     using RandomEngineT = typename ForestTrainerT::RandomEngineT;
 
-    DistributedBaggingWrapper(const boost::mpi::communicator& comm, const ForestTrainerT& trainer, SampleProviderT& provider)
-    : comm_(comm), trainer_(trainer), provider_(provider)
+    DistributedBaggingWrapper(const boost::mpi::communicator& comm, const ForestTrainerT& trainer, const std::shared_ptr<SampleProviderT>& provider_ptr)
+    : comm_(comm), trainer_(trainer), provider_ptr_(provider_ptr)
     {}
 
     TreeT train_tree(RandomEngineT& rnd_engine) const
@@ -41,12 +42,12 @@ public:
     	std::vector<SampleBagBatchT> sample_bag_batches;
     	if (comm_.rank() == 0)
     	{
-    		sample_bag_batches = provider_.compute_sample_bag_batches(comm_.size(), rnd_engine);
+    		sample_bag_batches = provider_ptr_->compute_sample_bag_batches(comm_.size(), rnd_engine);
     	}
     	SampleBagBatchT sample_batch = scatter_vector(sample_bag_batches);
-		provider_.load_sample_batch(sample_batch, rnd_engine);
-        SampleIteratorT samples_start = provider_.get_samples_begin();
-        SampleIteratorT samples_end = provider_.get_samples_end();
+		provider_ptr_->load_sample_batch(sample_batch, rnd_engine);
+        SampleIteratorT samples_start = provider_ptr_->get_samples_begin();
+        SampleIteratorT samples_end = provider_ptr_->get_samples_end();
         // Train tree.
         return trainer_.train_tree(samples_start, samples_end);
     }
@@ -85,7 +86,7 @@ private:
 
     boost::mpi::communicator comm_;
     const ForestTrainerT& trainer_;
-    SampleProviderT& provider_;
+    const std::shared_ptr<SampleProviderT> provider_ptr_;
 };
 
 }

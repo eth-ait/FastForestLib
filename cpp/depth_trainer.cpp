@@ -75,12 +75,6 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
 #endif
         cmd.parse(argc, argv);
-#if WITH_MATLAB
-        if (image_list_file_arg.isSet() && !num_of_classes_arg.isSet()) {
-            cmd.getOutput()->usage(cmd);
-            throw std::runtime_error("Number of classes needs to be specified when using a list of image files.");
-        }
-#endif
 
         bool print_confusion_matrix = print_confusion_matrix_switch.getValue();
 
