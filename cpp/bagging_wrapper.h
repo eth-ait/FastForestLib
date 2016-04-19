@@ -29,9 +29,12 @@ public:
 
     TreeT train_tree(RandomEngineT& rnd_engine) const
     {
+        ait::log_info(false) << "Creating sample bag ... " << std::flush;
         provider_.load_sample_bag(rnd_engine);
+        ait::log_info(false) << " Done." << std::endl;
         SampleIteratorT samples_start = provider_.get_samples_begin();
         SampleIteratorT samples_end = provider_.get_samples_end();
+        ait::log_info(false) << "Num of samples: " << (samples_end - samples_start) << std::endl;
         return  trainer_.train_tree(samples_start, samples_end);
     }
 

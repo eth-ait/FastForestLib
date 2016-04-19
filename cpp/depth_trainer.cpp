@@ -146,18 +146,9 @@ int main(int argc, const char* argv[]) {
 #endif
 
         // Train a forest and time it.
+        ait::log_info() << "Starting training with " << training_parameters.num_of_threads << " threads ...";
         auto start_time = std::chrono::high_resolution_clock::now();
-        // TODO
-        //		ForestTrainerT::ForestT forest = bagging_wrapper.train_forest(rnd_engine);
-        // TODO: Testing all samples for comparison with depth_trainer
-        sample_provider.clear_samples();
-        for (int i = 0; i < image_list.size(); ++i) {
-            sample_provider.load_samples_from_image(i, rnd_engine);
-        }
-        SampleIteratorT samples_start = sample_provider.get_samples_begin();
-        SampleIteratorT samples_end = sample_provider.get_samples_end();
-        ait::log_info() << "Starting training ...";
-        ForestTrainerT::ForestT forest = trainer.train_forest(samples_start, samples_end, rnd_engine);
+        ForestTrainerT::ForestT forest = bagging_wrapper.train_forest(rnd_engine);
         auto stop_time = std::chrono::high_resolution_clock::now();
         auto duration = stop_time - start_time;
         auto period = std::chrono::high_resolution_clock::period();

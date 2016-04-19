@@ -180,7 +180,7 @@ int main(int argc, const char* argv[]) {
         }
         SampleIteratorT samples_start = sample_provider.get_samples_begin();
         SampleIteratorT samples_end = sample_provider.get_samples_end();
-        ait::log_info() << "Starting training ...";
+        ait::log_info() << "Starting training with " << training_parameters.num_of_threads << " threads ...";
         ForestTrainerT::ForestT forest = trainer.train_forest(samples_start, samples_end, rnd_engine);
         auto stop_time = std::chrono::high_resolution_clock::now();
         auto duration = stop_time - start_time;
