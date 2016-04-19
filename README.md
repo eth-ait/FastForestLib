@@ -19,8 +19,10 @@ The distributed code requires _boost-mpi_ for communication.
 mkdir cpp/build
 cd cpp/build
 cmake .. # Optionally modify CMake configurations
-# On a Linux system you might typically do something like this:
-#cmake -DWITH_MPI=TRUE -DWITH_MATLAB=TRUE -DMATLAB_INCLUDE_DIRS=/usr/local/Matlab/R2015a/extern/include/ -DMATLAB_LIB_DIR=/usr/local/Matlab/R2015a/bin/glnxa64/ -DPNG_SKIP_SETJMP_CHECK=TRUE ..
+# On a Linux system with MPI you might typically do something like this:
+#cmake -DWITH_MPI=TRUE ..
+# ... or this if you want Matlab support:
+#cmake -DWITH_MPI=TRUE -DWITH_MATLAB=TRUE -DMATLAB_INCLUDE_DIRS=/usr/local/Matlab/R2015a/extern/include/ -DMATLAB_LIB_DIR=/usr/local/Matlab/R2015a/bin/glnxa64/ ..
 make -j4
 ```
 
