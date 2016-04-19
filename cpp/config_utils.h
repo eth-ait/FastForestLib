@@ -21,6 +21,9 @@ namespace ait {
     public:
         static void read_configuration_file(const std::string& filename, rapidjson::Document& doc) {
             std::FILE* fp = std::fopen(filename.c_str(), "rb");
+            if (fp == nullptr) {
+                throw std::runtime_error("Could not open file " + filename);
+            }
             rapidjson::FileStream config_stream(fp);
             doc.ParseStream<0>(config_stream);
             std::fclose(fp);
