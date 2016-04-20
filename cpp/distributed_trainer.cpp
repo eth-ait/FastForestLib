@@ -64,21 +64,20 @@ int main(int argc, const char* argv[]) {
         TCLAP::SwitchArg verbose_arg("v", "verbose", "Be verbose and perform some additional sanity checks", cmd, false);
         TCLAP::SwitchArg hide_confusion_matrix_switch("m", "no-conf-matrix", "Don't print confusion matrix", cmd, false);
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Lower bound of background labels to be ignored", false, -1, "int", cmd);
-#if AIT_MULTI_THREADING
-        TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, 1, "int", cmd);
-#endif
+        TCLAP::ValueArg<std::string> config_file_arg("c", "config", "YAML file with training parameters", false, "", "string", cmd);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file where the trained forest should be saved", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file where the trained forest should be saved", false, "forest.bin", "string");
         cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
-        TCLAP::ValueArg<std::string> config_file_arg("c", "config", "YAML file with training parameters", false, "", "string", cmd);
+        TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", false, 1, "int", cmd);
+#if AIT_MULTI_THREADING
+        TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, 1, "int", cmd);
+#endif
 #if WITH_MATLAB
         TCLAP::ValueArg<std::string> data_mat_file_arg("d", "data-file", "File containing image data", false, "", "string");
         TCLAP::ValueArg<std::string> image_list_file_arg("i", "image-list-file", "File containing the names of image files", false, "", "string");
-        TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", false, 1, "int", cmd);
         cmd.xorAdd(data_mat_file_arg, image_list_file_arg);
 #else
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
-        TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
 #endif
         cmd.parse(argc, argv);
 #if WITH_MATLAB

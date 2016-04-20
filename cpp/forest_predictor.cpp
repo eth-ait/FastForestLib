@@ -45,12 +45,13 @@ int main(int argc, const char* argv[]) {
     try {
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Random forest predictor", ' ', "0.3");
+        TCLAP::SwitchArg verbose_arg("v", "verbose", "Be verbose and perform some additional sanity checks", cmd, false);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file of the forest to load", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file of the forest to load", false, "forest.bin", "string");
         TCLAP::ValueArg<int> background_label_arg("l", "background-label", "Lower bound of background labels to be ignored", false, -1, "int", cmd);
         TCLAP::ValueArg<std::string> config_file_arg("c", "config", "YAML file with training parameters", false, "", "string", cmd);
         cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
-        TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", true, 1, "int", cmd);
+        TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", false, 1, "int", cmd);
 #if WITH_MATLAB
         TCLAP::ValueArg<std::string> data_mat_file_arg("d", "data-file", "File containing image data", false, "", "string");
         TCLAP::ValueArg<std::string> image_list_file_arg("i", "image-list-file", "File containing the names of image files", false, "", "string");
@@ -59,8 +60,6 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
 #endif
         cmd.parse(argc, argv);
-
-        const int num_of_classes = num_of_classes_arg.getValue();
         
         // Initialize parameters to defaults or load from file.
         ParametersT parameters;
@@ -108,15 +107,6 @@ int main(int argc, const char* argv[]) {
         RandomEngineT rnd_engine(rnd_device());
 #endif
 
-        // Compute number of classes
-        ait::label_type background_label;
-        if (background_label_arg.isSet()) {
-            background_label = background_label_arg.getValue();
-        } else {
-            background_label = num_of_classes;
-        }
-        parameters.background_label = background_label;
-        
         // Load samples for per-pixel testing
         ait::log_info(false) << "Creating samples for testing ... " << std::flush;
         // Create sample provider.
@@ -132,6 +122,42 @@ int main(int argc, const char* argv[]) {
         const std::string image_list_file = image_list_file_arg.getValue();
         image_provider_ptr = ait::get_image_provider_from_image_list(image_list_file_arg.getValue());
 #endif
+
+        // Retrieve number of classes
+        int num_of_classes;
+        if (num_of_classes_arg.isSet()) {
+        	num_of_classes = num_of_classes_arg.getValue();
+        } else {
+            ait::log_info(false) << "Computing number of classes ..." << std::flush;
+        	num_of_classes = ait::compute_num_of_classes(image_provider_ptr);
+            ait::log_info(false) << " Found " << num_of_classes << " classes." << std::endl;
+        }
+
+        // Set lower bound for background pixel lables
+        ait::label_type background_label;
+        if (background_label_arg.isSet()) {
+            background_label = background_label_arg.getValue();
+        } else {
+#if WITH_MATLAB
+        	if (data_mat_file_arg.isSet()) {
+        		background_label = -1;
+        	} else {
+        		background_label = num_of_classes;
+        	}
+#else
+			background_label = num_of_classes;
+#endif
+        }
+        parameters.background_label = background_label;
+
+        if (verbose_arg.getValue()) {
+        	ait::print_image_size(image_provider_ptr);
+        	if (ait::validate_data_ranges(image_provider_ptr, num_of_classes, parameters.background_label)) {
+        		throw std::runtime_error("Foreground label ranges do not match number of classes: " + num_of_classes);
+        	}
+        }
+
+        // Create sample provider.
         auto sample_provider_ptr = std::make_shared<SampleProviderT>(image_provider_ptr, parameters);
 
         ait::log_info(false) << "Creating samples for testing ... " << std::flush;

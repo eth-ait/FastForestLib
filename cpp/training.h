@@ -36,6 +36,9 @@ struct TrainingParameters
     int_type num_of_threads = -1;
 #endif
 
+    virtual ~TrainingParameters() {
+    }
+
     virtual void read_from_config(const rapidjson::Value& config) {
         num_of_trees = ConfigurationUtils::get_int_value(config, "num_of_trees", num_of_trees);
         tree_depth = ConfigurationUtils::get_int_value(config, "tree_depth", tree_depth);

@@ -56,7 +56,10 @@ struct ImageSampleParameters {
 
     // Lower bound of labels for background pixels
     label_type background_label = std::numeric_limits<label_type>::max();
-    
+
+    virtual ~ImageSampleParameters() {
+    }
+
     virtual void read_from_config(const rapidjson::Value& config) {
         samples_per_image_fraction = ConfigurationUtils::get_double_value(config, "samples_per_image_fraction", samples_per_image_fraction);
         bagging_fraction = ConfigurationUtils::get_double_value(config, "bagging_fraction", bagging_fraction);
