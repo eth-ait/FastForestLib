@@ -11,20 +11,27 @@ The folder _python_ contains an older Python implementation using Cython. The te
 The folder _data_ contains some MATLAB scripts to generate synthetic data and to convert MATLAB data format to CSV data format. Check it out for details on the data formats. To some extend it can also be used for testing the code.
 
 ## Dependencies
-The library uses _boost_, _CImg_ (included), _TCLAP_ (included) and _cereal_ (included).
+The library uses _boost_ (tested with 1.59.0 and 1.60.0), _Eigen_ (tested with 3.2.0 and 3.2.8), _CImg_ (included), _TCLAP_ (included) and _cereal_ (included). The code also uses _RapidJSON_ but this is already included in _cereal_.
 The distributed code requires _boost-mpi_ for communication.
 
 ## Compiling
+
+### Linux and OS X
+
 ```
 mkdir cpp/build
 cd cpp/build
-cmake .. # Optionally modify CMake configurations
+cmake .. # Optionally modify CMake configuration to enable/disable multi-threading, MPI, Matlab support etc.
 # On a Linux system with MPI you might typically do something like this:
 #cmake -DWITH_MPI=TRUE ..
 # ... or this if you want Matlab support:
 #cmake -DWITH_MPI=TRUE -DWITH_MATLAB=TRUE -DMATLAB_INCLUDE_DIRS=/usr/local/Matlab/R2015a/extern/include/ -DMATLAB_LIB_DIR=/usr/local/Matlab/R2015a/bin/glnxa64/ ..
 make -j4
 ```
+
+### Windows
+
+The code compiles with Visual Studio 2013 and Visual Studio 2015. You need to compile boost (tested with 1.59.0) which requires libpng and zlib. I would recommend to compile everything with 64bit support.
 
 ## Programs
 _depth_forest_trainer_: Trains a new forest depth-first
