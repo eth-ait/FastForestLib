@@ -199,11 +199,13 @@ class ImageDataReader(object):
         @return: A new L{ImageData} object of the corresponding data.
         """
         try:
+            print("Trying to load matlab file with scipy.io")
             import scipy.io
             mat_dict = scipy.io.loadmat(matlab_file, variable_names=(data_var_name, labels_var_name))
             mat_data = mat_dict[data_var_name].T
             mat_labels = mat_dict[labels_var_name].T
         except NotImplementedError, e:
+            print("Trying to load matlab file with h5py")
             import h5py
             f = h5py.File(matlab_file)
             mat_data = f.get(data_var_name)
@@ -224,8 +226,13 @@ class ImageDataReader(object):
         @param labels_var_name: Variable name of the pixel labels array
         @return: A new L{ImageSampleData} object of the corresponding data.
         """
+        print("Reading image data ...")
         image_data = ImageDataReader.read_from_matlab_file(matlab_file, data_var_name, labels_var_name)
-        return ImageSampleData.create_with_random_samples(image_data.data, image_data.labels, num_of_samples_per_image)
+        print("Done")
+        print("Generating samples ({} samples per image) ...".format(num_of_samples_per_image))
+        samples = ImageSampleData.create_with_random_samples(image_data.data, image_data.labels, num_of_samples_per_image)
+        print("Done")
+        return samples
 
     @staticmethod
     def read_from_matlab_file_with_all_samples(matlab_file, data_var_name='data', labels_var_name='labels'):
@@ -237,5 +244,10 @@ class ImageDataReader(object):
         @param labels_var_name: Variable name of the pixel labels array
         @return: A new L{ImageSampleData} object of the corresponding data.
         """
+        print("Reading image data ...")
         image_data = ImageDataReader.read_from_matlab_file(matlab_file, data_var_name, labels_var_name)
-        return ImageSampleData.create_with_all_samples(image_data.data, image_data.labels)
+        print("Done")
+        print("Generating samples ...")
+        samples = ImageSampleData.create_with_all_samples(image_data.data, image_data.labels)
+        print("Done")
+        return samples
