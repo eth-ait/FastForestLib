@@ -34,6 +34,8 @@ namespace ait
 	public:
 		using TreeT = Tree<TSplitPoint, TStatistics>;
 		using NodeT = typename TreeT::NodeT;
+		using SplitPointT = TSplitPoint;
+		using StatisticsT = TStatistics;
 
 	public:
 		using TreeIterator = typename std::vector<TreeT>::iterator;

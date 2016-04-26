@@ -10,6 +10,9 @@
 
 #include <memory>
 
+#include <cereal/archives/json.hpp>
+#include <cereal/archives/binary.hpp>
+
 #include "image_weak_learner.h"
 #include "evaluation_utils.h"
 
@@ -112,18 +115,119 @@ namespace ait {
         using ConfusionMatrixType = typename decltype(forest_utils)::MatrixType;
         ConfusionMatrixType per_frame_confusion_matrix(num_of_classes, num_of_classes);
         per_frame_confusion_matrix.setZero();
+        int num_of_empty_frames = 0;
         for (int i = 0; i < full_sample_provider_ptr->get_num_of_images(); ++i) {
         	full_sample_provider_ptr->clear_samples();
         	full_sample_provider_ptr->load_samples_from_image(i, rnd_engine);
             auto samples_start = full_sample_provider_ptr->get_samples_begin();
             auto samples_end = full_sample_provider_ptr->get_samples_end();
+			int num_of_samples = samples_end - samples_start;
+			if (num_of_samples == 0) {
+				++num_of_empty_frames;
+				continue;
+			}
             forest_utils.update_confusion_matrix(per_frame_confusion_matrix, samples_start, samples_end);
         }
+        ait::log_info() << "Found " << num_of_empty_frames << " empty frames";
         ait::log_info() << "Per-frame confusion matrix:" << std::endl << per_frame_confusion_matrix;
         ConfusionMatrixType per_frame_norm_confusion_matrix = ait::EvaluationUtils::normalize_confusion_matrix(per_frame_confusion_matrix);
         ait::log_info() << "Normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix;
         ait::log_info() << "Diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal();
         ait::log_info() << "Mean of diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal().mean();
+	}
+
+	template <typename TForest>
+	void read_forest_from_json_file(const std::string& filename, TForest& forest) {
+        ait::log_info(false) << "Reading json forest file " << filename << "... " << std::flush;
+        std::ifstream ifile(filename);
+        if (!ifile.good()) {
+			throw std::runtime_error("Could not open file " + filename);
+        }
+        cereal::JSONInputArchive iarchive(ifile);
+        iarchive(cereal::make_nvp("forest", forest));
+        ait::log_info(false) << " Done." << std::endl;
+	}
+
+	template <typename TForest>
+	void read_forest_from_binary_file(const std::string& filename, TForest& forest) {
+        ait::log_info(false) << "Reading binary forest file " << filename << "... " << std::flush;
+        std::ifstream ifile(filename, std::ios_base::binary);
+        if (!ifile.good()) {
+			throw std::runtime_error("Could not open file " + filename);
+        }
+        cereal::BinaryInputArchive iarchive(ifile);
+        iarchive(cereal::make_nvp("forest", forest));
+        ait::log_info(false) << " Done." << std::endl;
+	}
+
+	template <typename TForest>
+	void write_forest_to_json_file(const std::string& filename, const TForest& forest) {
+		ait::log_info(false) << "Writing json forest file " << filename << "... " << std::flush;
+		std::ofstream ofile(filename);
+        if (!ofile.good()) {
+			throw std::runtime_error("Could not open file " + filename);
+        }
+		cereal::JSONOutputArchive oarchive(ofile);
+		oarchive(cereal::make_nvp("forest", forest));
+		ofile.close();
+        if (!ofile.good()) {
+			throw std::runtime_error("Failed to write to file " + filename);
+        }
+		ait::log_info(false) << " Done." << std::endl;
+	}
+
+	template <typename TForest>
+	void write_forest_to_binary_file(const std::string& filename, const TForest& forest) {
+		ait::log_info(false) << "Writing binary forest file " << filename << "... " << std::flush;
+		std::ofstream ofile(filename, std::ios_base::binary);
+        if (!ofile.good()) {
+			throw std::runtime_error("Could not open file " + filename);
+        }
+		cereal::BinaryOutputArchive oarchive(ofile);
+		oarchive(cereal::make_nvp("forest", forest));
+		ofile.close();
+        if (!ofile.good()) {
+			throw std::runtime_error("Failed to write to file " + filename);
+        }
+		ait::log_info(false) << " Done." << std::endl;
+	}
+
+	// TODO
+//#if WITH_MATLAB
+//	template <typename TForest>
+//	void read_forest_from_matlab_file(TForest& forest);
+//#endif
+
+	template <typename TTree>
+	void write_tree_to_json_file(const std::string& filename, const TTree& tree) {
+		ait::log_info(false) << "Writing json tree file " << filename << "... " << std::flush;
+		std::ofstream ofile(filename);
+        if (!ofile.good()) {
+			throw std::runtime_error("Could not open file " + filename);
+        }
+		cereal::JSONOutputArchive oarchive(ofile);
+		oarchive(cereal::make_nvp("tree", tree));
+		ofile.close();
+        if (!ofile.good()) {
+			throw std::runtime_error("Failed to write to file " + filename);
+        }
+		ait::log_info(false) << " Done." << std::endl;
+	}
+
+	template <typename TTree>
+	void write_tree_to_binary_file(const std::string& filename, const TTree& tree) {
+		ait::log_info(false) << "Writing binary tree file " << filename << "... " << std::flush;
+		std::ofstream ofile(filename, std::ios_base::binary);
+        if (!ofile.good()) {
+			throw std::runtime_error("Could not open file " + filename);
+        }
+		cereal::BinaryOutputArchive oarchive(ofile);
+		oarchive(cereal::make_nvp("tree", tree));
+		ofile.close();
+        if (!ofile.good()) {
+			throw std::runtime_error("Failed to write to file " + filename);
+        }
+		ait::log_info(false) << " Done." << std::endl;
 	}
 
 }

@@ -32,6 +32,8 @@ class Tree
 {
 public:
     using NodeT = Node<TSplitPoint, TStatistics>;
+	using SplitPointT = TSplitPoint;
+	using StatisticsT = TStatistics;
 
     struct NodeEntry
     {

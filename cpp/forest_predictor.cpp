@@ -13,8 +13,6 @@
 #include <map>
 
 #include <boost/filesystem/path.hpp>
-#include <cereal/archives/json.hpp>
-#include <cereal/archives/binary.hpp>
 #include <tclap/CmdLine.h>
 
 #include "ait.h"
@@ -45,6 +43,7 @@ int main(int argc, const char* argv[]) {
     try {
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Random forest predictor", ' ', "0.3");
+        TCLAP::SwitchArg not_all_samples_arg("s", "not-all-samples", "Do not use all samples for testing (i.e. do not overwrite bagging fraction to 1.0)", cmd, false);
         TCLAP::SwitchArg verbose_arg("v", "verbose", "Be verbose and perform some additional sanity checks", cmd, false);
         TCLAP::ValueArg<std::string> json_forest_file_arg("j", "json-forest-file", "JSON file of the forest to load", false, "forest.json", "string");
         TCLAP::ValueArg<std::string> binary_forest_file_arg("b", "binary-forest-file", "Binary file of the forest to load", false, "forest.bin", "string");
@@ -63,8 +62,6 @@ int main(int argc, const char* argv[]) {
         
         // Initialize parameters to defaults or load from file.
         ParametersT parameters;
-        // Modify parameters to retrieve all pixels per sample. This can be overwritten by config file.
-        parameters.samples_per_image_fraction = 1.0;
         if (config_file_arg.isSet()) {
             ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
 			rapidjson::Document config_doc;
@@ -74,26 +71,18 @@ int main(int argc, const char* argv[]) {
             }
             ait::log_info(false) << " Done." << std::endl;
         }
+        // Modify parameters to retrieve all pixels per sample. This can be overwritten by config file.
+        if (!not_all_samples_arg.getValue()) {
+        	parameters.samples_per_image_fraction = 1.0;
+        }
 
         ForestT forest;
         if (json_forest_file_arg.isSet()) {
             // Read forest from JSON file.
-            {
-                ait::log_info(false) << "Reading json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
-                std::ifstream ifile(json_forest_file_arg.getValue());
-                cereal::JSONInputArchive iarchive(ifile);
-                iarchive(cereal::make_nvp("forest", forest));
-                ait::log_info(false) << " Done." << std::endl;
-            }
+            ait::read_forest_from_json_file(json_forest_file_arg.getValue(), forest);
         } else if (binary_forest_file_arg.isSet()) {
             // Read forest from binary file.
-            {
-                ait::log_info(false) << "Reading binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
-                std::ifstream ifile(binary_forest_file_arg.getValue(), std::ios_base::binary);
-                cereal::BinaryInputArchive iarchive(ifile);
-                iarchive(cereal::make_nvp("forest", forest));
-                ait::log_info(false) << " Done." << std::endl;
-            }
+        	ait::read_forest_from_binary_file(binary_forest_file_arg.getValue(), forest);
         } else {
             throw("This should never happen. Either a JSON or a binary forest file have to be specified!");
         }
@@ -107,8 +96,6 @@ int main(int argc, const char* argv[]) {
         RandomEngineT rnd_engine(rnd_device());
 #endif
 
-        // Load samples for per-pixel testing
-        ait::log_info(false) << "Creating samples for testing ... " << std::flush;
         // Create sample provider.
         ImageProviderPtrT image_provider_ptr;
 #if WITH_MATLAB
@@ -128,9 +115,9 @@ int main(int argc, const char* argv[]) {
         if (num_of_classes_arg.isSet()) {
         	num_of_classes = num_of_classes_arg.getValue();
         } else {
-            ait::log_info(false) << "Computing number of classes ..." << std::flush;
+            ait::log_info() << "Computing number of classes ...";
         	num_of_classes = ait::compute_num_of_classes(image_provider_ptr);
-            ait::log_info(false) << " Found " << num_of_classes << " classes." << std::endl;
+            ait::log_info() << " Found " << num_of_classes << " classes.";
         }
 
         // Set lower bound for background pixel lables
@@ -152,8 +139,8 @@ int main(int argc, const char* argv[]) {
 
         if (verbose_arg.getValue()) {
         	ait::print_image_size(image_provider_ptr);
-        	if (ait::validate_data_ranges(image_provider_ptr, num_of_classes, parameters.background_label)) {
-        		throw std::runtime_error("Foreground label ranges do not match number of classes: " + num_of_classes);
+        	if (!ait::validate_data_ranges(image_provider_ptr, num_of_classes, parameters.background_label)) {
+        		throw std::runtime_error("Foreground label ranges do not match number of classes: " + std::to_string(num_of_classes));
         	}
         }
 

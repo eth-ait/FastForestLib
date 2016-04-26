@@ -15,8 +15,6 @@
 #include <chrono>
 #include <memory>
 
-#include <cereal/archives/json.hpp>
-#include <cereal/archives/binary.hpp>
 #include <tclap/CmdLine.h>
 
 #include "ait.h"
@@ -176,22 +174,10 @@ int main(int argc, const char* argv[]) {
         
         // Optionally: Serialize forest to JSON file.
         if (json_forest_file_arg.isSet()) {
-            {
-                ait::log_info(false) << "Writing json forest file " << json_forest_file_arg.getValue() << "... " << std::flush;
-                std::ofstream ofile(json_forest_file_arg.getValue());
-                cereal::JSONOutputArchive oarchive(ofile);
-                oarchive(cereal::make_nvp("forest", forest));
-                ait::log_info(false) << " Done." << std::endl;
-            }
+            ait::write_forest_to_json_file(json_forest_file_arg.getValue(), forest);
         // Optionally: Serialize forest to binary file.
         } else if (binary_forest_file_arg.isSet()) {
-            {
-                ait::log_info(false) << "Writing binary forest file " << binary_forest_file_arg.getValue() << "... " << std::flush;
-                std::ofstream ofile(binary_forest_file_arg.getValue(), std::ios_base::binary);
-                cereal::BinaryOutputArchive oarchive(ofile);
-                oarchive(cereal::make_nvp("forest", forest));
-                ait::log_info(false) << " Done." << std::endl;
-            }
+            ait::write_forest_to_binary_file(binary_forest_file_arg.getValue(), forest);
         } else {
             throw("This should never happen. Either a JSON or a binary forest file have to be specified!");
         }

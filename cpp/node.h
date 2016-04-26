@@ -24,6 +24,9 @@ template <typename TSplitPoint, typename TStatistics>
 class Node
 {
 public:
+	using SplitPointT = TSplitPoint;
+	using StatisticsT = TStatistics;
+
     Node()
     {}
 

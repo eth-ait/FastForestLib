@@ -20,6 +20,7 @@
 #include "training.h"
 #include "forest.h"
 #include "weak_learner.h"
+#include "common.h"
 
 namespace ait
 {
@@ -536,30 +537,23 @@ public:
 #if AIT_PROFILE
             log_profile() << "Training level " << current_level << " took " << compute_elapsed_seconds(start_time) << " s";
 #endif
-            
+
+            ait::log_info() << "Checkpoint. Saving temporary forest";
             // Optionally: Serialize temporary tree to JSON file.
             if (!training_parameters_.temporary_json_tree_file_prefix.empty())
             {
                 std::ostringstream ostr;
                 ostr << training_parameters_.temporary_json_tree_file_prefix << "_" << current_level;
-                std::string tree_file = ostr.str();
-                ait::log_info(false) << "Writing temporary json tree file " << tree_file << "... " << std::flush;
-                std::ofstream ofile(tree_file);
-                cereal::JSONOutputArchive oarchive(ofile);
-                oarchive(cereal::make_nvp("forest", tree));
-                ait::log_info(false) << " Done." << std::endl;
+                std::string tree_filename = ostr.str();
+                ait::write_tree_to_json_file(tree_filename, tree);
             }
             // Optionally: Serialize temporary tree to binary file.
             if (!training_parameters_.temporary_json_tree_file_prefix.empty())
             {
                 std::ostringstream ostr;
                 ostr << training_parameters_.temporary_json_tree_file_prefix << "_" << current_level;
-                std::string tree_file = ostr.str();
-                ait::log_info(false) << "Writing temporary binary tree file " << tree_file << "... " << std::flush;
-                std::ofstream ofile(tree_file, std::ios_base::binary);
-                cereal::BinaryOutputArchive oarchive(ofile);
-                oarchive(cereal::make_nvp("forest", tree));
-                ait::log_info(false) << " Done." << std::endl;
+                std::string tree_filename = ostr.str();
+                ait::write_tree_to_binary_file(tree_filename, tree);
             }
         }
         return tree;

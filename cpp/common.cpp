@@ -79,7 +79,7 @@ void ait::print_image_size(const ait::CommonImageProviderPtrT& image_provider_pt
 bool ait::validate_data_ranges(const ait::CommonImageProviderPtrT& image_provider_ptr, int num_of_classes, const ait::CommonLabelT& background_label)
 {
 	// Compute value range of data and labels
-	ait::log_info(false) << "Computing value range of data ..." << std::flush;
+	ait::log_info() << "Computing label and value range of data ...";
 	ait::pixel_type max_value = std::numeric_limits<ait::pixel_type>::min();
 	ait::pixel_type min_value = std::numeric_limits<ait::pixel_type>::max();
 	ait::label_type max_label = std::numeric_limits<ait::label_type>::min();
@@ -111,12 +111,11 @@ bool ait::validate_data_ranges(const ait::CommonImageProviderPtrT& image_provide
 	ait::log_info() << " Value range [" << min_value << ", " << max_value << "].";
 	ait::log_info() << " Label range [" << min_label << ", " << max_label << "].";
 	ait::log_info() << " Foreground label range [" << fg_min_label << ", " << fg_max_label << "].";
-	if (fg_min_label >= 0 && fg_max_label < num_of_classes) {
-		return true;
-	} else {
+	if (fg_min_label < 0 || fg_max_label >= num_of_classes) {
 		ait::log_error() << "Foreground label ranges do not match number of classes: " << num_of_classes;
 		return false;
 	}
+	return true;
 }
 
 int ait::compute_num_of_classes(const ait::CommonImageProviderPtrT& image_provider_ptr)
