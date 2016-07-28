@@ -66,7 +66,7 @@ int main(int argc, const char* argv[]) {
 #endif
 #if WITH_MATLAB
         TCLAP::ValueArg<std::string> data_mat_file_arg("d", "data-file", "File containing image data", false, "", "string");
-        TCLAP::ValueArg<std::string> image_list_file_arg("i", "image-list-file", "File containing the names of image files", false, "", "string");
+        TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", false, "", "string");
         cmd.xorAdd(data_mat_file_arg, image_list_file_arg);
 #else
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
@@ -188,11 +188,11 @@ int main(int argc, const char* argv[]) {
             ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
             ait::log_info(false) << " Done." << std::endl;
 
-        	ait::print_sample_counts(forest, sample_provider_ptr, num_of_classes);
+        	ait::print_sample_counts(forest, sample_provider_ptr);
         	ait::print_match_counts(forest, sample_provider_ptr);
 
             ait::log_info() << "Computing per-pixel confusion matrix.";
-        	ait::print_per_pixel_confusion_matrix(forest, sample_provider_ptr, num_of_classes);
+        	ait::print_per_pixel_confusion_matrix(forest, sample_provider_ptr);
 
             ait::log_info() << "Computing per-frame confusion matrix.";
             WeakLearnerT::ParametersT full_parameters(weak_learner_parameters);

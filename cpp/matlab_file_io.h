@@ -164,7 +164,7 @@ void write_arrays_to_matlab_file(const std::string& filename, const std::map<std
         throw std::runtime_error("Error closing file '" + filename + "'.");
     }
 
-    pmat = matOpen(filename.c_str(), "r");
+    pmat = matOpen(filename.c_str(), "w");
     if (pmat == nullptr) {
         throw std::runtime_error("Error opening file '" + filename + "'.");
     }
@@ -182,7 +182,7 @@ void write_arrays_to_matlab_file(const std::string& filename, const std::map<std
                 array_ptr[i * array.cols() + j] = array(i, j);
             }
         }
-        if (matPutVariable(pmat, name.c_str(), array_pa)) {
+        if (matPutVariable(pmat, name.c_str(), array_pa) != 0) {
             throw std::runtime_error("Unable to add array to .MAT file '" + filename + "'.'");
         }
         mxDestroyArray(array_pa);
@@ -192,7 +192,7 @@ void write_arrays_to_matlab_file(const std::string& filename, const std::map<std
         throw std::runtime_error("Error closing file '" + filename + "'.");
     }
 }
-    
+
 template <typename TMatrix>
 void write_array_to_matlab_file(const std::string& filename, const std::string& name, const TMatrix& array)
 {

@@ -47,17 +47,21 @@ namespace ait {
 	}
 
 	template <typename TForest, typename TSampleProviderPtr>
-	void print_sample_counts(const TForest& forest, const TSampleProviderPtr& sample_provider_ptr, int num_of_classes)
+	void print_sample_counts(const TForest& forest, const TSampleProviderPtr& sample_provider_ptr)
 	{
         auto samples_start = sample_provider_ptr->get_samples_begin();
         auto samples_end = sample_provider_ptr->get_samples_end();
-        std::vector<ait::size_type> sample_counts(num_of_classes, 0);
+        std::vector<ait::size_type> sample_counts;
+        int max_label = -1;
         for (auto sample_it = samples_start; sample_it != samples_end; sample_it++) {
+			if (sample_it->get_label() >= sample_counts.size()) {
+				sample_counts.resize(sample_it->get_label() + 1);
+			}
             ++sample_counts[sample_it->get_label()];
         }
         auto logger = ait::log_info(true);
         logger << "Sample counts>> ";
-        for (int c = 0; c < num_of_classes; ++c) {
+        for (int c = 0; c < sample_counts.size(); ++c) {
             if (c > 0) {
                 logger << ", ";
             }
@@ -93,7 +97,7 @@ namespace ait {
 	}
 
 	template <typename TForest, typename TSampleProviderPtr>
-	void print_per_pixel_confusion_matrix(const TForest& forest, const TSampleProviderPtr& sample_provider_ptr, int num_of_classes)
+	void print_per_pixel_confusion_matrix(const TForest& forest, const TSampleProviderPtr& sample_provider_ptr)
 	{
         auto samples_start = sample_provider_ptr->get_samples_begin();
         auto samples_end = sample_provider_ptr->get_samples_end();
@@ -134,10 +138,33 @@ namespace ait {
         ait::log_info() << "Normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix;
         ait::log_info() << "Diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal();
         ait::log_info() << "Mean of diagonal of normalized per-frame confusion matrix:" << std::endl << per_frame_norm_confusion_matrix.diagonal().mean();
-	}
+    }
 
-	template <typename TForest>
-	void read_forest_from_json_file(const std::string& filename, TForest& forest) {
+    template <typename TForest, typename TSampleProviderPtr, typename TRandomEngine>
+    std::vector<label_type> compute_per_frame_predictions(const TForest& forest, const TSampleProviderPtr& sample_provider_ptr,
+                                                          TRandomEngine& rnd_engine, label_type invalid_label_type = -1)
+    {
+        std::vector<label_type> predicted_labels(sample_provider_ptr->get_num_of_images());
+        // Computing per-frame predictions
+        auto forest_utils = ait::make_forest_utils(forest);
+        for (int i = 0; i < sample_provider_ptr->get_num_of_images(); ++i) {
+            sample_provider_ptr->clear_samples();
+            sample_provider_ptr->load_samples_from_image(i, rnd_engine);
+            auto samples_start = sample_provider_ptr->get_samples_begin();
+            auto samples_end = sample_provider_ptr->get_samples_end();
+            int num_of_samples = samples_end - samples_start;
+            if (num_of_samples == 0) {
+                predicted_labels[i] = invalid_label_type;
+            } else {
+                const auto& predicted_statistics = forest_utils.compute_summed_statistics(samples_start, samples_end);
+                predicted_labels[i] = predicted_statistics.get_max_bin();
+            }
+        }
+        return predicted_labels;
+    }
+
+    template <typename TForest>
+    void read_forest_from_json_file(const std::string& filename, TForest& forest) {
         ait::log_info(false) << "Reading json forest file " << filename << "... " << std::flush;
         std::ifstream ifile(filename);
         if (!ifile.good()) {

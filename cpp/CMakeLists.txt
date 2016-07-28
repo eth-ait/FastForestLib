@@ -20,6 +20,11 @@ if(NOT DEFINED WITH_MATLAB)
     set(WITH_MATLAB FALSE CACHE BOOL "With MATLAB")
 endif()
 
+# Set default option for HDF5
+if(NOT DEFINED WITH_HDF5)
+    set(WITH_HDF5 TRUE CACHE BOOL "With HDF5")
+endif()
+
 # Set default option for MPI
 if(NOT DEFINED WITH_MPI)
     set(WITH_MPI FALSE CACHE BOOL "With MPI")
@@ -51,10 +56,11 @@ endif()
 #	set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -lc++")
 #endif()
 
+# Not using OpenMP anymore. Using C++ threads now.
 # Enable OpenMP if not using Clang
 #if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 #    find_package(OpenMP)
-#	if (OPENMP_FOUND)
+#	 if (OPENMP_FOUND)
 #		set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 #		set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 #	endif()
@@ -73,6 +79,9 @@ if(${WITH_MPI})
 	find_package(Boost 1.4.0 COMPONENTS serialization mpi log filesystem system REQUIRED)
 else()
 	find_package(Boost 1.4.0 COMPONENTS serialization log filesystem system REQUIRED)
+endif()
+if(${WITH_MPI})
+	find_package(HDF5 COMPONENTS CXX REQUIRED)
 endif()
 find_package(Eigen3 3.1.2 REQUIRED)
 find_package(Cereal REQUIRED)
@@ -110,13 +119,16 @@ include_directories(${Cereal_INCLUDE_DIR})
 include_directories(${RapidJSON_INCLUDE_DIR})
 include_directories(${CIMG_INCLUDE_DIR})
 include_directories(${PNG_INCLUDE_DIR})
-if("${UNIX}")
+if (${WITH_HDF5})
+	include_directories(${HDF5_INCLUDE_DIRS})
+endif()
+if(${UNIX})
 	include_directories(${X11_INCLUDE_DIR})
 endif()
 
 # Specify source files to use
 set(headers ait.h image_weak_learner.h training.h weak_learner.h
-	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h eigen_matrix_io.h io_utils.h
+	histogram_statistics.h forest.h tree.h node.h matlab_file_io.h hdf5_file_io.h eigen_matrix_io.h io_utils.h
 	iterator_utils.h mpl_utils.h logger.h csv_utils.h serialization_utils.h evaluation_utils.h
 	bagging_wrapper.h config_utils.h common.h)
 #file(GLOB headers
@@ -124,7 +136,14 @@ set(headers ait.h image_weak_learner.h training.h weak_learner.h
 #)
 
 # Set WITH_MATLAB macro for cpp files
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<BOOL:WITH_MATLAB>:WITH_MATLAB=1>)
+if(${WITH_MATLAB})
+	set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<BOOL:${WITH_MATLAB}>:WITH_MATLAB=1>)
+endif()
+
+# Set WITH_HDF5 macro for cpp files
+if(${WITH_HDF5})
+	set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<BOOL:${WITH_HDF5}>:WITH_HDF5=1>)
+endif()
 
 # Set AIT_DEBUG macro for cpp files if in debug mode
 set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT_DEBUG=1>)
@@ -134,7 +153,7 @@ set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<CONFIG:Debug>:AIT
 #set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS AIT_TESTING=1)
 
 # Set AIT_MULTI_THREADING macro if multi-threading is enabled
-set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<BOOL:WITH_MULTITHREADING>:AIT_MULTI_THREADING=1>)
+set_property(DIRECTORY APPEND PROPERTY COMPILE_DEFINITIONS $<$<BOOL:${WITH_MULTITHREADING}>:AIT_MULTI_THREADING=1>)
 
 # Executable target: depth_forest_trainer
 add_executable(depth_forest_trainer depth_trainer.cpp common.cpp ${headers} depth_forest_trainer.h)
@@ -195,6 +214,9 @@ target_link_libraries(forest_predictor ${PNG_LIBRARIES})
 target_link_libraries(forest_predictor ${CMAKE_THREAD_LIBS_INIT})
 target_link_libraries(forest_predictor ${Boost_LIBRARIES})
 target_link_libraries(forest_predictor ${MATLAB_LIBRARIES})
+if (${WITH_HDF5})
+	target_link_libraries(forest_predictor ${HDF5_LIBRARIES})
+endif()
 if("${WITH_MPI}")
 	target_include_directories(forest_predictor PUBLIC ${MPI_INCLUDE_PATH})
 	target_link_libraries(forest_predictor ${MPI_LIBRARIES})
@@ -206,13 +228,13 @@ endif()
 
 # SET AIT_PROFILE or AIT_PROFILE_DISTRIBUTED macro for cpp files if profiling output is enabled
 if(${WITH_MATLAB})
-    target_compile_definitions(forest_converter PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
+    target_compile_definitions(forest_converter PRIVATE $<$<BOOL:${WITH_PROFILING}>:AIT_PROFILE=1>)
 endif()
-target_compile_definitions(depth_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
-target_compile_definitions(level_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
-target_compile_definitions(forest_predictor PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE=1>)
+target_compile_definitions(depth_forest_trainer PRIVATE $<$<BOOL:${WITH_PROFILING}>:AIT_PROFILE=1>)
+target_compile_definitions(level_forest_trainer PRIVATE $<$<BOOL:${WITH_PROFILING}>:AIT_PROFILE=1>)
+target_compile_definitions(forest_predictor PRIVATE $<$<BOOL:${WITH_PROFILING}>:AIT_PROFILE=1>)
 if(${WITH_MPI})
-    target_compile_definitions(dist_forest_trainer PRIVATE $<$<BOOL:WITH_PROFILING>:AIT_PROFILE_DISTRIBUTED=1>)
+    target_compile_definitions(dist_forest_trainer PRIVATE $<$<BOOL:${WITH_PROFILING}>:AIT_PROFILE_DISTRIBUTED=1>)
 endif()
 
 # C++11 support (should be done through target_compile_features)

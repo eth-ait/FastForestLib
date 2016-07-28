@@ -79,11 +79,14 @@ public:
 	template <typename TMatrix>
     static TMatrix normalize_confusion_matrix(const TMatrix& confusion_matrix)
     {
-        auto row_sum = confusion_matrix.rowwise().sum();
+        auto rowwise_sums = confusion_matrix.rowwise().sum();
         TMatrix normalized_confusion_matrix = confusion_matrix;
         for (int col=0; col < confusion_matrix.cols(); col++) {
             for (int row=0; row < confusion_matrix.rows(); row++) {
-                normalized_confusion_matrix(row, col) /= row_sum(row);
+            	auto row_sum = rowwise_sums(row);
+            	if (row_sum > 0) {
+            		normalized_confusion_matrix(row, col) /= row_sum;
+            	}
             }
         }
         return normalized_confusion_matrix;

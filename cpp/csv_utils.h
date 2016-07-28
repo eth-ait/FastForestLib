@@ -138,4 +138,43 @@ private:
     std::istream& sin_;
 };
 
+template <char delimiter = ','>
+class CSVWriter
+{
+public:
+    class CSVRow {
+    public:
+        CSVRow()
+        : empty_(true) {
+        }
+
+        template <typename T>
+        void add_column(const T& value) {
+            if (!empty_) {
+                ostream_ << delimiter;
+            }
+            ostream_ << value;
+        }
+
+        std::string get_string() const {
+            return ostream_.str();
+        }
+
+    private:
+        bool empty_;
+        std::ostringstream ostream_;
+    };
+
+    explicit CSVWriter(std::ostream& sout)
+    : sout_(sout)
+    {}
+
+    void write_row(const CSVRow& row) {
+        sout_ << row.get_string() << std::endl;
+    }
+
+private:
+    std::ostream& sout_;
+};
+
 }

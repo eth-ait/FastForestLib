@@ -21,7 +21,7 @@ The distributed code requires _boost-mpi_ for communication.
 ```
 mkdir cpp/build
 cd cpp/build
-cmake .. # Optionally modify CMake configuration to enable/disable multi-threading, MPI, Matlab support etc.
+cmake .. # Optionally modify CMake configuration to enable/disable multi-threading, MPI, Matlab, HDF5 support etc.
 # On a Linux system with MPI you might typically do something like this:
 #cmake -DWITH_MPI=TRUE ..
 # ... or this if you want Matlab support:
@@ -31,16 +31,17 @@ make -j4
 
 ### Windows
 
-The code compiles with Visual Studio 2013 and Visual Studio 2015. You need to compile boost (tested with 1.59.0) which requires libpng and zlib. I would recommend to compile everything with 64bit support.
+The code compiles with Visual Studio 2013 and Visual Studio 2015. You need to compile boost (tested with 1.59.0) which requires libpng and zlib.
+I would recommend to compile everything with 64bit support.
 
 ## Programs
 _depth_forest_trainer_: Trains a new forest depth-first
 _level_forest_trainer_: Trains a new forest breadh-first
 _dist_forest_trainer_: Trains a new forest in a distributed manner using MPI.
-_forest_predictor_: Test an existing forest on a dataset.
+_forest_predictor_: Predict labels for a dataset. Can also be used to evaluate a dataset with ground-truth.
 _forest_converter_: Converts a forest in JSON or binary format to MATLAB format.
 
-## Data file format
+## Data input file format
 
 CSV format:
 Data and label images are given as individual image files. A .csv file contains path to the data and label images.
@@ -51,6 +52,11 @@ Both fields contains a 3-dimensional array of size `WxHxN`,
 where `N` is the number of images, `W` is the width and `H` is the height of the images.
 The arrays should be of type double.
 Labels should be from `0` to `(C-1)`, where `C` is the number of classes. Negative labels are considered as background pixels and will be ignored.
+
+## Data output file format
+
+HDF5 and MATLAB format:
+Predictions can be output as a HDF5 or MATLAB file. In both cases the file contains a dataset/matrix with the predicted labels for each input image (in the same order as the input images).
 
 ## Open issues
 
