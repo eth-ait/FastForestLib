@@ -139,7 +139,7 @@ int main(int argc, const char* argv[]) {
 
         if (verbose_arg.getValue()) {
         	ait::print_image_size(image_provider_ptr);
-        	if (ait::validate_data_ranges(image_provider_ptr, num_of_classes, weak_learner_parameters.background_label)) {
+        	if (!ait::validate_data_ranges(image_provider_ptr, num_of_classes, weak_learner_parameters.background_label)) {
         		throw std::runtime_error("Foreground label ranges do not match number of classes: " + num_of_classes);
         	}
         }
