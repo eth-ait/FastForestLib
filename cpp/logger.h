@@ -151,13 +151,12 @@ inline Logger& logger()
     static Logger logger_;
     return logger_;
 }
-    
+
 inline Logger::LogStream log_warning(bool new_line = true, bool flush = true)
 {
     Logger& lg = logger();
     return lg.warning(new_line, flush);
 }
-    
 
 inline Logger::LogStream log_info(bool new_line = true, bool flush = true)
 {
@@ -182,5 +181,38 @@ inline Logger::LogStream log_error(bool new_line = true, bool flush = true)
     Logger& lg = logger();
     return lg.error(new_line, flush);
 }
+
+#define AIT_LOG_WARNING(expr) \
+	do {\
+		ait::log_warning() << expr; \
+	} while (false)
+
+#define AIT_LOG_INFO(expr) \
+	do {\
+		ait::log_info() << expr; \
+	} while (false)
+
+#if AIT_PROFILE || AIT_PROFILE_DISTRIBUTED
+	#define AIT_LOG_PROFILE(expr) \
+		do {\
+			ait::log_profile() << expr; \
+		} while (false)
+#else
+	#define AIT_LOG_PROFILE()
+#endif
+
+#if AIT_DEBUG
+	#define AIT_LOG_DEBUG(expr) \
+		do {\
+			ait::log_debug() << expr; \
+		} while (false)
+#else
+	#define AIT_LOG_DEBUG()
+#endif
+
+#define AIT_LOG_ERROR(expr) \
+	do {\
+		ait::log_error() << expr; \
+	} while (false)
 
 }

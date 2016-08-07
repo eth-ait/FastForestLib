@@ -164,8 +164,22 @@ public:
 
     static std::shared_ptr<Image> load_from_files(const std::string& data_filename, const std::string& label_filename)
     {
-        cimg_library::CImg<TPixel> data_image(data_filename.c_str());
-        cimg_library::CImg<TPixel> label_image(label_filename.c_str());
+    	cimg_library::CImg<TPixel> data_image;
+    	try {
+    		data_image.assign(data_filename.c_str());
+    	} catch (const std::bad_alloc& err) {
+    		AIT_LOG_ERROR("Unable to load data image [" << data_filename.c_str()
+    				<< "]: " << err.what());
+    		throw err;
+    	}
+    	cimg_library::CImg<TPixel> label_image;
+    	try {
+    		 label_image.assign(label_filename.c_str());
+    	} catch (const std::bad_alloc& err) {
+    		AIT_LOG_ERROR("Unable to load label image [" << data_filename.c_str()
+    				<< "]: " << err.what());
+    		throw err;
+    	}
         int_type width = data_image.width();
         int_type height = data_image.height();
         int_type depth = data_image.depth();
@@ -396,9 +410,13 @@ public:
         image_map_.clear();
         for (auto it = split_sample_item.cbegin(); it != split_sample_item.cend(); ++it)
         {
+        	AIT_LOG_DEBUG("  Loading image " << (it - split_sample_item.cbegin()));
             size_type image_index = *it;
             ensure_image_is_loaded(image_index, old_image_map);
+            AIT_LOG_DEBUG("  Image is loaded into memory.");
+            AIT_LOG_DEBUG("  Loading samples ...");
             load_samples_from_image(image_index, rnd_engine);
+            AIT_LOG_DEBUG("  Done loading samples");
         }
         log_info(true) << "Done";
     }
@@ -494,19 +512,26 @@ protected:
         typename std::map<size_type, const ImagePtrT>::const_iterator image_it = image_map_.find(image_index);
         if (image_it == image_map_.cend())
         {
+        	AIT_LOG_DEBUG("  Image not yet in memory");
             // Image is not yet in the image map.
             image_it = old_image_map.find(image_index);
             if (image_it != old_image_map.cend())
             {
+            	AIT_LOG_DEBUG("  Image was found in previous cached image map");
                 // Image was found in the previously used image map (cached).
             	const ImagePtrT image_ptr = image_it->second;
+            	AIT_LOG_DEBUG("  Inserting image into image map ...");
                 image_map_.insert(std::pair<size_type, const ImagePtrT>(image_index, image_ptr));
+                AIT_LOG_DEBUG("  Done inserting image into image map");
             }
             else
             {
+            	AIT_LOG_DEBUG("  Image was not found in cache");
                 // Load image into memory.
                 const ImagePtrT image_ptr = get_image(image_index);
+                AIT_LOG_DEBUG("  Loading image into memory ...");
                 image_map_.insert(std::pair<size_type, const ImagePtrT>(image_index, image_ptr));
+                AIT_LOG_DEBUG("  Done loading image into memory");
             }
         }
     }

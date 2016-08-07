@@ -51,6 +51,8 @@ using WeakLearnerT = ForestTrainerT::WeakLearnerT;
 
 int main(int argc, const char* argv[]) {
     try {
+    	AIT_LOG_DEBUG("Running in debug mode");
+
         // Parse command line arguments.
         TCLAP::CmdLine cmd("Depth RF trainer", ' ', "0.3");
         TCLAP::SwitchArg verbose_arg("v", "verbose", "Be verbose and perform some additional sanity checks", cmd, false);
