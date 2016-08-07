@@ -81,6 +81,7 @@ else()
 	find_package(Boost 1.4.0 COMPONENTS serialization log filesystem system REQUIRED)
 endif()
 if(${WITH_MPI})
+	# TODO: Create own HDF5 macro that checks for existence of header files
 	find_package(HDF5 COMPONENTS CXX REQUIRED)
 endif()
 find_package(Eigen3 3.1.2 REQUIRED)
