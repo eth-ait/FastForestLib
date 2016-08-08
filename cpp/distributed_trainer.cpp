@@ -175,6 +175,13 @@ int main(int argc, const char* argv[]) {
         RandomEngineT rnd_engine(rnd_device());
 #endif
 
+        if (verbose_arg.getValue()) {
+            ait::log_info(false) << "Creating samples for label counting ... " << std::flush;
+            ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
+            ait::log_info(false) << " Done." << std::endl;
+            ait::print_sample_counts(sample_provider_ptr);
+        }
+
         // Train a forest and time it.
         ait::log_info() << "Starting training with " << training_parameters.num_of_threads << " threads ...";
         auto start_time = std::chrono::high_resolution_clock::now();
@@ -206,7 +213,7 @@ int main(int argc, const char* argv[]) {
                 ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
                 ait::log_info(false) << " Done." << std::endl;
 
-            	ait::print_sample_counts(forest, sample_provider_ptr);
+            	ait::print_sample_counts(sample_provider_ptr);
             	ait::print_match_counts(forest, sample_provider_ptr);
 
                 ait::log_info() << "Computing per-pixel confusion matrix.";

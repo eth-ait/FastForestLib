@@ -3,8 +3,8 @@
         "num_of_trees": 3,
         "tree_depth": 20,
         "minimum_num_of_samples": 200,
-        "minimum_information_gain": 2.2,
-        "num_of_threads": 3
+        "minimum_information_gain": 0.0,
+        "num_of_threads": 4
     },
     "weak_learner_parameters": {
         "bagging_fraction": 1.0,

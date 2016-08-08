@@ -198,7 +198,7 @@ inline Logger::LogStream log_error(bool new_line = true, bool flush = true)
 			ait::log_profile() << expr; \
 		} while (false)
 #else
-	#define AIT_LOG_PROFILE()
+	#define AIT_LOG_PROFILE(expr)
 #endif
 
 #if AIT_DEBUG
@@ -207,7 +207,7 @@ inline Logger::LogStream log_error(bool new_line = true, bool flush = true)
 			ait::log_debug() << expr; \
 		} while (false)
 #else
-	#define AIT_LOG_DEBUG()
+	#define AIT_LOG_DEBUG(expr)
 #endif
 
 #define AIT_LOG_ERROR(expr) \

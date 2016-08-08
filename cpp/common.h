@@ -46,8 +46,8 @@ namespace ait {
         }
 	}
 
-	template <typename TForest, typename TSampleProviderPtr>
-	void print_sample_counts(const TForest& forest, const TSampleProviderPtr& sample_provider_ptr)
+	template <typename TSampleProviderPtr>
+	void print_sample_counts(const TSampleProviderPtr& sample_provider_ptr)
 	{
         auto samples_start = sample_provider_ptr->get_samples_begin();
         auto samples_end = sample_provider_ptr->get_samples_end();
