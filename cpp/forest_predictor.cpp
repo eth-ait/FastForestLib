@@ -188,7 +188,7 @@ int main(int argc, const char* argv[]) {
 
         // Perform evaluation against ground-truth if requested
         if (evaluate_predictions_arg.isSet()) {
-			ait::print_sample_counts(forest, sample_provider_ptr);
+			ait::print_sample_counts(sample_provider_ptr);
 			ait::print_match_counts(forest, sample_provider_ptr);
 
 //			// Compute single-tree confusion matrix.

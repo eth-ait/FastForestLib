@@ -146,13 +146,6 @@ int main(int argc, const char* argv[]) {
         // Create sample provider.
         auto sample_provider_ptr = std::make_shared<SampleProviderT>(image_provider_ptr, weak_learner_parameters);
 
-        if (verbose_arg.getValue()) {
-            ait::log_info(false) << "Creating samples for label counting ... " << std::flush;
-            ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
-            ait::log_info(false) << " Done." << std::endl;
-            ait::print_sample_counts(sample_provider_ptr);
-        }
-
         // Create weak learner and trainer.
         StatisticsT::Factory statistics_factory(num_of_classes);
         if (save_regularly)
@@ -177,6 +170,13 @@ int main(int argc, const char* argv[]) {
         ait::log_info() << "rnd(): " << rnd_device();
         RandomEngineT rnd_engine(rnd_device());
 #endif
+
+        if (verbose_arg.getValue()) {
+            ait::log_info(false) << "Creating samples for label counting ... " << std::flush;
+            ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
+            ait::log_info(false) << " Done." << std::endl;
+            ait::print_sample_counts(sample_provider_ptr);
+        }
 
         // Train a forest and time it.
         ait::log_info() << "Starting training with " << training_parameters.num_of_threads << " threads ...";
