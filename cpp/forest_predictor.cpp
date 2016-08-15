@@ -8,9 +8,11 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <memory>
 #include <chrono>
 #include <map>
+#include <cmath>
 
 #include <boost/filesystem/path.hpp>
 #include <tclap/CmdLine.h>
@@ -63,17 +65,21 @@ int main(int argc, const char* argv[]) {
         cmd.xorAdd(json_forest_file_arg, binary_forest_file_arg);
         TCLAP::ValueArg<int> num_of_classes_arg("n", "num-of-classes", "Number of classes in the data", false, 1, "int", cmd);
 #if WITH_MATLAB
-        TCLAP::ValueArg<std::string> data_mat_file_arg("d", "data-file", "File containing image data", false, "", "string");
+        TCLAP::ValueArg<std::string> data_mat_file_arg("d", "data-file", "MAT file containing image data", false, "", "string");
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", false, "", "string");
         cmd.xorAdd(data_mat_file_arg, image_list_file_arg);
-        TCLAP::ValueArg<std::string> prediction_mat_file_arg("", "pred-file-mat", "MAT file to save predictions to", false, "", "string", cmd);
 #else
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", true, "", "string", cmd);
+#endif
+        TCLAP::SwitchArg pixel_wise_pred_arg("", "pred-pixel-wise", "Generate pixel-wise predictions", cmd, false);
+#if WITH_MATLAB
+        TCLAP::ValueArg<std::string> prediction_mat_file_arg("", "pred-file-mat", "MAT file to save predictions to", false, "", "string", cmd);
 #endif
 #if WITH_HDF5
         TCLAP::ValueArg<std::string> prediction_hdf5_file_arg("", "pred-file-hdf5", "HDF5 file to save predictions to", false, "", "string", cmd);
 #endif
         TCLAP::ValueArg<std::string> prediction_csv_file_arg("", "pred-file-csv", "CSV file to save predictions to", false, "", "string", cmd);
+        TCLAP::ValueArg<std::string> prediction_image_file_prefix_arg("", "pred-image-file-prefix", "File prefix to save prediction images to", false, "", "string", cmd);
         cmd.parse(argc, argv);
 
         // Check if either evaluation against ground-truth is requested or at least one output-file has been specified
@@ -88,17 +94,28 @@ int main(int argc, const char* argv[]) {
             output_file_specified = true;
         }
 #endif
-        if (prediction_csv_file_arg.isSet()) {
+        if (prediction_csv_file_arg.isSet() || prediction_image_file_prefix_arg.isSet()) {
             output_file_specified = true;
         }
         if (!evaluate_predictions_arg.getValue() && !output_file_specified) {
             throw std::runtime_error("Either an output file has to be specified or the evaluation option has to be enabled");
         }
+        if (!pixel_wise_pred_arg.getValue() && prediction_image_file_prefix_arg.isSet()) {
+            throw std::runtime_error("The image file prefix option can only be set for pixel-wise label prediction");
+        }
+        if (pixel_wise_pred_arg.getValue() && prediction_csv_file_arg.isSet()) {
+            throw std::runtime_error("The CSV output file option can only be set for per-frame label prediction");
+        }
+#if WITH_MATLAB
+        if (pixel_wise_pred_arg.getValue() && prediction_mat_file_arg.isSet()) {
+            throw std::runtime_error("The MAT output file option is not supported for pixel-wise label prediction");
+        }
+#endif
 
         // Initialize parameters to defaults or load from file.
         ParametersT parameters;
         if (config_file_arg.isSet()) {
-            ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... " << std::flush;
+            ait::log_info(false) << "Reading config file " << config_file_arg.getValue() << "... ";
 			rapidjson::Document config_doc;
 			ait::ConfigurationUtils::read_configuration_file(config_file_arg.getValue(), config_doc);
             if (config_doc.HasMember("testing_parameters")) {
@@ -182,12 +199,15 @@ int main(int argc, const char* argv[]) {
         // Create sample provider.
         auto sample_provider_ptr = std::make_shared<SampleProviderT>(image_provider_ptr, parameters);
 
-        ait::log_info(false) << "Creating samples for prediction ... " << std::flush;
-        ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
-        ait::log_info(false) << " Done." << std::endl;
+        bool samples_created = false;
 
         // Perform evaluation against ground-truth if requested
         if (evaluate_predictions_arg.isSet()) {
+            ait::log_info(false) << "Creating samples for prediction ... ";
+            ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
+            ait::log_info(false) << " Done." << std::endl;
+            samples_created = true;
+
 			ait::print_sample_counts(sample_provider_ptr);
 			ait::print_match_counts(forest, sample_provider_ptr);
 
@@ -229,38 +249,106 @@ int main(int argc, const char* argv[]) {
 
         // Perform predictions and save them to files
         if (output_file_specified) {
-            const auto& predicted_labels = compute_per_frame_predictions(forest, sample_provider_ptr, rnd_engine);
-            if (prediction_csv_file_arg.isSet()) {
-                std::ofstream ofile(prediction_csv_file_arg.getValue());
-                if (!ofile.good()) {
-                    ait::log_error() << "Unable to open output CSV file";
-                }
-                ait::CSVWriter<> csv_writer(ofile);
-                for (auto it = predicted_labels.cbegin(); it != predicted_labels.cend(); ++it) {
-                    ait::CSVWriter<>::CSVRow csv_row;
-                    csv_row.add_column(it - predicted_labels.cbegin());
-                    csv_row.add_column(*it);
-                    csv_writer.write_row(csv_row);
-                }
-            }
+        	if (pixel_wise_pred_arg.getValue()) {
+#if WITH_HDF5
+        		ait::HDF5File hdf5_file;
+        		ait::HDF5Dataset<ait::label_type> hdf5_dataset;
+        		ait::HDF5DataSpace<ait::label_type> hdf5_space;
+        		if (prediction_hdf5_file_arg.isSet()) {
+        			hdf5_file.open(prediction_hdf5_file_arg.getValue());
+        		}
+#endif
+        		int num_of_digits = static_cast<int>(std::ceil(std::log10(image_provider_ptr->get_num_of_images())));
+        		bool image_initialized = false;
+            	cimg_library::CImg<ait::pixel_type> predicted_label_image;
+                auto forest_utils = ait::make_forest_utils(forest);
+        		for (ait::size_type i = 0; i < image_provider_ptr->get_num_of_images(); ++i) {
+        			AIT_LOG_INFO("Computing predictions for image " << i);
+        			auto image_ptr = image_provider_ptr->get_image(i);
+        			if (!image_initialized) {
+        				predicted_label_image = cimg_library::CImg<ait::pixel_type>(image_ptr->width(), image_ptr->height(), 1, 1);
+        				image_initialized = true;
+#if WITH_HDF5
+        				if (prediction_hdf5_file_arg.isSet()) {
+							hdf5_dataset = hdf5_file.createDataset<ait::label_type>(
+									"predicted_labels",
+									image_ptr->width(),
+									image_ptr->height(),
+									image_provider_ptr->get_num_of_images()
+							);
+							hdf5_space = hdf5_dataset.getDataSpace();
+        				}
+#endif
+        			}
+					for (ait::size_type x = 0; x < image_ptr->width(); ++x) {
+						for (ait::size_type y = 0; y < image_ptr->height(); ++y) {
+							SampleT sample(image_ptr.get(), x, y);
+							ait::label_type label = sample.get_label();
+							if (label != parameters.background_label) {
+								const auto& predicted_statistics = forest_utils.compute_summed_statistics(sample);
+								auto predicted_label = predicted_statistics.get_max_bin();
+								predicted_label_image(x, y) = predicted_label;
+							} else {
+								predicted_label_image(x, y) = parameters.background_label;
+							}
+						}
+					}
+					if (prediction_image_file_prefix_arg.isSet()) {
+						std::ostringstream filename_stream;
+						filename_stream << prediction_image_file_prefix_arg.getValue()
+								<< std::setfill('0') << std::setw(num_of_digits)
+								<< i << ".png";
+						predicted_label_image.save_png(filename_stream.str().c_str());
+					}
+#if WITH_HDF5
+					if (prediction_hdf5_file_arg.isSet()) {
+						hdf5_space.selectLastDimensionSlice(i);
+						hdf5_space.writeData(predicted_label_image.data());
+					}
+#endif
+			        AIT_LOG_INFO("Done.");
+        		}
+        	} else {
+        		if (!samples_created) {
+					ait::log_info(false) << "Creating samples for prediction ... ";
+					ait::load_samples_from_all_images(sample_provider_ptr, rnd_engine);
+					ait::log_info(false) << " Done." << std::endl;
+					samples_created = true;
+        		}
+
+				const auto& predicted_labels = compute_per_frame_predictions(forest, sample_provider_ptr, rnd_engine);
+				if (prediction_csv_file_arg.isSet()) {
+					std::ofstream ofile(prediction_csv_file_arg.getValue());
+					if (!ofile.good()) {
+						ait::log_error() << "Unable to open output CSV file";
+					}
+					ait::CSVWriter<> csv_writer(ofile);
+					for (auto it = predicted_labels.cbegin(); it != predicted_labels.cend(); ++it) {
+						ait::CSVWriter<>::CSVRow csv_row;
+						csv_row.add_column(it - predicted_labels.cbegin());
+						csv_row.add_column(*it);
+						csv_writer.write_row(csv_row);
+					}
+				}
 #if WITH_MATLAB
-            if (prediction_mat_file_arg.isSet()) {
-                Eigen::MatrixXd predictions_matrix(predicted_labels.size(), 1);
-                for (auto it = predicted_labels.cbegin(); it != predicted_labels.cend(); ++it) {
-                    predictions_matrix(it - predicted_labels.cbegin(), 0) = *it;
-                }
-                ait::write_array_to_matlab_file(prediction_mat_file_arg.getValue(), "predictions", predictions_matrix);
-            }
+				if (prediction_mat_file_arg.isSet()) {
+					Eigen::MatrixXd predictions_matrix(predicted_labels.size(), 1);
+					for (auto it = predicted_labels.cbegin(); it != predicted_labels.cend(); ++it) {
+						predictions_matrix(it - predicted_labels.cbegin(), 0) = *it;
+					}
+					ait::write_array_to_matlab_file(prediction_mat_file_arg.getValue(), "predictions", predictions_matrix);
+				}
 #endif
 #if WITH_HDF5
-            if (prediction_hdf5_file_arg.isSet()) {
-                Eigen::MatrixXi predictions_matrix(predicted_labels.size(), 1);
-                for (auto it = predicted_labels.cbegin(); it != predicted_labels.cend(); ++it) {
-                    predictions_matrix(it - predicted_labels.cbegin(), 0) = *it;
-                }
-                ait::write_array_to_hdf5_file(prediction_hdf5_file_arg.getValue(), "predictions", predictions_matrix);
-            }
+				if (prediction_hdf5_file_arg.isSet()) {
+					Eigen::MatrixXi predictions_matrix(predicted_labels.size(), 1);
+					for (auto it = predicted_labels.cbegin(); it != predicted_labels.cend(); ++it) {
+						predictions_matrix(it - predicted_labels.cbegin(), 0) = *it;
+					}
+					ait::write_array_to_hdf5_file(prediction_hdf5_file_arg.getValue(), "predictions", predictions_matrix);
+				}
 #endif
+        	}
         }
 
     } catch (const TCLAP::ArgException &e) {
