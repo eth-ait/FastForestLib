@@ -272,9 +272,9 @@ int main(int argc, const char* argv[]) {
         				if (prediction_hdf5_file_arg.isSet()) {
 							hdf5_dataset = hdf5_file.createDataset<ait::label_type>(
 									"predicted_labels",
+									image_provider_ptr->get_num_of_images(),
 									image_ptr->width(),
-									image_ptr->height(),
-									image_provider_ptr->get_num_of_images()
+									image_ptr->height()
 							);
 							hdf5_space = hdf5_dataset.getDataSpace();
         				}
@@ -302,7 +302,7 @@ int main(int argc, const char* argv[]) {
 					}
 #if WITH_HDF5
 					if (prediction_hdf5_file_arg.isSet()) {
-						hdf5_space.selectLastDimensionSlice(i);
+						hdf5_space.selectFirstDimensionSlice(i);
 						hdf5_space.writeData(predicted_label_image.data());
 					}
 #endif
