@@ -11,6 +11,7 @@
 #include <memory>
 #include <vector>
 #include <string>
+#include <algorithm>
 
 #include <boost/filesystem/path.hpp>
 

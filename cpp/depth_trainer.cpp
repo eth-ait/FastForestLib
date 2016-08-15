@@ -67,7 +67,7 @@ int main(int argc, const char* argv[]) {
         TCLAP::ValueArg<int> num_of_threads_arg("t", "threads", "Number of threads to use", false, -1, "int", cmd);
 #endif
 #if WITH_MATLAB
-        TCLAP::ValueArg<std::string> data_mat_file_arg("d", "data-file", "File containing image data", false, "", "string");
+        TCLAP::ValueArg<std::string> data_mat_file_arg("d", "data-file", "MAT file containing image data", false, "", "string");
         TCLAP::ValueArg<std::string> image_list_file_arg("f", "image-list-file", "File containing the names of image files", false, "", "string");
         cmd.xorAdd(data_mat_file_arg, image_list_file_arg);
 #else
