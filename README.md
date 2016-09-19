@@ -10,6 +10,10 @@ The folder _python_ contains an older Python implementation using Cython. The te
 
 The folder _data_ contains some MATLAB scripts to generate synthetic data and to convert MATLAB data format to CSV data format. Check it out for details on the data formats. To some extend it can also be used for testing the code.
 
+### Disclaimer ###
+
+This code has been tested and no major bugs have been found. Nevertheless, this software is provided "as is", without warranty of any kind.
+
 ## Dependencies
 The library uses _boost_ (tested with 1.59.0 and 1.60.0), _Eigen_ (tested with 3.2.0 and 3.2.8), _CImg_ (included), _TCLAP_ (included) and _cereal_ (included). The code also uses _RapidJSON_ but this is already included in _cereal_.
 The distributed code requires _boost-mpi_ for communication.
